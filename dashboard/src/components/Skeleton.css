@@ -1,0 +1,59 @@
+.skeleton-card {
+    height: 100%;
+    width: 100%;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-header {
+    height: 24px;
+    width: 60%;
+    background: #e2e8f0;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.skeleton-content {
+    height: 200px;
+    background: #f1f5f9;
+    border-radius: 8px;
+}
+
+.skeleton-chart-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 300px;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 8px;
+    animation: pulse 1.5s infinite;
+}
+
+.skeleton-bar {
+    width: 12%;
+    background: #cbd5e1;
+    border-radius: 4px 4px 0 0;
+}
+
+.skeleton-list .skeleton-row {
+    height: 60px;
+    background: #f1f5f9;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    animation: pulse 1.5s infinite;
+    animation-delay: 0.2s;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
+}

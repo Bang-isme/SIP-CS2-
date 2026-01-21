@@ -1,5 +1,5 @@
 /**
- * Seed Script - Populate sample data for both MongoDB and MySQL
+ * Seed Script - Populate massive data (500k) for both MongoDB and MySQL
  * Run: node scripts/seed.js
  */
 
@@ -23,219 +23,203 @@ import {
 } from "../src/models/sql/index.js";
 
 const MONGODB_URI = process.env.MONGODB_URI;
+const TOTAL_RECORDS = 500000;
+const BATCH_SIZE = 5000; // Increased batch size for efficiency
 
-// Sample data
+// Sample data arrays
+const CACHED_DATA = {
+    firstNames: ["John", "Jane", "Mike", "Sarah", "David", "Emily", "Chris", "Lisa", "Tom", "Amy",
+        "Robert", "Jessica", "William", "Jennifer", "James", "Maria", "Charles", "Susan", "Joseph", "Margaret"],
+    lastNames: ["Smith", "Johnson", "Williams", "Brown", "Jones", "Davis", "Miller", "Wilson", "Moore", "Taylor",
+        "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin", "Thompson", "Garcia", "Martinez", "Robinson"],
+    genders: ["Male", "Female"],
+    ethnicities: ["Asian", "Caucasian", "Hispanic", "African American", "Other"],
+    employmentTypes: ["Full-time", "Part-time"],
+    depts: []
+};
+
+// Fixed Setup Data
 const departments = [
     { name: "Human Resources", code: "HR" },
     { name: "Finance", code: "FIN" },
     { name: "Engineering", code: "ENG" },
     { name: "Sales", code: "SALES" },
     { name: "Marketing", code: "MKT" },
+    { name: "IT Support", code: "IT" },
+    { name: "Operations", code: "OPS" },
+    { name: "Legal", code: "LEG" },
 ];
 
-const genders = ["Male", "Female", "Other"];
-const ethnicities = ["Asian", "Caucasian", "Hispanic", "African American", "Other"];
-const employmentTypes = ["Full-time", "Part-time"];
-
-const firstNames = ["John", "Jane", "Mike", "Sarah", "David", "Emily", "Chris", "Lisa", "Tom", "Amy"];
-const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Davis", "Miller", "Wilson", "Moore", "Taylor"];
-
 const benefitPlans = [
-    { name: "Basic Health Insurance", type: "health", monthly_cost: 200 },
-    { name: "Premium Health Insurance", type: "health", monthly_cost: 450 },
-    { name: "Dental Plan", type: "dental", monthly_cost: 50 },
-    { name: "Vision Plan", type: "vision", monthly_cost: 30 },
-    { name: "401k Retirement", type: "retirement", monthly_cost: 0 },
+    { name: "Basic Health", type: "health", monthly_cost: 200 },
+    { name: "Premium Health", type: "health", monthly_cost: 450 },
+    { name: "Dental Gold", type: "dental", monthly_cost: 50 },
+    { name: "Vision Plus", type: "vision", monthly_cost: 30 },
+    { name: "401k Standard", type: "retirement", monthly_cost: 0 },
     { name: "Life Insurance", type: "life", monthly_cost: 25 },
 ];
 
 const payRates = [
-    { name: "Junior", value: 25, tax_percentage: 0.15, type: "hourly" },
-    { name: "Mid-Level", value: 45, tax_percentage: 0.22, type: "hourly" },
-    { name: "Senior", value: 75, tax_percentage: 0.28, type: "hourly" },
-    { name: "Manager", value: 85000, tax_percentage: 0.32, type: "salary" },
-    { name: "Director", value: 120000, tax_percentage: 0.35, type: "salary" },
+    { name: "L1 Junior", value: 25, tax_percentage: 0.15, type: "hourly" },
+    { name: "L2 Mid", value: 45, tax_percentage: 0.22, type: "hourly" },
+    { name: "L3 Senior", value: 75, tax_percentage: 0.28, type: "hourly" },
+    { name: "M1 Manager", value: 85000, tax_percentage: 0.32, type: "salary" },
+    { name: "D1 Director", value: 120000, tax_percentage: 0.35, type: "salary" },
 ];
 
-// Helper functions
+// Helper functions (Optimized)
 const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const randomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 
-async function seedMongoDB() {
-    console.log("🌱 Seeding MongoDB...");
+async function setupReferenceData() {
+    console.log("🛠️ Setting up reference data (Departments, Plans, PayRates)...");
 
-    // Clear existing data
+    // Clear and Init Departments
     await Department.deleteMany({});
-    await Employee.deleteMany({});
+    CACHED_DATA.depts = await Department.insertMany(departments);
+
     await Alert.deleteMany({});
+    await Alert.insertMany([
+        { name: "Hiring Anniversary", type: "anniversary", threshold: 30, description: "Anniversary within 30 days" },
+        { name: "High Vacation Balance", type: "vacation", threshold: 25, description: ">25 days vacation" },
+        { name: "Recent Benefits Change", type: "benefits_change", threshold: 7, description: "Change in last 7 days" },
+        { name: "Birthday Alert", type: "birthday", threshold: 0, description: "Birthday this month" },
+    ]);
 
-    // Create departments
-    const createdDepts = await Department.insertMany(departments);
-    console.log(`✅ Created ${createdDepts.length} departments`);
-
-    // Create employees
-    const employees = [];
-    for (let i = 1; i <= 50; i++) {
-        const hireDate = randomDate(new Date(2015, 0, 1), new Date(2024, 11, 31));
-        const birthDate = randomDate(new Date(1970, 0, 1), new Date(2000, 11, 31));
-
-        employees.push({
-            employeeId: `EMP${String(i).padStart(4, "0")}`,
-            firstName: randomItem(firstNames),
-            lastName: randomItem(lastNames),
-            gender: randomItem(genders),
-            ethnicity: randomItem(ethnicities),
-            employmentType: randomItem(employmentTypes),
-            isShareholder: Math.random() < 0.2, // 20% are shareholders
-            departmentId: randomItem(createdDepts)._id,
-            hireDate,
-            birthDate,
-            vacationDays: randomInt(0, 30),
-            paidToDate: randomInt(20000, 150000),
-            paidLastYear: randomInt(20000, 150000),
-            payRate: randomInt(25, 100),
-            payRateId: randomInt(1, 5),
-        });
+    // Clear and Init SQL Ref Data
+    try {
+        await EmployeeBenefit.destroy({ where: {}, truncate: true });
+        await BenefitPlan.destroy({ where: {}, truncate: true });
+        await VacationRecord.destroy({ where: {}, truncate: true });
+        await Earning.destroy({ where: {}, truncate: true });
+        await PayRate.destroy({ where: {}, truncate: true });
+    } catch (e) {
+        console.log("Truncate error (likely FK constraints), attempting delete..." + e.message);
+        // Fallback for FK constraints
+        await EmployeeBenefit.destroy({ where: {} });
+        await VacationRecord.destroy({ where: {} });
+        await Earning.destroy({ where: {} });
+        await BenefitPlan.destroy({ where: {} }); // might fail if referenced
+        await PayRate.destroy({ where: {} });
     }
 
-    const createdEmployees = await Employee.insertMany(employees);
-    console.log(`✅ Created ${createdEmployees.length} employees`);
-
-    // Create default alerts
-    const alerts = [
-        { name: "Hiring Anniversary Alert", type: "anniversary", threshold: 30, description: "Employees with anniversary within 30 days" },
-        { name: "Vacation Accumulation Alert", type: "vacation", threshold: 20, description: "Employees with more than 20 vacation days" },
-        { name: "Benefits Change Alert", type: "benefits_change", threshold: 7, description: "Benefits changes in last 7 days" },
-        { name: "Birthday This Month", type: "birthday", threshold: 0, description: "Employees with birthdays this month" },
-    ];
-
-    await Alert.insertMany(alerts);
-    console.log(`✅ Created ${alerts.length} alerts`);
-
-    return createdEmployees;
-}
-
-async function seedMySQL(employees) {
-    console.log("🌱 Seeding MySQL...");
-
-    // Clear existing data
-    await EmployeeBenefit.destroy({ where: {} });
-    await BenefitPlan.destroy({ where: {} });
-    await VacationRecord.destroy({ where: {} });
-    await Earning.destroy({ where: {} });
-    await PayRate.destroy({ where: {} });
-
-    // Create pay rates
-    const createdPayRates = await PayRate.bulkCreate(payRates);
-    console.log(`✅ Created ${createdPayRates.length} pay rates`);
-
-    // Create benefit plans
+    // Re-create
+    await PayRate.bulkCreate(payRates);
     const createdPlans = await BenefitPlan.bulkCreate(benefitPlans);
-    console.log(`✅ Created ${createdPlans.length} benefit plans`);
-
-    const currentYear = new Date().getFullYear();
-    const previousYear = currentYear - 1;
-
-    // Create earnings for each employee
-    const earnings = [];
-    const vacations = [];
-    const employeeBenefits = [];
-
-    for (const emp of employees) {
-        const empId = emp.employeeId;
-
-        // Earnings for current year (monthly)
-        for (let month = 1; month <= 12; month++) {
-            if (month <= new Date().getMonth() + 1) {
-                earnings.push({
-                    employee_id: empId,
-                    amount: randomInt(3000, 15000),
-                    year: currentYear,
-                    month,
-                });
-            }
-        }
-
-        // Earnings for previous year
-        for (let month = 1; month <= 12; month++) {
-            earnings.push({
-                employee_id: empId,
-                amount: randomInt(3000, 15000),
-                year: previousYear,
-                month,
-            });
-        }
-
-        // Vacation records
-        vacations.push({
-            employee_id: empId,
-            days_taken: randomInt(0, 15),
-            year: currentYear,
-        });
-        vacations.push({
-            employee_id: empId,
-            days_taken: randomInt(0, 20),
-            year: previousYear,
-        });
-
-        // Employee benefits (assign 1-3 random plans)
-        const numPlans = randomInt(1, 3);
-        const assignedPlans = new Set();
-        for (let i = 0; i < numPlans; i++) {
-            const plan = randomItem(createdPlans);
-            if (!assignedPlans.has(plan.id)) {
-                assignedPlans.add(plan.id);
-                employeeBenefits.push({
-                    employee_id: empId,
-                    plan_id: plan.id,
-                    amount_paid: randomInt(500, 5000),
-                    effective_date: randomDate(new Date(2020, 0, 1), new Date()).toISOString().split("T")[0],
-                    last_change_date: Math.random() < 0.1 ? new Date().toISOString().split("T")[0] : null,
-                });
-            }
-        }
-    }
-
-    await Earning.bulkCreate(earnings);
-    console.log(`✅ Created ${earnings.length} earnings records`);
-
-    await VacationRecord.bulkCreate(vacations);
-    console.log(`✅ Created ${vacations.length} vacation records`);
-
-    await EmployeeBenefit.bulkCreate(employeeBenefits);
-    console.log(`✅ Created ${employeeBenefits.length} employee benefit enrollments`);
+    return createdPlans;
 }
 
 async function main() {
     try {
-        console.log("🚀 Starting seed process...\n");
+        console.log(`🚀 Starting MASSIVE seed process: ${TOTAL_RECORDS} records\n`);
 
-        // Connect to MongoDB
+        // Connect DBs
         await mongoose.connect(MONGODB_URI);
         console.log("📦 MongoDB connected");
-
-        // Connect to MySQL
         await connectMySQL();
         await syncDatabase();
         console.log("📦 MySQL connected\n");
 
-        // Seed MongoDB
-        const employees = await seedMongoDB();
+        const createdPlans = await setupReferenceData();
+        await Employee.deleteMany({}); // Clear Mongo Employees
 
-        // Seed MySQL
-        await seedMySQL(employees);
+        console.log("⏳ Beginning batch generation...");
+        const startTime = Date.now();
+        let currentId = 1;
 
-        console.log("\n✅ Seeding complete!");
-        console.log("📊 Summary:");
-        console.log("   - 5 Departments");
-        console.log("   - 50 Employees");
-        console.log("   - 4 Alert configurations");
-        console.log("   - 5 Pay rates");
-        console.log("   - 6 Benefit plans");
-        console.log("   - Earnings records (current + previous year)");
-        console.log("   - Vacation records");
-        console.log("   - Employee benefit enrollments");
+        // Batch Processing Loop
+        for (let i = 0; i < TOTAL_RECORDS; i += BATCH_SIZE) {
+            const batchEmployees = [];
+            const batchEarnings = [];
+            const batchVacations = [];
+            const batchEmpBenefits = [];
+
+            // DYNAMIC YEAR Fix: Matches Dashboard's current year query
+            const currentYear = new Date().getFullYear();
+            const previousYear = currentYear - 1;
+
+            // Generate Batch Data
+            for (let j = 0; j < BATCH_SIZE && (i + j) < TOTAL_RECORDS; j++) {
+                const empNum = currentId++;
+                const empId = `EMP${String(empNum).padStart(7, "0")}`; // EMP0000001
+
+                const dept = randomItem(CACHED_DATA.depts);
+
+                // Mongo Employee
+                batchEmployees.push({
+                    employeeId: empId,
+                    firstName: randomItem(CACHED_DATA.firstNames),
+                    lastName: randomItem(CACHED_DATA.lastNames),
+                    gender: randomItem(CACHED_DATA.genders),
+                    ethnicity: randomItem(CACHED_DATA.ethnicities),
+                    employmentType: randomItem(CACHED_DATA.employmentTypes),
+                    isShareholder: Math.random() < 0.15,
+                    departmentId: dept._id,
+                    hireDate: randomDate(new Date(2015, 0, 1), new Date(2024, 0, 1)),
+                    birthDate: randomDate(new Date(1970, 0, 1), new Date(2000, 0, 1)),
+                    vacationDays: randomInt(0, 30),
+                    paidToDate: 0,
+                    paidLastYear: 0,
+                    payRate: 0,
+                    payRateId: 1,
+                });
+
+                // MySQL Data (Simplified for mass import)
+
+                // 1. Earnings (Annual summary records for performance)
+                batchEarnings.push({
+                    employee_id: empId,
+                    amount: randomInt(40000, 120000),
+                    year: currentYear,
+                    month: 12
+                });
+
+                // Generate previous year only for 70% of employees
+                if (Math.random() > 0.3) {
+                    batchEarnings.push({
+                        employee_id: empId,
+                        amount: randomInt(40000, 110000),
+                        year: previousYear,
+                        month: 12
+                    });
+                }
+
+                // 2. Vacation
+                batchVacations.push({
+                    employee_id: empId,
+                    days_taken: randomInt(0, 15),
+                    year: currentYear
+                });
+
+                // 3. Benefits (1 plan per emp)
+                const plan = randomItem(createdPlans);
+                batchEmpBenefits.push({
+                    employee_id: empId,
+                    plan_id: plan.id,
+                    amount_paid: plan.monthly_cost * 12,
+                    effective_date: '2023-01-01',
+                    last_change_date: Math.random() < 0.05 ? '2024-01-15' : null // 5% have recent changes
+                });
+            }
+
+            // Bulk Insert Batch
+            await Promise.all([
+                Employee.insertMany(batchEmployees, { ordered: false }),
+                Earning.bulkCreate(batchEarnings, { validate: false, logging: false }),
+                VacationRecord.bulkCreate(batchVacations, { validate: false, logging: false }),
+                EmployeeBenefit.bulkCreate(batchEmpBenefits, { validate: false, logging: false })
+            ]);
+
+            if ((i + BATCH_SIZE) % 50000 === 0 || i === 0) {
+                const progress = Math.min(((currentId - 1) / TOTAL_RECORDS * 100), 100).toFixed(1);
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+                console.log(`... ${progress}% (${currentId - 1}) - ${elapsed}s`);
+            }
+        }
+
+        const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`\n✅ COMPLETED: 500,000 records generated in ${totalTime}s`);
 
     } catch (error) {
         console.error("❌ Seed error:", error);

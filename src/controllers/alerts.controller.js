@@ -103,7 +103,9 @@ export const getTriggeredAlerts = async (req, res) => {
                 case "anniversary":
                     // Employees within X days of hiring anniversary
                     const anniversaryThreshold = alert.threshold || 30;
-                    const employees = await Employee.find({ hireDate: { $exists: true } }).lean();
+                    const employees = await Employee.find({ hireDate: { $exists: true } })
+                        .select("hireDate firstName lastName employeeId vacationDays birthDate")
+                        .lean();
 
                     matchingEmployees = employees.filter((emp) => {
                         if (!emp.hireDate) return false;
@@ -123,7 +125,9 @@ export const getTriggeredAlerts = async (req, res) => {
                 case "vacation":
                     // Employees with more than X accumulated vacation days
                     const vacationThreshold = alert.threshold || 20;
-                    const empsWithVacation = await Employee.find({ vacationDays: { $gt: vacationThreshold } }).lean();
+                    const empsWithVacation = await Employee.find({ vacationDays: { $gt: vacationThreshold } })
+                        .select("vacationDays firstName lastName employeeId hireDate birthDate")
+                        .lean();
                     matchingEmployees = empsWithVacation;
                     break;
 
@@ -145,13 +149,17 @@ export const getTriggeredAlerts = async (req, res) => {
                     if (changedEmployeeIds.length > 0) {
                         matchingEmployees = await Employee.find({
                             employeeId: { $in: changedEmployeeIds }
-                        }).lean();
+                        })
+                            .select("firstName lastName employeeId hireDate birthDate vacationDays")
+                            .lean();
                     }
                     break;
 
                 case "birthday":
                     // Employees with birthdays in current month
-                    const empsWithBirthday = await Employee.find({ birthDate: { $exists: true } }).lean();
+                    const empsWithBirthday = await Employee.find({ birthDate: { $exists: true } })
+                        .select("birthDate firstName lastName employeeId hireDate vacationDays")
+                        .lean();
                     matchingEmployees = empsWithBirthday.filter((emp) => {
                         if (!emp.birthDate) return false;
                         return new Date(emp.birthDate).getMonth() === currentMonth;

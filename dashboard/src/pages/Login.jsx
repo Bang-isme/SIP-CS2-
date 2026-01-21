@@ -17,7 +17,7 @@ function Login({ onLogin }) {
             await login(email, password);
             onLogin();
         } catch (err) {
-            setError(err.response?.data?.message || 'Login failed');
+            setError(err.response?.data?.message || 'Login failed. Please check credentials.');
         } finally {
             setLoading(false);
         }
@@ -26,17 +26,17 @@ function Login({ onLogin }) {
     return (
         <div className="login-container">
             <div className="login-card">
-                <h1>🏢 HR Payroll Dashboard</h1>
-                <p className="subtitle">Senior Management Portal</p>
+                <h1>Welcome Back</h1>
+                <p className="subtitle">Sign in to access your dashboard</p>
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>Email</label>
+                        <label>Email Address</label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Enter email"
+                            placeholder="e.g. admin@company.com"
                             required
                         />
                     </div>
@@ -47,12 +47,16 @@ function Login({ onLogin }) {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter password"
+                            placeholder="Enter your password"
                             required
                         />
                     </div>
 
-                    {error && <div className="error">{error}</div>}
+                    {error && (
+                        <div className="error">
+                            <span>⚠️</span> {error}
+                        </div>
+                    )}
 
                     <button type="submit" disabled={loading}>
                         {loading ? 'Signing in...' : 'Sign In'}
@@ -60,7 +64,7 @@ function Login({ onLogin }) {
                 </form>
 
                 <div className="info">
-                    <p>Default: admin@localhost / admin</p>
+                    <p>Demo Credentials: admin@localhost / admin</p>
                 </div>
             </div>
         </div>

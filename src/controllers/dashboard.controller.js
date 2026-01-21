@@ -43,7 +43,12 @@ export const getEarningsSummary = async (req, res) => {
         const previousYear = parseInt(currentYear) - 1;
 
         // Get all employees with their demographics from MongoDB
-        const employees = await Employee.find().populate("departmentId").lean();
+        // Get all employees with their demographics from MongoDB
+        // Optimized: Select only needed fields for aggregation
+        const employees = await Employee.find()
+            .select("employeeId departmentId isShareholder gender ethnicity employmentType")
+            .populate("departmentId")
+            .lean();
 
         // Get earnings from MySQL
         const currentYearEarnings = await Earning.findAll({
@@ -143,7 +148,10 @@ export const getVacationSummary = async (req, res) => {
         const currentYear = year || new Date().getFullYear();
         const previousYear = parseInt(currentYear) - 1;
 
-        const employees = await Employee.find().populate("departmentId").lean();
+        const employees = await Employee.find()
+            .select("employeeId departmentId isShareholder gender ethnicity employmentType")
+            .populate("departmentId")
+            .lean();
 
         // Get vacation from MySQL
         const currentYearVacation = await VacationRecord.findAll({
@@ -236,7 +244,9 @@ export const getVacationSummary = async (req, res) => {
  */
 export const getBenefitsSummary = async (req, res) => {
     try {
-        const employees = await Employee.find().lean();
+        const employees = await Employee.find()
+            .select("employeeId isShareholder")
+            .lean();
 
         // Get all benefit plans
         const plans = await BenefitPlan.findAll({ raw: true });
