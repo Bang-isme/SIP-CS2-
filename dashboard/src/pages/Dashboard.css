@@ -1,0 +1,182 @@
+.dashboard {
+    min-height: 100vh;
+    background: #f0f2f5;
+}
+
+.dashboard-header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: white;
+    padding: 1.25rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.header-left h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.header-left .subtitle {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+.header-right {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.year-badge {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.refresh-btn,
+.logout-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.refresh-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+.logout-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.refresh-btn:hover,
+.logout-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* System Indicator */
+.system-indicator {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.system-box {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    color: white;
+    font-weight: 500;
+}
+
+.system-box.hr {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.system-box.payroll {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.system-box .icon {
+    font-size: 1.5rem;
+}
+
+.system-box .db {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+/* Grid Layout */
+.dashboard-grid {
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.card h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+    color: #1a1a2e;
+}
+
+.card-desc {
+    color: #666;
+    font-size: 0.85rem;
+    margin: 0 0 1rem;
+}
+
+.earnings-card {
+    grid-column: 1 / -1;
+}
+
+.alerts-card {
+    grid-column: 1 / -1;
+}
+
+/* Loading */
+.loading {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f0f2f5;
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #e0e0e0;
+    border-top: 4px solid #4f46e5;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error */
+.error-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f0f2f5;
+}
+
+.error-page button {
+    margin-top: 1rem;
+    padding: 0.75rem 2rem;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
