@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     getEarningsSummary,
     getVacationSummary,
@@ -12,6 +12,7 @@ import BenefitsChart from '../components/BenefitsChart';
 import AlertsPanel from '../components/AlertsPanel';
 import DrilldownModal from '../components/DrilldownModal';
 import { SkeletonChart, SkeletonList } from '../components/Skeletons';
+import StatCard from '../components/StatCard';
 import './Dashboard.css';
 
 function Dashboard({ onLogout }) {
@@ -41,7 +42,6 @@ function Dashboard({ onLogout }) {
         setLoadingBenefits(true);
         setLoadingAlerts(true);
 
-        // Progressive Loading: Fetch each independently
         fetchEarnings();
         fetchVacation();
         fetchBenefits();
@@ -86,12 +86,40 @@ function Dashboard({ onLogout }) {
             const res = await getTriggeredAlerts();
             setAlerts(res.data);
         } catch (err) {
-            // Alerts error handled quietly or global toast
             console.error("Alerts failed", err);
         } finally {
             setLoadingAlerts(false);
         }
     };
+
+    // --- Client-Side Aggregations for KPI Cards ---
+    const stats = useMemo(() => {
+        // 1. Earnings
+        const totalEarnings = earnings ? Object.values(earnings.byDepartment).reduce((acc, curr) => acc + curr.current, 0) : 0;
+        const prevEarnings = earnings ? Object.values(earnings.byDepartment).reduce((acc, curr) => acc + curr.previous, 0) : 0;
+        const earningsTrend = prevEarnings ? ((totalEarnings - prevEarnings) / prevEarnings) * 100 : 0;
+
+        // 2. Vacation
+        const totalVacation = vacation?.totals?.current || 0;
+        const prevVacation = vacation?.totals?.previous || 0;
+        const vacationTrend = prevVacation ? ((totalVacation - prevVacation) / prevVacation) * 100 : 0;
+
+        // 3. Benefits (Avg per employee)
+        const empCount = benefits ? (benefits.byShareholder.shareholder.count + benefits.byShareholder.nonShareholder.count) : 1;
+        const totalBenefits = benefits ? (benefits.byShareholder.shareholder.totalPaid + benefits.byShareholder.nonShareholder.totalPaid) : 0;
+        const avgBenefits = empCount ? totalBenefits / empCount : 0;
+
+        // 4. Alerts
+        const activeAlerts = alerts ? alerts.length : 0;
+
+        return {
+            earnings: { val: totalEarnings, trend: earningsTrend },
+            vacation: { val: totalVacation, trend: vacationTrend },
+            benefits: { val: avgBenefits, count: empCount },
+            alerts: { val: activeAlerts }
+        };
+    }, [earnings, vacation, benefits, alerts]);
+
 
     const handleLogout = () => {
         logout();
@@ -102,17 +130,22 @@ function Dashboard({ onLogout }) {
         setDrilldown(filters);
     };
 
+    const formatMoney = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+    const formatNum = (n) => new Intl.NumberFormat('en-US').format(n);
+
     return (
-        <div className="dashboard">
+        <div className="dashboard-container">
             <header className="dashboard-header">
                 <div className="header-left">
                     <h1>
                         <span>🏢</span> HR & Payroll Analytics
                     </h1>
-                    <span className="subtitle">Executive Overview • {currentYear}</span>
+                    <span className="subtitle">Executive Overview • FY {currentYear}</span>
                 </div>
                 <div className="header-right">
-                    <span className="year-badge">FY {currentYear}</span>
+                    <div className="system-status">
+                        <span className="dot online"></span> Systems Active
+                    </div>
                     <button onClick={loadAllData} className="refresh-btn">
                         🔄 Refresh
                     </button>
@@ -122,51 +155,82 @@ function Dashboard({ onLogout }) {
                 </div>
             </header>
 
-            <div className="dashboard-grid">
-                {/* System Indicator */}
-                <div className="system-indicator">
-                    <div className="system-box hr">
-                        <span className="icon">👥</span>
-                        <div className="content">
-                            <span className="label">HR System</span>
-                            <span className="db">MongoDB Atlas</span>
+            <div className="dashboard-content">
+                {/* KPI Section */}
+                <section className="kpi-grid">
+                    <StatCard
+                        title="Total Payroll YTD"
+                        value={formatMoney(stats.earnings.val)}
+                        icon="💰"
+                        subtext={`${stats.earnings.trend > 0 ? '+' : ''}${stats.earnings.trend.toFixed(1)}% vs Last Year`}
+                        trend={stats.earnings.trend >= 0 ? 'up' : 'down'}
+                        loading={loadingEarnings}
+                    />
+                    <StatCard
+                        title="Total Vacation Days"
+                        value={`${formatNum(stats.vacation.val)} Days`}
+                        icon="🏖️"
+                        subtext={`${stats.vacation.trend > 0 ? '+' : ''}${stats.vacation.trend.toFixed(1)}% vs Last Year`}
+                        trend={stats.vacation.trend <= 0 ? 'up' : 'neutral'} // Less vacation usage isn't necessarily bad for company cost, but let's keep neutral
+                        loading={loadingVacation}
+                    />
+                    <StatCard
+                        title="Avg Benefits Cost"
+                        value={formatMoney(stats.benefits.val)}
+                        icon="❤️"
+                        subtext="Per Employee / Year"
+                        trend="neutral"
+                        loading={loadingBenefits}
+                    />
+                    <StatCard
+                        title="Action Items"
+                        value={stats.alerts.val}
+                        icon="🔔"
+                        subtext="Requires Immediate Attention"
+                        trend={stats.alerts.val > 0 ? 'down' : 'up'} // Alerts are bad
+                        loading={loadingAlerts}
+                    />
+                </section>
+
+                {/* Main Charts Architecture */}
+                <section className="charts-grid-primary">
+                    {/* Row 1: Earnings (Main Focus) & Vacation */}
+                    <div className="card earnings-section">
+                        <div className="card-header">
+                            <h2>Earnings Overview</h2>
+                            <span className="card-subtitle">Distribution by Department</span>
                         </div>
+                        {loadingEarnings ? <SkeletonChart /> : (earnings && <EarningsChart data={earnings} onDrilldown={(f) => handleDrilldown({ ...f, context: 'earnings' })} />)}
                     </div>
-                    <div className="system-box payroll">
-                        <span className="icon">💳</span>
-                        <div className="content">
-                            <span className="label">Payroll System</span>
-                            <span className="db">MySQL Database</span>
+
+                    <div className="card vacation-section">
+                        <div className="card-header">
+                            <h2>Vacation Analysis</h2>
+                            <span className="card-subtitle">Usage Trends</span>
                         </div>
+                        {loadingVacation ? <SkeletonChart /> : (vacation && <VacationChart data={vacation} onDrilldown={(f) => handleDrilldown({ ...f, context: 'vacation' })} />)}
                     </div>
-                </div>
+                </section>
 
-                {/* Row 1: Earnings Summary */}
-                <div className="card earnings-card">
-                    <h2>Earnings Overview</h2>
-                    <p className="card-desc">Total compensation distribution by department & year</p>
-                    {loadingEarnings ? <SkeletonChart /> : (earnings && <EarningsChart data={earnings} onDrilldown={handleDrilldown} />)}
-                </div>
+                <section className="charts-grid-secondary">
+                    {/* Row 2: Benefits */}
+                    <div className="card benefits-section">
+                        <div className="card-header">
+                            <h2>Benefits Plan Distribution</h2>
+                            <span className="card-subtitle">Analyze cost efficiency</span>
+                        </div>
+                        {loadingBenefits ? <SkeletonChart /> : (benefits && <BenefitsChart data={benefits} />)}
+                    </div>
 
-                {/* Row 2: Vacation & Benefits */}
-                <div className="card vacation-card">
-                    <h2>Vacation Analysis</h2>
-                    <p className="card-desc">Leave utilization trends</p>
-                    {loadingVacation ? <SkeletonChart /> : (vacation && <VacationChart data={vacation} onDrilldown={handleDrilldown} />)}
-                </div>
-
-                <div className="card benefits-card">
-                    <h2>Benefits Plan Distribution</h2>
-                    <p className="card-desc">Average cost per employee group</p>
-                    {loadingBenefits ? <SkeletonChart /> : (benefits && <BenefitsChart data={benefits} />)}
-                </div>
-
-                {/* Row 3: Alerts/Actions at bottom */}
-                <div className="card alerts-card">
-                    <h2>Action Items & Alerts</h2>
-                    <p className="card-desc">Priority notifications requiring attention</p>
-                    {loadingAlerts ? <SkeletonList /> : (alerts && <AlertsPanel alerts={alerts} />)}
-                </div>
+                    {/* Alerts Panel */}
+                    <div className="card alerts-section">
+                        <div className="card-header">
+                            <h2>Action Items & Alerts</h2>
+                            <span className="badge-count">{stats.alerts.val}</span>
+                        </div>
+                        {loadingAlerts ? <SkeletonList /> : (alerts && <AlertsPanel alerts={alerts} />)}
+                    </div>
+                </section>
             </div>
 
             {/* Drilldown Modal */}

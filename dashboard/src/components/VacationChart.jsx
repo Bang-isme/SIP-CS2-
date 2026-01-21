@@ -1,161 +1,235 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
-const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+// Executive Palette Colors
+const COLORS = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af']; // Blue shades for donut ring
 
 function VacationChart({ data, onDrilldown }) {
-    // Prepare pie chart data for shareholder breakdown
-    const shareholderData = [
-        { name: 'Shareholders', value: data.byShareholder.shareholder.current },
-        { name: 'Non-Shareholders', value: data.byShareholder.nonShareholder.current },
+    // 1. Prepare Donut Data (Shareholders)
+    const donutData = [
+        { name: 'Non-Shareholders', value: data.byShareholder.nonShareholder.current, fill: '#3b82f6' }, // Bright Blue
+        { name: 'Shareholders', value: data.byShareholder.shareholder.current, fill: '#1e293b' }, // Dark Slate
     ];
 
-    // Prepare data for gender and employment type
+    // 2. Prepare List Data (Gender & Employment)
     const genderData = Object.entries(data.byGender).map(([name, values]) => ({
         name,
-        current: values.current,
-        previous: values.previous,
+        value: values.current,
+        color: name === 'Female' ? '#10b981' : '#f59e0b' // Green / Amber
     }));
 
     const employmentData = Object.entries(data.byEmploymentType).map(([name, values]) => ({
         name,
-        current: values.current,
-        previous: values.previous,
+        value: values.current,
+        color: name === 'Full-time' ? '#ef4444' : '#64748b' // Red / Slate
     }));
 
+    const formatNum = (num) => new Intl.NumberFormat('en-US').format(num);
+
     return (
-        <div className="vacation-container">
-            <div className="vacation-stats">
-                <div className="stat-box">
-                    <span className="stat-number">{data.totals.current}</span>
-                    <span className="stat-label">Total Days (Current)</span>
-                </div>
-                <div className="stat-box">
-                    <span className="stat-number">{data.totals.previous}</span>
-                    <span className="stat-label">Total Days (Previous)</span>
-                </div>
-            </div>
-
-            <div className="vacation-grid">
+        <div className="vacation-container animate-enter">
+            <div className="vacation-content">
+                {/* Left: Donut Chart */}
                 <div className="chart-section">
-                    <h4>By Shareholder Status</h4>
-                    <ResponsiveContainer width="100%" height={180}>
-                        <PieChart>
-                            <Pie
-                                data={shareholderData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={40}
-                                outerRadius={70}
-                                dataKey="value"
-                                label={({ name, value }) => `${value} days`}
-                            >
-                                {shareholderData.map((entry, index) => (
-                                    <Cell
-                                        key={`cell-${index}`}
-                                        fill={COLORS[index]}
-                                        style={{ cursor: 'pointer' }}
-                                        onClick={() => onDrilldown?.({ isShareholder: index === 0 ? 'true' : 'false' })}
-                                    />
-                                ))}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-
-                <div className="breakdown-section">
-                    <h4>By Gender</h4>
-                    <div className="breakdown-list">
-                        {genderData.map((item, i) => (
-                            <div
-                                key={item.name}
-                                className="breakdown-row"
-                                onClick={() => onDrilldown?.({ gender: item.name })}
-                            >
-                                <span className="color-dot" style={{ background: COLORS[i] }}></span>
-                                <span className="label">{item.name}</span>
-                                <span className="value">{item.current} days</span>
-                                <span className="change">
-                                    {item.current > item.previous ? '↑' : item.current < item.previous ? '↓' : '→'}
-                                </span>
+                    <h4 className="section-title">BY SHAREHOLDER STATUS</h4>
+                    <div className="donut-wrapper">
+                        <ResponsiveContainer width="100%" height={240}>
+                            <PieChart>
+                                <Pie
+                                    data={donutData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={70}
+                                    outerRadius={90}
+                                    dataKey="value"
+                                    startAngle={90}
+                                    endAngle={-270}
+                                    paddingAngle={2}
+                                    cornerRadius={4}
+                                >
+                                    {donutData.map((entry, index) => (
+                                        <Cell
+                                            key={`cell-${index}`}
+                                            fill={entry.fill}
+                                            stroke="none"
+                                            style={{ outline: 'none' }}
+                                        />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: 'var(--shadow-lg)' }}
+                                    formatter={(val) => `${formatNum(val)} days`}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        {/* Center Label */}
+                        <div className="donut-label">
+                            <span className="total-days">{formatNum(data.totals.current)}</span>
+                            <span className="unit">days</span>
+                        </div>
+                    </div>
+                    {/* Custom Legend */}
+                    <div className="custom-legend">
+                        {donutData.map((item, i) => (
+                            <div key={i} className="legend-item" onClick={() => onDrilldown?.({ isShareholder: item.name === 'Shareholders' ? 'true' : 'false' })}>
+                                <span className="dot" style={{ background: item.fill }}></span>
+                                <span className="name">{item.name}</span>
                             </div>
                         ))}
                     </div>
+                </div>
 
-                    <h4>By Employment Type</h4>
-                    <div className="breakdown-list">
-                        {employmentData.map((item, i) => (
-                            <div
-                                key={item.name}
-                                className="breakdown-row"
-                                onClick={() => onDrilldown?.({ employmentType: item.name })}
-                            >
-                                <span className="color-dot" style={{ background: COLORS[i + 3] }}></span>
-                                <span className="label">{item.name}</span>
-                                <span className="value">{item.current} days</span>
-                            </div>
-                        ))}
+                {/* Right: Data Lists */}
+                <div className="stats-section">
+                    {/* Gender & Ethnicity Stats */}
+                    <div className="stat-group">
+                        <h4 className="section-title">BY DEMOGRAPHICS</h4>
+                        <div className="stat-list">
+                            {genderData.map((item) => (
+                                <div key={item.name} className="stat-row" onClick={() => onDrilldown?.({ gender: item.name })}>
+                                    <div className="stat-info">
+                                        <span className="dot" style={{ background: item.color }}></span>
+                                        <span className="label">{item.name}</span>
+                                    </div>
+                                    <span className="value">{formatNum(item.value)}</span>
+                                </div>
+                            ))}
+                            {/* Ethnicity */}
+                            <div className="separator"></div>
+                            {Object.entries(data.byEthnicity).map(([name, values], i) => (
+                                <div key={name} className="stat-row" onClick={() => onDrilldown?.({ ethnicity: name })}>
+                                    <div className="stat-info">
+                                        <span className="dot" style={{ background: '#94a3b8' }}></span>
+                                        <span className="label">{name}</span>
+                                    </div>
+                                    <span className="value">{formatNum(values.current)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Employment Stats */}
+                    <div className="stat-group">
+                        <h4 className="section-title">BY EMPLOYMENT TYPE</h4>
+                        <div className="stat-list">
+                            {employmentData.map((item) => (
+                                <div key={item.name} className="stat-row" onClick={() => onDrilldown?.({ employmentType: item.name })}>
+                                    <div className="stat-info">
+                                        <span className="dot" style={{ background: item.color }}></span>
+                                        <span className="label">{item.name}</span>
+                                    </div>
+                                    <span className="value">{formatNum(item.value)} days</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
 
             <style>{`
-        .vacation-container { margin-top: 0.5rem; }
-        .vacation-stats {
-          display: flex;
-          gap: 1rem;
-          margin-bottom: 1rem;
-        }
-        .stat-box {
-          background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-          padding: 1rem 1.5rem;
-          border-radius: 12px;
-          flex: 1;
-          text-align: center;
-        }
-        .stat-number {
-          display: block;
-          font-size: 1.75rem;
-          font-weight: 700;
-          color: #0369a1;
-        }
-        .stat-label {
-          font-size: 0.75rem;
-          color: #666;
-        }
-        .vacation-grid {
+        .vacation-container { height: 100%; display: flex; flex-direction: column; }
+        .vacation-content {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-        .chart-section, .breakdown-section {
-          padding: 0.5rem;
-        }
-        .chart-section h4, .breakdown-section h4 {
-          font-size: 0.8rem;
-          color: #666;
-          margin: 0 0 0.75rem;
-        }
-        .breakdown-list { margin-bottom: 1rem; }
-        .breakdown-row {
-          display: flex;
+          grid-template-columns: 4fr 5fr;
+          gap: var(--space-6);
           align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: background 0.2s;
+          height: 100%;
         }
-        .breakdown-row:hover { background: #f1f5f9; }
-        .color-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
+        
+        /* Section Titles */
+        .section-title {
+            font-size: 0.7rem;
+            color: var(--color-text-tertiary);
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-4);
+            text-transform: uppercase;
         }
-        .label { flex: 1; font-size: 0.85rem; }
-        .value { font-weight: 600; color: #1a1a2e; }
-        .change { font-size: 0.75rem; }
+
+        /* Donut Chart */
+        .donut-wrapper {
+            position: relative;
+            margin-bottom: var(--space-4);
+        }
+        .donut-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+        .total-days {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-primary-800);
+            line-height: 1;
+        }
+        .unit {
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+        }
+
+        /* Custom Legend */
+        .custom-legend {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-4);
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            transition: opacity 0.2s;
+        }
+        .legend-item:hover { opacity: 0.7; }
+
+        /* Stats List */
+        .stat-group { margin-bottom: var(--space-6); }
+        .stat-group:last-child { margin-bottom: 0; }
+        
+        .stat-list { display: flex; flex-direction: column; gap: var(--space-3); }
+        .separator { height: 1px; background: var(--color-border); margin: var(--space-2) 0; }
+        
+        .stat-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .stat-row:hover { background: var(--color-bg-subtle); }
+        
+        .stat-info { display: flex; align-items: center; gap: var(--space-3); }
+        
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: block;
+        }
+        
+        .label {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+        }
+        
+.value {
+            font-weight: 600;
+            color: var(--color-primary-900);
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 1200px) {
+            .vacation-content { grid-template-columns: 1fr; }
+            .donut-wrapper { max-width: 300px; margin: 0 auto; }
+        }
       `}</style>
         </div>
     );

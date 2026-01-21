@@ -2,100 +2,107 @@ import { useState, useEffect } from 'react';
 import { getDrilldown } from '../services/api';
 
 function DrilldownModal({ filters, onClose }) {
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
-    useEffect(() => {
-        loadData();
-    }, [filters, page]);
+  useEffect(() => {
+    loadData();
+  }, [filters, page]);
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const response = await getDrilldown({ ...filters, page, limit: 10 });
-            setData(response);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const response = await getDrilldown({ ...filters, page, limit: 10 });
+      setData(response);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const formatCurrency = (value) => `$${(value || 0).toLocaleString()}`;
+  const formatCurrency = (value) => `$${(value || 0).toLocaleString()}`;
 
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h2>📋 Employee Details</h2>
-                    <button className="close-btn" onClick={onClose}>×</button>
-                </div>
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>📋 Employee Details</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
 
-                <div className="filter-info">
-                    <strong>Filters:</strong>
-                    {Object.entries(filters).map(([key, value]) => (
-                        <span key={key} className="filter-tag">{key}: {value}</span>
-                    ))}
-                </div>
+        <div className="filter-info">
+          <strong>Filters:</strong>
+          {Object.entries(filters).map(([key, value]) => (
+            <span key={key} className="filter-tag">{key}: {value}</span>
+          ))}
+        </div>
 
-                {loading ? (
-                    <div className="loading">Loading...</div>
-                ) : (
-                    <>
-                        <div className="data-info">
-                            Showing {data?.data?.length || 0} of {data?.meta?.total || 0} employees
-                        </div>
-
-                        <table className="drilldown-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Department</th>
-                                    <th>Gender</th>
-                                    <th>Type</th>
-                                    <th>Shareholder</th>
-                                    <th>Total Earnings</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data?.data?.map((emp) => (
-                                    <tr key={emp._id}>
-                                        <td>{emp.employeeId}</td>
-                                        <td>{emp.firstName} {emp.lastName}</td>
-                                        <td>{emp.department}</td>
-                                        <td>{emp.gender || '-'}</td>
-                                        <td>{emp.employmentType}</td>
-                                        <td>{emp.isShareholder ? '✓' : '-'}</td>
-                                        <td>{formatCurrency(emp.totalEarnings)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-
-                        {data?.meta?.pages > 1 && (
-                            <div className="pagination">
-                                <button
-                                    disabled={page === 1}
-                                    onClick={() => setPage(p => p - 1)}
-                                >
-                                    Previous
-                                </button>
-                                <span>Page {page} of {data.meta.pages}</span>
-                                <button
-                                    disabled={page >= data.meta.pages}
-                                    onClick={() => setPage(p => p + 1)}
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        )}
-                    </>
-                )}
+        {loading ? (
+          <div className="loading">Loading...</div>
+        ) : (
+          <>
+            <div className="data-info">
+              Showing {data?.data?.length || 0} of {data?.meta?.total || 0} employees
             </div>
 
-            <style>{`
+            <table className="drilldown-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Department</th>
+                  <th>Gender</th>
+                  <th>Ethnicity</th>
+                  <th>Type</th>
+                  <th>Shareholder</th>
+                  <th>{filters.context === 'vacation' ? 'Vacation Days' : 'Total Earnings'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.data?.map((emp) => (
+                  <tr key={emp._id}>
+                    <td>{emp.employeeId}</td>
+                    <td>{emp.firstName} {emp.lastName}</td>
+                    <td>{emp.department}</td>
+                    <td>{emp.gender || '-'}</td>
+                    <td>{emp.ethnicity || '-'}</td>
+                    <td>{emp.employmentType}</td>
+                    <td>{emp.isShareholder ? '✓' : '-'}</td>
+                    <td className={filters.context === 'vacation' ? 'text-blue' : 'text-green'}>
+                      {filters.context === 'vacation'
+                        ? `${emp.vacationDays || 0} days`
+                        : formatCurrency(emp.totalEarnings)
+                      }
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {data?.meta?.pages > 1 && (
+              <div className="pagination">
+                <button
+                  disabled={page === 1}
+                  onClick={() => setPage(p => p - 1)}
+                >
+                  Previous
+                </button>
+                <span>Page {page} of {data.meta.pages}</span>
+                <button
+                  disabled={page >= data.meta.pages}
+                  onClick={() => setPage(p => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <style>{`
         .modal-overlay {
           position: fixed;
           top: 0;
@@ -196,9 +203,11 @@ function DrilldownModal({ filters, onClose }) {
           padding: 2rem;
           color: #666;
         }
+        .text-green { color: var(--color-success-600); font-weight: 600; }
+        .text-blue { color: var(--color-primary-600); font-weight: 600; }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
 
 export default DrilldownModal;

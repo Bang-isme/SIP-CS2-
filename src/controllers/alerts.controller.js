@@ -2,6 +2,7 @@ import Alert from "../models/Alert.js";
 import Employee from "../models/Employee.js";
 import { EmployeeBenefit } from "../models/sql/index.js";
 import { Op } from "sequelize";
+import dashboardCache from "../utils/cache.js";
 
 /**
  * Alerts Controller
@@ -90,6 +91,13 @@ export const deleteAlert = async (req, res) => {
  */
 export const getTriggeredAlerts = async (req, res) => {
     try {
+        // Check cache first
+        const cacheParams = { date: new Date().toISOString().split('T')[0] }; // Cache per day
+        const cached = dashboardCache.get('alerts', cacheParams);
+        if (cached) {
+            return res.json({ success: true, data: cached.data, meta: cached.meta, fromCache: true });
+        }
+
         const activeAlerts = await Alert.find({ isActive: true });
         const triggeredAlerts = [];
         const today = new Date();
@@ -187,6 +195,10 @@ export const getTriggeredAlerts = async (req, res) => {
                 });
             }
         }
+
+        // Cache the result
+        const responseData = { data: triggeredAlerts, meta: { totalAlerts: activeAlerts.length, triggeredCount: triggeredAlerts.length } };
+        dashboardCache.set('alerts', cacheParams, responseData);
 
         res.json({
             success: true,

@@ -2,6 +2,7 @@ import Employee from "../models/Employee.js";
 import Department from "../models/Department.js";
 import { Earning, VacationRecord, BenefitPlan, EmployeeBenefit } from "../models/sql/index.js";
 import { Op, fn, col, literal } from "sequelize";
+import dashboardCache from "../utils/cache.js";
 
 /**
  * Dashboard Controller
@@ -42,7 +43,13 @@ export const getEarningsSummary = async (req, res) => {
         const currentYear = year || new Date().getFullYear();
         const previousYear = parseInt(currentYear) - 1;
 
-        // Get all employees with their demographics from MongoDB
+        // Check cache first
+        const cacheParams = { year: currentYear };
+        const cached = dashboardCache.get('earnings', cacheParams);
+        if (cached) {
+            return res.json({ success: true, data: cached.data, meta: cached.meta, fromCache: true });
+        }
+
         // Get all employees with their demographics from MongoDB
         // Optimized: Select only needed fields for aggregation
         const employees = await Employee.find()
@@ -127,6 +134,10 @@ export const getEarningsSummary = async (req, res) => {
             summary.byEmploymentType[empType].previous += previousEarning;
         });
 
+        // Cache the result
+        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount: employees.length } };
+        dashboardCache.set('earnings', cacheParams, responseData);
+
         res.json({
             success: true,
             data: summary,
@@ -147,6 +158,13 @@ export const getVacationSummary = async (req, res) => {
         const { year } = req.query;
         const currentYear = year || new Date().getFullYear();
         const previousYear = parseInt(currentYear) - 1;
+
+        // Check cache first
+        const cacheParams = { year: currentYear };
+        const cached = dashboardCache.get('vacation', cacheParams);
+        if (cached) {
+            return res.json({ success: true, data: cached.data, meta: cached.meta, fromCache: true });
+        }
 
         const employees = await Employee.find()
             .select("employeeId departmentId isShareholder gender ethnicity employmentType")
@@ -227,6 +245,10 @@ export const getVacationSummary = async (req, res) => {
             summary.byEmploymentType[empType].previous += previousDays;
         });
 
+        // Cache the result
+        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount: employees.length } };
+        dashboardCache.set('vacation', cacheParams, responseData);
+
         res.json({
             success: true,
             data: summary,
@@ -244,6 +266,13 @@ export const getVacationSummary = async (req, res) => {
  */
 export const getBenefitsSummary = async (req, res) => {
     try {
+        // Check cache first
+        const cacheParams = {};
+        const cached = dashboardCache.get('benefits', cacheParams);
+        if (cached) {
+            return res.json({ success: true, data: cached.data, meta: cached.meta, fromCache: true });
+        }
+
         const employees = await Employee.find()
             .select("employeeId isShareholder")
             .lean();
@@ -306,6 +335,10 @@ export const getBenefitsSummary = async (req, res) => {
             const data = summary.byShareholder[key];
             data.average = data.count > 0 ? data.totalPaid / data.count : 0;
         });
+
+        // Cache the result
+        const responseData = { data: summary, meta: { planCount: plans.length, employeeCount: employees.length } };
+        dashboardCache.set('benefits', cacheParams, responseData);
 
         res.json({
             success: true,

@@ -1,0 +1,64 @@
+/* Typography Utilities */
+
+body {
+    font-family: var(--font-family-sans);
+    color: var(--color-text-main);
+    background-color: var(--color-bg-body);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    color: var(--color-text-main);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    margin-bottom: var(--space-2);
+}
+
+h1 {
+    font-size: var(--font-size-2xl);
+}
+
+h2 {
+    font-size: var(--font-size-lg);
+}
+
+h3 {
+    font-size: var(--font-size-base);
+}
+
+p {
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.text-sm {
+    font-size: var(--font-size-sm);
+}
+
+.text-xs {
+    font-size: var(--font-size-xs);
+}
+
+.text-muted {
+    color: var(--color-text-tertiary);
+}
+
+.text-success {
+    color: var(--color-success);
+}
+
+.text-danger {
+    color: var(--color-danger);
+}
+
+.font-bold {
+    font-weight: 600;
+}
+
+.font-medium {
+    font-weight: 500;
+}
