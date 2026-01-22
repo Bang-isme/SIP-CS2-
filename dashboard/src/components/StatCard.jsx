@@ -16,18 +16,30 @@ const StatCard = ({ title, value, subtext, icon, trend, loading }) => {
 
     const isPositive = trend === 'up';
     const isNegative = trend === 'down';
+    /* Logic: Explicitly handle neutral/no trend */
     const trendClass = isPositive ? 'text-success' : (isNegative ? 'text-danger' : 'text-muted');
 
     return (
         <div className="stat-card">
-            <div className="stat-icon-wrapper">
-                <span className="stat-icon">{icon}</span>
+            {/* 1. Header Row: Title & Icon */}
+            <div className="stat-header-row">
+                <span className="stat-title">{title}</span>
+                <div className="stat-icon-wrapper">
+                    {icon}
+                </div>
             </div>
-            <div className="stat-content">
-                <h3 className="stat-title">{title}</h3>
-                <div className="stat-value">{value}</div>
-                {subtext && <div className={`stat-subtext ${trendClass}`}>{subtext}</div>}
+
+            {/* 2. Primary Value */}
+            <div className="stat-value">
+                {value}
             </div>
+
+            {/* 3. Footer Context (Trend) */}
+            {subtext && (
+                <div className={`stat-subtext ${trendClass}`}>
+                    {subtext}
+                </div>
+            )}
         </div>
     );
 };

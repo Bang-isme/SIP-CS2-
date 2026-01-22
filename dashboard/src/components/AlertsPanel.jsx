@@ -1,4 +1,26 @@
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import api from '../services/api';
+import './AlertsPanel.css';
+
 function AlertsPanel({ alerts }) {
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pageSize, setPageSize] = useState(50); // Default to 50 for list view
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // API-based pagination state
+  const [apiEmployees, setApiEmployees] = useState([]);
+  const [apiTotal, setApiTotal] = useState(0);
+  const [apiTotalPages, setApiTotalPages] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
+
+  // Always use API pagination to ensure full data access
+  const [useApiPagination, setUseApiPagination] = useState(true);
+
+  // Debounced search
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
   const alertConfig = {
     anniversary: { icon: '🎂', color: '#f59e0b', bg: '#fffbeb', label: 'Hiring Anniversary' },
     vacation: { icon: '🏖️', color: '#3b82f6', bg: '#eff6ff', label: 'High Vacation Balance' },
@@ -6,27 +28,104 @@ function AlertsPanel({ alerts }) {
     birthday: { icon: '🎉', color: '#ec4899', bg: '#fdf2f8', label: 'Birthday Alert' },
   };
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch employees from API when modal is open
+  const fetchEmployees = useCallback(async () => {
+    if (!selectedAlert) return;
+
+    setIsLoading(true);
+    setApiError(null);
+
+    try {
+      const params = {
+        page: currentPage,
+        limit: pageSize,
+        ...(debouncedSearch && { search: debouncedSearch })
+      };
+
+      // Ensure endpoint exists for all types
+      const response = await api.get(`/alerts/${selectedAlert.alert.type}/employees`, { params });
+      const data = response.data;
+
+      if (data.success) {
+        setApiEmployees(data.employees || []);
+        setApiTotal(data.total || 0);
+        setApiTotalPages(data.totalPages || 0);
+
+        if (data.message) {
+          // Optional: Handle advisory messages
+          // setApiError(data.message); 
+        }
+      } else {
+        setApiError(data.message || 'Failed to fetch employees');
+      }
+    } catch (error) {
+      console.error('Error fetching alert employees:', error);
+      // Fallback for types that might not have endpoints (safety net)
+      setApiError(error.response?.data?.message || "Could not retrieve full list from server.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedAlert, currentPage, pageSize, debouncedSearch]);
+
+  // Fetch when dependencies change
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
+
+  const handleViewMore = (alert) => {
+    setSelectedAlert(alert);
+    setSearchTerm('');
+    setDebouncedSearch('');
+    setCurrentPage(1);
+    setApiEmployees([]);
+    setApiTotal(0);
+    setApiError(null);
+    setUseApiPagination(true); // Force API mode
+  };
+
+  const closeModal = () => {
+    setSelectedAlert(null);
+    setSearchTerm('');
+    setDebouncedSearch('');
+    setCurrentPage(1);
+    setApiEmployees([]);
+    setApiTotal(0);
+    setApiError(null);
+  };
+
+  const handlePageSizeChange = (e) => {
+    setPageSize(Number(e.target.value));
+    setCurrentPage(1);
+  };
+
   if (!alerts || alerts.length === 0) {
     return (
-      <div className="no-alerts fade-in">
+      <div className="no-alerts">
         <div className="empty-state-icon">✅</div>
-        <p>All caught up! No active alerts.</p>
+        <p>System Clear. No action items.</p>
       </div>
     );
   }
 
   return (
-    <div className="alerts-container animate-enter">
+    <div className="alerts-container">
       <div className="alerts-grid">
         {alerts.map((alert, index) => {
           const config = alertConfig[alert.alert.type] || { icon: '🔔', color: '#64748b', bg: '#f8fafc' };
-          // Determine animation stagger
-          const staggerClass = index === 0 ? 'stagger-1' : index === 1 ? 'stagger-2' : 'stagger-3';
 
           return (
             <div
               key={index}
-              className={`alert-card fade-in ${staggerClass}`}
+              className="alert-card"
               style={{ '--accent-color': config.color }}
             >
               <div className="alert-header">
@@ -38,27 +137,34 @@ function AlertsPanel({ alerts }) {
               </div>
 
               <div className="alert-body custom-scrollbar">
-                {alert.matchingEmployees.slice(0, 10).map((emp, i) => (
+                {/* Safe array access to prevent crash */}
+                {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, 5).map((emp, i) => (
                   <div key={i} className="employee-row">
                     <div className="emp-details">
                       <span className="emp-name">{emp.name}</span>
                       <span className="emp-id">{emp.employeeId}</span>
                     </div>
+                    {/* Tags logic */}
                     {emp.vacationDays !== undefined && (
-                      <span className="emp-tag vacation">{emp.vacationDays} days</span>
+                      <span className="emp-tag vacation">{emp.vacationDays} d</span>
                     )}
-                    {/* Calculate days until if needed or show generic info */}
-                    {(alert.alert.type === 'anniversary' || alert.alert.type === 'birthday') && (
-                      <span className="emp-tag date">Upcoming</span>
+                    {emp.daysUntil !== undefined && (
+                      <span className="emp-tag date">{emp.daysUntil} d</span>
+                    )}
+                    {(alert.alert.type === 'anniversary' || alert.alert.type === 'birthday') && emp.daysUntil === undefined && (
+                      <span className="emp-tag date">Soon</span>
                     )}
                   </div>
                 ))}
               </div>
 
-              {alert.matchingEmployees.length > 10 && (
+              {alert.count > 5 && (
                 <div className="alert-footer">
-                  <button className="view-more-btn">
-                    +{alert.matchingEmployees.length - 10} more employees
+                  <button
+                    className="view-more-btn"
+                    onClick={() => handleViewMore(alert)}
+                  >
+                    View Record ({alert.count})
                   </button>
                 </div>
               )}
@@ -67,145 +173,168 @@ function AlertsPanel({ alerts }) {
         })}
       </div>
 
-      <style>{`
-        .alerts-container { margin-top: 0; }
-        .alerts-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: var(--space-6);
-        }
-        
-        .alert-card {
-          background: white;
-          border-radius: var(--radius-lg);
-          border: 1px solid var(--color-border);
-          box-shadow: var(--shadow-sm);
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          position: relative;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .alert-card::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background: var(--accent-color);
-        }
-        .alert-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-        }
+      {/* Modal with Forced API Pagination */}
+      {selectedAlert && (
+        <div className="alert-modal-overlay" onClick={closeModal}>
+          <div className="alert-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">
+                <span className="alert-icon">
+                  {alertConfig[selectedAlert.alert.type]?.icon || '🔔'}
+                </span>
+                <h3>{alertConfig[selectedAlert.alert.type]?.label || selectedAlert.alert.name}</h3>
+              </div>
+              <span className="modal-count">
+                {apiTotal} records
+              </span>
+              <button className="modal-close" onClick={closeModal}>×</button>
+            </div>
 
-        .alert-header {
-            padding: var(--space-4);
-            border-bottom: 1px solid var(--color-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--color-bg-subtle);
-        }
-        .alert-title-wrap {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-        }
-        .alert-icon { font-size: 1.25rem; }
-        .alert-name {
-            font-weight: 700;
-            color: var(--color-primary-900);
-            font-size: 0.95rem;
-        }
-        .alert-badge {
-            background: var(--accent-color);
-            color: white;
-            padding: 2px 10px;
-            border-radius: 99px;
-            font-size: 0.75rem;
-            font-weight: 700;
-        }
+            {/* Controls */}
+            <div className="modal-controls">
+              <div className="search-box">
+                <span className="search-icon">🔍</span>
+                <input
+                  type="text"
+                  placeholder="ID or Name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button className="clear-search" onClick={() => setSearchTerm('')}>×</button>
+                )}
+              </div>
+              <div className="page-size-control">
+                <select value={pageSize} onChange={handlePageSizeChange}>
+                  <option value={10}>10</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={500}>500</option>
+                </select>
+              </div>
+            </div>
 
-        .alert-body {
-            padding: 0 var(--space-2);
-            max-height: 250px;
-            overflow-y: auto;
-            flex: 1;
-        }
-        
-        .employee-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: var(--space-3) var(--space-2);
-            border-bottom: 1px solid var(--color-border);
-            transition: background 0.1s;
-        }
-        .employee-row:hover { background: var(--color-bg-subtle); }
-        .employee-row:last-child { border-bottom: none; }
+            {/* Error Notice */}
+            {apiError && !isLoading && (
+              <div className="api-notice">
+                <span>⚠️ {apiError}</span>
+              </div>
+            )}
 
-        .emp-details {
-            display: flex;
-            flex-direction: column;
-        }
-        .emp-name {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--color-text-main);
-        }
-        .emp-id {
-            font-size: 0.75rem;
-            color: var(--color-text-tertiary);
-        }
+            <div className="modal-body custom-scrollbar">
+              {isLoading ? (
+                <div className="modal-loading">
+                  <div className="spinner"></div>
+                  <p>Retrieving records...</p>
+                </div>
+              ) : (
+                <table className="employee-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Employee</th>
+                      <th>ID</th>
+                      {selectedAlert.alert.type === 'vacation' && <th>Balance</th>}
+                      {(selectedAlert.alert.type === 'anniversary' || selectedAlert.alert.type === 'birthday') && <th>Days Left</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apiEmployees.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="no-results">
+                          {searchTerm ? `No matches for "${searchTerm}"` : 'No records found.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      apiEmployees.map((emp, i) => (
+                        <tr key={i}>
+                          <td>{(currentPage - 1) * pageSize + i + 1}</td>
+                          <td className="font-medium">{emp.name}</td>
+                          <td className="text-mono">{emp.employeeId}</td>
 
-        .emp-tag {
-            font-size: 0.75rem;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-        .emp-tag.vacation { background: #eff6ff; color: #3b82f6; }
-        .emp-tag.date { background: #fff7ed; color: #c2410c; }
-        
-        .alert-footer {
-            padding: var(--space-2);
-            border-top: 1px solid var(--color-border);
-            text-align: center;
-            background: var(--color-bg-subtle);
-        }
-        .view-more-btn {
-            background: #e2e8f0;
-            border: none;
-            color: #475569;
-            font-size: 0.8rem;
-            padding: 4px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-        .view-more-btn:hover { background: #cbd5e1; color: #1e293b; }
+                          {selectedAlert.alert.type === 'vacation' && (
+                            <td><span className="emp-tag vacation">{emp.vacationDays} days</span></td>
+                          )}
 
-        .no-alerts {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: var(--space-8);
-            color: var(--color-text-tertiary);
-            background: var(--color-bg-subtle);
-            border-radius: var(--radius-lg);
-            border: 2px dashed var(--color-border);
-        }
-        .empty-state-icon { font-size: 3rem; margin-bottom: var(--space-4); opacity: 0.5; }
+                          {(selectedAlert.alert.type === 'anniversary' || selectedAlert.alert.type === 'birthday') && (
+                            <td><span className="emp-tag date">{emp.daysUntil ?? 'Upcoming'}</span></td>
+                          )}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
 
-        /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
-      `}</style>
+            {/* Pagination Controls */}
+            <div className="modal-pagination">
+              <div className="pagination-info">
+                {apiTotal > 0 ? `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, apiTotal)} of ${apiTotal}` : 'No data'}
+              </div>
+              <div className="pagination-buttons">
+                <button
+                  disabled={currentPage === 1 || isLoading}
+                  onClick={() => setCurrentPage(1)}
+                  className="page-btn"
+                >
+                  ⟪
+                </button>
+                <button
+                  disabled={currentPage === 1 || isLoading}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  className="page-btn"
+                >
+                  ←
+                </button>
+
+                {/* Jump to Page Input */}
+                <div className="page-jump">
+                  <span>Page</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={apiTotalPages || 1}
+                    value={currentPage}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val >= 1 && val <= apiTotalPages) {
+                        setCurrentPage(val);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = parseInt(e.target.value);
+                        if (val >= 1 && val <= apiTotalPages) {
+                          setCurrentPage(val);
+                        }
+                      }
+                    }}
+                    className="page-input"
+                    disabled={isLoading}
+                  />
+                  <span>/ {apiTotalPages || 1}</span>
+                </div>
+
+                <button
+                  disabled={currentPage >= apiTotalPages || isLoading}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  className="page-btn"
+                >
+                  →
+                </button>
+                <button
+                  disabled={currentPage >= apiTotalPages || isLoading}
+                  onClick={() => setCurrentPage(apiTotalPages)}
+                  className="page-btn"
+                >
+                  ⟫
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

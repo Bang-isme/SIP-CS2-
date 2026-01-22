@@ -1,0 +1,389 @@
+{
+	"info": {
+		"_postman_id": "sip-cs-api-collection",
+		"name": "SIP_CS HR & Payroll API",
+		"description": "Complete API collection for HR & Payroll Analytics System",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:4000/api"
+		},
+		{
+			"key": "token",
+			"value": ""
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "🔐 Authentication",
+			"item": [
+				{
+					"name": "Sign Up",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"testuser\",\n    \"email\": \"test@example.com\",\n    \"password\": \"password123\",\n    \"roles\": [\"user\"]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/signup",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "signup"]
+						}
+					}
+				},
+				{
+					"name": "Sign In",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.token) {",
+									"    pm.collectionVariables.set('token', jsonData.token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@localhost\",\n    \"password\": \"admin\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/signin",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "signin"]
+						}
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "logout"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📊 Dashboard",
+			"item": [
+				{
+					"name": "Get Earnings Summary",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/dashboard/earnings?year=2026",
+							"host": ["{{base_url}}"],
+							"path": ["dashboard", "earnings"],
+							"query": [
+								{
+									"key": "year",
+									"value": "2026"
+								}
+							]
+						},
+						"description": "Returns pre-aggregated earnings by department, gender, ethnicity, employmentType, and shareholder status"
+					}
+				},
+				{
+					"name": "Get Vacation Summary",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/dashboard/vacation?year=2026",
+							"host": ["{{base_url}}"],
+							"path": ["dashboard", "vacation"],
+							"query": [
+								{
+									"key": "year",
+									"value": "2026"
+								}
+							]
+						},
+						"description": "Returns pre-aggregated vacation days by department, gender, ethnicity, employmentType, and shareholder status"
+					}
+				},
+				{
+					"name": "Get Benefits Summary",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/dashboard/benefits",
+							"host": ["{{base_url}}"],
+							"path": ["dashboard", "benefits"]
+						},
+						"description": "Returns pre-aggregated benefits by plan name and shareholder status"
+					}
+				},
+				{
+					"name": "Get Drilldown (Paginated)",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/dashboard/drilldown?department=Engineering&gender=Male&page=1&limit=20",
+							"host": ["{{base_url}}"],
+							"path": ["dashboard", "drilldown"],
+							"query": [
+								{
+									"key": "department",
+									"value": "Engineering",
+									"description": "Filter by department (optional)"
+								},
+								{
+									"key": "gender",
+									"value": "Male",
+									"description": "Filter by gender (optional)"
+								},
+								{
+									"key": "ethnicity",
+									"value": "",
+									"description": "Filter by ethnicity (optional)",
+									"disabled": true
+								},
+								{
+									"key": "employmentType",
+									"value": "",
+									"description": "Filter by employmentType (optional)",
+									"disabled": true
+								},
+								{
+									"key": "isShareholder",
+									"value": "",
+									"description": "Filter by shareholder status - true/false (optional)",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Returns paginated employee list with earnings data based on filters"
+					}
+				}
+			]
+		},
+		{
+			"name": "🔔 Alerts",
+			"item": [
+				{
+					"name": "Get All Alerts",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/alerts",
+							"host": ["{{base_url}}"],
+							"path": ["alerts"]
+						},
+						"description": "Returns all configured alert rules"
+					}
+				},
+				{
+					"name": "Create Alert",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Anniversary Reminder\",\n    \"type\": \"anniversary\",\n    \"threshold\": 30,\n    \"description\": \"Employees with work anniversaries in next 30 days\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/alerts",
+							"host": ["{{base_url}}"],
+							"path": ["alerts"]
+						},
+						"description": "Create a new alert configuration. Types: anniversary, vacation, benefits_change, birthday"
+					}
+				},
+				{
+					"name": "Update Alert",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"threshold\": 14,\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/alerts/:id",
+							"host": ["{{base_url}}"],
+							"path": ["alerts", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "ALERT_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Alert",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{base_url}}/alerts/:id",
+							"host": ["{{base_url}}"],
+							"path": ["alerts", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "ALERT_ID_HERE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Triggered Alerts",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/alerts/triggered",
+							"host": ["{{base_url}}"],
+							"path": ["alerts", "triggered"]
+						},
+						"description": "Returns pre-aggregated list of currently triggered alerts with matching employees"
+					}
+				}
+			]
+		},
+		{
+			"name": "👥 Employees",
+			"item": [
+				{
+					"name": "Get All Employees",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/employee",
+							"host": ["{{base_url}}"],
+							"path": ["employee"]
+						}
+					}
+				},
+				{
+					"name": "Get Employee by ID",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/employee/:employeeId",
+							"host": ["{{base_url}}"],
+							"path": ["employee", ":employeeId"],
+							"variable": [
+								{
+									"key": "employeeId",
+									"value": "EMP001"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Employee",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"employeeId\": \"EMP999\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"gender\": \"Male\",\n    \"ethnicity\": \"Asian\",\n    \"employmentType\": \"Full-time\",\n    \"isShareholder\": false,\n    \"hireDate\": \"2024-01-15\",\n    \"birthDate\": \"1990-05-20\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/employee",
+							"host": ["{{base_url}}"],
+							"path": ["employee"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "👤 Users",
+			"item": [
+				{
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/users",
+							"host": ["{{base_url}}"],
+							"path": ["users"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🔧 Utilities",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						}
+					}
+				}
+			]
+		}
+	]
+}

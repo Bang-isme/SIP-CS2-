@@ -5,6 +5,7 @@ import {
     updateAlert,
     deleteAlert,
     getTriggeredAlerts,
+    getAlertEmployees,
 } from "../controllers/alerts.controller.js";
 import { verifyToken } from "../middlewares/authJwt.js";
 
@@ -21,5 +22,8 @@ router.delete("/:id", deleteAlert);
 
 // Get triggered alerts
 router.get("/triggered", getTriggeredAlerts);
+
+// Get paginated employees for a specific alert type
+router.get("/:type/employees", getAlertEmployees);
 
 export default router;

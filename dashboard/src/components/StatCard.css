@@ -1,87 +1,120 @@
+/* StatCard.css - v2.0 (Data Tile - Industrial) */
+
 .stat-card {
     background: var(--color-bg-card);
     border-radius: var(--radius-lg);
-    padding: var(--space-6);
-    box-shadow: var(--shadow-sm);
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
-    transition: transform 0.2s, box-shadow 0.2s;
+    padding: var(--space-4);
+    /* Compact padding */
+    /* Use border instead of shadow for separation */
     border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    /* Very subtle elevation */
+
+    display: flex;
+    flex-direction: column;
+    /* Stack vertically for tile look */
+    justify-content: space-between;
+    height: 100%;
+    min-height: 100px;
+
+    transition: border-color var(--duration-fast);
 }
 
 .stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    border-color: var(--color-primary-300);
+    /* No movement triggers */
 }
 
-.stat-icon-wrapper {
-    background: var(--color-primary-50);
-    color: var(--color-primary-600);
-    padding: var(--space-3);
-    border-radius: var(--radius-md);
+/* Header Row: Label + Icon */
+.stat-header-row {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-}
-
-.stat-content {
-    display: flex;
-    flex-direction: column;
-}
-
-.stat-title {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.stat-value {
-    font-size: var(--font-size-2xl);
-    font-weight: 700;
-    color: var(--color-text-main);
-    line-height: 1.2;
-    margin-top: var(--space-1);
-}
-
-.stat-subtext {
-    font-size: var(--font-size-xs);
-    margin-top: var(--space-2);
-    font-weight: 500;
-}
-
-/* Skeleton Styles */
-.skeleton-stat {
-    animation: pulse 1.5s infinite;
-}
-
-.skeleton-icon {
-    width: 48px;
-    height: 48px;
-    background: var(--color-bg-subtle);
-    border-radius: var(--radius-md);
-}
-
-.skeleton-content {
-    flex: 1;
-}
-
-.skeleton-line {
-    background: var(--color-bg-subtle);
-    border-radius: var(--radius-sm);
     margin-bottom: var(--space-2);
 }
 
+.stat-title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0;
+}
+
+.stat-icon-wrapper {
+    /* Subtle muted icon in corner */
+    background: transparent;
+    color: var(--color-text-tertiary);
+    font-size: 1.25rem;
+    padding: 0;
+    width: auto;
+    height: auto;
+    display: flex;
+    opacity: 0.8;
+}
+
+/* Value Row */
+.stat-value {
+    font-size: 1.75rem;
+    /* Large and clear */
+    font-weight: 600;
+    color: var(--color-primary-900);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+
+    /* Technical number display */
+    font-feature-settings: "tnum" 1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Footer / Trend Row */
+.stat-subtext {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    margin-top: var(--space-3);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Trend Colors */
+.stat-subtext.text-success {
+    color: var(--color-success);
+    background: var(--color-success-bg);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.stat-subtext.text-danger {
+    color: var(--color-danger);
+    background: var(--color-danger-bg);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.stat-subtext.text-muted {
+    color: var(--color-text-tertiary);
+}
+
+/* Skeletons */
+.skeleton-stat {
+    background: var(--color-bg-subtle);
+}
+
+.skeleton-line {
+    background: var(--color-border);
+    border-radius: var(--radius-sm);
+    opacity: 0.5;
+}
+
 .skeleton-line.sm {
-    height: 14px;
-    width: 60%;
+    width: 40%;
+    height: 12px;
+    margin-bottom: 12px;
 }
 
 .skeleton-line.lg {
-    height: 28px;
-    width: 80%;
+    width: 70%;
+    height: 24px;
 }

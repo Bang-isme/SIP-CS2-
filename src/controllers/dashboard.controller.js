@@ -1,12 +1,17 @@
 import Employee from "../models/Employee.js";
 import Department from "../models/Department.js";
-import { Earning, VacationRecord, BenefitPlan, EmployeeBenefit } from "../models/sql/index.js";
+import { Earning, VacationRecord, BenefitPlan, EmployeeBenefit, EarningsSummary, VacationSummary, BenefitsSummary } from "../models/sql/index.js";
 import { Op, fn, col, literal } from "sequelize";
 import dashboardCache from "../utils/cache.js";
 
+
 /**
- * Dashboard Controller
- * Aggregates data from both MongoDB (HR) and MySQL (Payroll)
+ * Dashboard Controller - PRE-AGGREGATION VERSION
+ * 
+ * Reads from pre-computed summary tables.
+ * Data is populated by: node scripts/aggregate-dashboard.js [year]
+ * 
+ * Response time: < 100ms (reading 20-50 rows instead of 500K)
  */
 
 // Helper: Get employee IDs from MongoDB filtered by criteria
@@ -35,13 +40,13 @@ const getFilteredEmployeeIds = async (filters) => {
 
 /**
  * GET /api/dashboard/earnings
- * Returns total earnings by various groupings
+ * Reads from pre-aggregated EarningsSummary table
  */
 export const getEarningsSummary = async (req, res) => {
     try {
-        const { year, groupBy = "department" } = req.query;
-        const currentYear = year || new Date().getFullYear();
-        const previousYear = parseInt(currentYear) - 1;
+        const { year } = req.query;
+        const currentYear = parseInt(year) || new Date().getFullYear();
+        const previousYear = currentYear - 1;
 
         // Check cache first
         const cacheParams = { year: currentYear };
@@ -50,37 +55,20 @@ export const getEarningsSummary = async (req, res) => {
             return res.json({ success: true, data: cached.data, meta: cached.meta, fromCache: true });
         }
 
-        // Get all employees with their demographics from MongoDB
-        // Optimized: Select only needed fields for aggregation
-        const employees = await Employee.find()
-            .select("employeeId departmentId isShareholder gender ethnicity employmentType")
-            .populate("departmentId")
-            .lean();
-
-        // Get earnings from MySQL
-        const currentYearEarnings = await Earning.findAll({
+        // Read from pre-aggregated summary table
+        const summaries = await EarningsSummary.findAll({
             where: { year: currentYear },
-            attributes: ["employee_id", [fn("SUM", col("amount")), "total"]],
-            group: ["employee_id"],
-            raw: true,
+            raw: true
         });
 
-        const previousYearEarnings = await Earning.findAll({
-            where: { year: previousYear },
-            attributes: ["employee_id", [fn("SUM", col("amount")), "total"]],
-            group: ["employee_id"],
-            raw: true,
-        });
+        if (summaries.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: `No pre-aggregated data for ${currentYear}. Run: node scripts/aggregate-dashboard.js ${currentYear}`
+            });
+        }
 
-        // Create lookup maps
-        const currentEarningsMap = new Map(
-            currentYearEarnings.map((e) => [e.employee_id, parseFloat(e.total) || 0])
-        );
-        const previousEarningsMap = new Map(
-            previousYearEarnings.map((e) => [e.employee_id, parseFloat(e.total) || 0])
-        );
-
-        // Aggregate by groupings
+        // Transform flat rows to nested structure expected by frontend
         const summary = {
             byDepartment: {},
             byShareholder: { shareholder: { current: 0, previous: 0 }, nonShareholder: { current: 0, previous: 0 } },
@@ -90,58 +78,45 @@ export const getEarningsSummary = async (req, res) => {
             totals: { current: 0, previous: 0 },
         };
 
-        employees.forEach((emp) => {
-            const empId = emp.employeeId || emp._id.toString();
-            const currentEarning = currentEarningsMap.get(empId) || 0;
-            const previousEarning = previousEarningsMap.get(empId) || 0;
+        let employeeCount = 0;
 
-            // Totals
-            summary.totals.current += currentEarning;
-            summary.totals.previous += previousEarning;
+        for (const row of summaries) {
+            employeeCount = row.employee_count || employeeCount;
+            const value = {
+                current: parseFloat(row.current_total) || 0,
+                previous: parseFloat(row.previous_total) || 0
+            };
 
-            // By Department
-            const deptName = emp.departmentId?.name || "Unassigned";
-            if (!summary.byDepartment[deptName]) {
-                summary.byDepartment[deptName] = { current: 0, previous: 0 };
+            switch (row.group_type) {
+                case 'total':
+                    summary.totals = value;
+                    break;
+                case 'department':
+                    summary.byDepartment[row.group_value] = value;
+                    break;
+                case 'shareholder':
+                    summary.byShareholder[row.group_value] = value;
+                    break;
+                case 'gender':
+                    summary.byGender[row.group_value] = value;
+                    break;
+                case 'ethnicity':
+                    summary.byEthnicity[row.group_value] = value;
+                    break;
+                case 'employmentType':
+                    summary.byEmploymentType[row.group_value] = value;
+                    break;
             }
-            summary.byDepartment[deptName].current += currentEarning;
-            summary.byDepartment[deptName].previous += previousEarning;
+        }
 
-            // By Shareholder
-            const shareholderKey = emp.isShareholder ? "shareholder" : "nonShareholder";
-            summary.byShareholder[shareholderKey].current += currentEarning;
-            summary.byShareholder[shareholderKey].previous += previousEarning;
-
-            // By Gender
-            const gender = emp.gender || "Unknown";
-            if (!summary.byGender[gender]) {
-                summary.byGender[gender] = { current: 0, previous: 0 };
-            }
-            summary.byGender[gender].current += currentEarning;
-            summary.byGender[gender].previous += previousEarning;
-
-            // By Ethnicity
-            const ethnicity = emp.ethnicity || "Unknown";
-            if (!summary.byEthnicity[ethnicity]) {
-                summary.byEthnicity[ethnicity] = { current: 0, previous: 0 };
-            }
-            summary.byEthnicity[ethnicity].current += currentEarning;
-            summary.byEthnicity[ethnicity].previous += previousEarning;
-
-            // By Employment Type
-            const empType = emp.employmentType || "Full-time";
-            summary.byEmploymentType[empType].current += currentEarning;
-            summary.byEmploymentType[empType].previous += previousEarning;
-        });
-
-        // Cache the result
-        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount: employees.length } };
+        // Cache the small result
+        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount } };
         dashboardCache.set('earnings', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { currentYear, previousYear, employeeCount: employees.length },
+            meta: { currentYear, previousYear, employeeCount },
         });
     } catch (error) {
         console.error("getEarningsSummary error:", error);
@@ -151,13 +126,13 @@ export const getEarningsSummary = async (req, res) => {
 
 /**
  * GET /api/dashboard/vacation
- * Returns vacation days summary by various groupings
+ * Reads from pre-aggregated VacationSummary table
  */
 export const getVacationSummary = async (req, res) => {
     try {
         const { year } = req.query;
-        const currentYear = year || new Date().getFullYear();
-        const previousYear = parseInt(currentYear) - 1;
+        const currentYear = parseInt(year) || new Date().getFullYear();
+        const previousYear = currentYear - 1;
 
         // Check cache first
         const cacheParams = { year: currentYear };
@@ -166,33 +141,20 @@ export const getVacationSummary = async (req, res) => {
             return res.json({ success: true, data: cached.data, meta: cached.meta, fromCache: true });
         }
 
-        const employees = await Employee.find()
-            .select("employeeId departmentId isShareholder gender ethnicity employmentType")
-            .populate("departmentId")
-            .lean();
-
-        // Get vacation from MySQL
-        const currentYearVacation = await VacationRecord.findAll({
+        // Read from pre-aggregated summary table
+        const summaries = await VacationSummary.findAll({
             where: { year: currentYear },
-            attributes: ["employee_id", [fn("SUM", col("days_taken")), "total"]],
-            group: ["employee_id"],
-            raw: true,
+            raw: true
         });
 
-        const previousYearVacation = await VacationRecord.findAll({
-            where: { year: previousYear },
-            attributes: ["employee_id", [fn("SUM", col("days_taken")), "total"]],
-            group: ["employee_id"],
-            raw: true,
-        });
+        if (summaries.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: `No pre-aggregated data for ${currentYear}. Run: node scripts/aggregate-dashboard.js ${currentYear}`
+            });
+        }
 
-        const currentVacationMap = new Map(
-            currentYearVacation.map((v) => [v.employee_id, parseInt(v.total) || 0])
-        );
-        const previousVacationMap = new Map(
-            previousYearVacation.map((v) => [v.employee_id, parseInt(v.total) || 0])
-        );
-
+        // Transform flat rows to nested structure
         const summary = {
             byDepartment: {},
             byShareholder: { shareholder: { current: 0, previous: 0 }, nonShareholder: { current: 0, previous: 0 } },
@@ -202,57 +164,45 @@ export const getVacationSummary = async (req, res) => {
             totals: { current: 0, previous: 0 },
         };
 
-        employees.forEach((emp) => {
-            const empId = emp.employeeId || emp._id.toString();
-            const currentDays = currentVacationMap.get(empId) || 0;
-            const previousDays = previousVacationMap.get(empId) || 0;
+        let employeeCount = 0;
 
-            summary.totals.current += currentDays;
-            summary.totals.previous += previousDays;
+        for (const row of summaries) {
+            employeeCount = row.employee_count || employeeCount;
+            const value = {
+                current: parseInt(row.current_total) || 0,
+                previous: parseInt(row.previous_total) || 0
+            };
 
-            // By Department
-            const deptName = emp.departmentId?.name || "Unassigned";
-            if (!summary.byDepartment[deptName]) {
-                summary.byDepartment[deptName] = { current: 0, previous: 0 };
+            switch (row.group_type) {
+                case 'total':
+                    summary.totals = value;
+                    break;
+                case 'department':
+                    summary.byDepartment[row.group_value] = value;
+                    break;
+                case 'shareholder':
+                    summary.byShareholder[row.group_value] = value;
+                    break;
+                case 'gender':
+                    summary.byGender[row.group_value] = value;
+                    break;
+                case 'ethnicity':
+                    summary.byEthnicity[row.group_value] = value;
+                    break;
+                case 'employmentType':
+                    summary.byEmploymentType[row.group_value] = value;
+                    break;
             }
-            summary.byDepartment[deptName].current += currentDays;
-            summary.byDepartment[deptName].previous += previousDays;
+        }
 
-            // By Shareholder
-            const shareholderKey = emp.isShareholder ? "shareholder" : "nonShareholder";
-            summary.byShareholder[shareholderKey].current += currentDays;
-            summary.byShareholder[shareholderKey].previous += previousDays;
-
-            // By Gender
-            const gender = emp.gender || "Unknown";
-            if (!summary.byGender[gender]) {
-                summary.byGender[gender] = { current: 0, previous: 0 };
-            }
-            summary.byGender[gender].current += currentDays;
-            summary.byGender[gender].previous += previousDays;
-
-            // By Ethnicity
-            const ethnicity = emp.ethnicity || "Unknown";
-            if (!summary.byEthnicity[ethnicity]) {
-                summary.byEthnicity[ethnicity] = { current: 0, previous: 0 };
-            }
-            summary.byEthnicity[ethnicity].current += currentDays;
-            summary.byEthnicity[ethnicity].previous += previousDays;
-
-            // By Employment Type
-            const empType = emp.employmentType || "Full-time";
-            summary.byEmploymentType[empType].current += currentDays;
-            summary.byEmploymentType[empType].previous += previousDays;
-        });
-
-        // Cache the result
-        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount: employees.length } };
+        // Cache the small result
+        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount } };
         dashboardCache.set('vacation', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { currentYear, previousYear, employeeCount: employees.length },
+            meta: { currentYear, previousYear, employeeCount },
         });
     } catch (error) {
         console.error("getVacationSummary error:", error);
@@ -262,7 +212,7 @@ export const getVacationSummary = async (req, res) => {
 
 /**
  * GET /api/dashboard/benefits
- * Returns average benefits by plan and shareholder status
+ * Reads from pre-aggregated BenefitsSummary table
  */
 export const getBenefitsSummary = async (req, res) => {
     try {
@@ -273,26 +223,17 @@ export const getBenefitsSummary = async (req, res) => {
             return res.json({ success: true, data: cached.data, meta: cached.meta, fromCache: true });
         }
 
-        const employees = await Employee.find()
-            .select("employeeId isShareholder")
-            .lean();
+        // Read from pre-aggregated summary table
+        const summaries = await BenefitsSummary.findAll({ raw: true });
 
-        // Get all benefit plans
-        const plans = await BenefitPlan.findAll({ raw: true });
+        if (summaries.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No pre-aggregated benefits data. Run: node scripts/aggregate-dashboard.js"
+            });
+        }
 
-        // Get employee benefits with plan info
-        const employeeBenefits = await EmployeeBenefit.findAll({
-            include: [{ model: BenefitPlan, as: "plan" }],
-            raw: true,
-            nest: true,
-        });
-
-        // Create employee shareholder lookup from MongoDB
-        const shareholderMap = new Map(
-            employees.map((e) => [e.employeeId || e._id.toString(), e.isShareholder || false])
-        );
-
-        // Aggregate by plan and shareholder status
+        // Transform to expected format
         const summary = {
             byPlan: {},
             byShareholder: {
@@ -301,49 +242,38 @@ export const getBenefitsSummary = async (req, res) => {
             },
         };
 
-        employeeBenefits.forEach((eb) => {
-            const planName = eb.plan?.name || "Unknown";
-            const isShareholder = shareholderMap.get(eb.employee_id) || false;
-            const amount = parseFloat(eb.amount_paid) || 0;
+        let planCount = 0;
+        const employeeCount = await Employee.countDocuments();
 
-            // By Plan
-            if (!summary.byPlan[planName]) {
-                summary.byPlan[planName] = {
-                    shareholder: { totalPaid: 0, count: 0, average: 0 },
-                    nonShareholder: { totalPaid: 0, count: 0, average: 0 },
-                };
+        for (const row of summaries) {
+            const value = {
+                totalPaid: parseFloat(row.total_paid) || 0,
+                count: row.enrollment_count || 0,
+                average: parseFloat(row.average_paid) || 0
+            };
+
+            if (row.plan_name === "_overall") {
+                summary.byShareholder[row.shareholder_type] = value;
+            } else {
+                planCount++;
+                if (!summary.byPlan[row.plan_name]) {
+                    summary.byPlan[row.plan_name] = {
+                        shareholder: { totalPaid: 0, count: 0, average: 0 },
+                        nonShareholder: { totalPaid: 0, count: 0, average: 0 },
+                    };
+                }
+                summary.byPlan[row.plan_name][row.shareholder_type] = value;
             }
+        }
 
-            const planKey = isShareholder ? "shareholder" : "nonShareholder";
-            summary.byPlan[planName][planKey].totalPaid += amount;
-            summary.byPlan[planName][planKey].count += 1;
-
-            // Overall by shareholder
-            summary.byShareholder[planKey].totalPaid += amount;
-            summary.byShareholder[planKey].count += 1;
-        });
-
-        // Calculate averages
-        Object.keys(summary.byPlan).forEach((plan) => {
-            ["shareholder", "nonShareholder"].forEach((key) => {
-                const data = summary.byPlan[plan][key];
-                data.average = data.count > 0 ? data.totalPaid / data.count : 0;
-            });
-        });
-
-        ["shareholder", "nonShareholder"].forEach((key) => {
-            const data = summary.byShareholder[key];
-            data.average = data.count > 0 ? data.totalPaid / data.count : 0;
-        });
-
-        // Cache the result
-        const responseData = { data: summary, meta: { planCount: plans.length, employeeCount: employees.length } };
+        // Cache the small result
+        const responseData = { data: summary, meta: { planCount: planCount / 2, employeeCount } };
         dashboardCache.set('benefits', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { planCount: plans.length, employeeCount: employees.length },
+            meta: { planCount: planCount / 2, employeeCount },
         });
     } catch (error) {
         console.error("getBenefitsSummary error:", error);
@@ -353,7 +283,7 @@ export const getBenefitsSummary = async (req, res) => {
 
 /**
  * GET /api/dashboard/drilldown
- * Returns detailed employee list based on filters
+ * Returns detailed employee list based on filters (paginated)
  */
 export const getDrilldown = async (req, res) => {
     try {
@@ -376,7 +306,7 @@ export const getDrilldown = async (req, res) => {
 
         const total = await Employee.countDocuments(query);
 
-        // Get payroll data for these employees
+        // Get payroll data for these employees (small batch, max 20)
         const employeeIds = employees.map((e) => e.employeeId || e._id.toString());
 
         const earnings = await Earning.findAll({

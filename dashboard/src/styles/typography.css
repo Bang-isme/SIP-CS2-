@@ -1,4 +1,4 @@
-/* Typography Utilities */
+/* Typography Utilities - v2.0 */
 
 body {
     font-family: var(--font-family-sans);
@@ -6,16 +6,20 @@ body {
     background-color: var(--color-bg-body);
     -webkit-font-smoothing: antialiased;
     line-height: 1.5;
+    /* Enable Tabular Nums by default for data tables */
+    font-feature-settings: "tnum" on, "cv05" on;
 }
 
 h1,
 h2,
 h3,
 h4 {
-    color: var(--color-text-main);
+    color: var(--color-primary-900);
+    /* Darker, authoritative */
     font-weight: 600;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
     margin-bottom: var(--space-2);
+    line-height: 1.2;
 }
 
 h1 {
@@ -28,12 +32,15 @@ h2 {
 
 h3 {
     font-size: var(--font-size-base);
+    font-weight: 600;
 }
 
 p {
     color: var(--color-text-secondary);
     margin-bottom: var(--space-4);
 }
+
+/* --- Utilities --- */
 
 .text-sm {
     font-size: var(--font-size-sm);
@@ -43,22 +50,85 @@ p {
     font-size: var(--font-size-xs);
 }
 
+.text-base {
+    font-size: var(--font-size-base);
+}
+
 .text-muted {
     color: var(--color-text-tertiary);
 }
 
+.text-secondary {
+    color: var(--color-text-secondary);
+}
+
+.text-primary {
+    color: var(--color-primary-700);
+}
+
+/* Status Text Colors */
 .text-success {
     color: var(--color-success);
+}
+
+.text-warning {
+    color: var(--color-warning);
 }
 
 .text-danger {
     color: var(--color-danger);
 }
 
-.font-bold {
-    font-weight: 600;
+.text-info {
+    color: var(--color-info);
+}
+
+/* Weights */
+.font-normal {
+    font-weight: 400;
 }
 
 .font-medium {
     font-weight: 500;
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.font-bold {
+    font-weight: 700;
+}
+
+/* Special Data Displays */
+.text-mono {
+    font-family: var(--font-family-mono);
+    font-size: 0.9em;
+    /* Optical adjustment */
+    letter-spacing: -0.5px;
+}
+
+.text-tabular {
+    font-feature-settings: "tnum" 1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Helpers */
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.uppercase {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }

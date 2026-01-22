@@ -1,6 +1,6 @@
 import Alert from "../models/Alert.js";
 import Employee from "../models/Employee.js";
-import { EmployeeBenefit } from "../models/sql/index.js";
+import { EmployeeBenefit, AlertsSummary } from "../models/sql/index.js";
 import { Op } from "sequelize";
 import dashboardCache from "../utils/cache.js";
 
@@ -86,118 +86,163 @@ export const deleteAlert = async (req, res) => {
 };
 
 /**
- * GET /api/alerts/triggered
- * Get all currently triggered alerts based on configured conditions
+ * GET /api/alerts/:type/employees
+ * Get paginated employees for a specific alert type
+ * Query params: page (default 1), limit (default 100), search (optional)
+ * 
+ * READS FROM AlertEmployee TABLE FOR FULL PAGINATION SUPPORT
  */
+export const getAlertEmployees = async (req, res) => {
+    try {
+        const { type } = req.params;
+        const page = parseInt(req.query.page) || 1;
+        const limit = Math.min(parseInt(req.query.limit) || 100, 10000); // Max 10000
+        const search = (req.query.search || '').trim();
+        const offset = (page - 1) * limit;
+
+        // Import AlertEmployee model
+        const { AlertEmployee } = await import("../models/sql/index.js");
+
+        // Build where clause
+        const whereClause = { alert_type: type };
+        if (search) {
+            whereClause[Op.or] = [
+                { name: { [Op.like]: `%${search}%` } },
+                { employee_id: { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        // Get total count
+        const total = await AlertEmployee.count({ where: whereClause });
+
+        if (total === 0) {
+            // Check if summary exists (maybe need to run aggregate)
+            const summary = await AlertsSummary.findOne({
+                where: { alert_type: type },
+                raw: true
+            });
+
+            return res.json({
+                success: true,
+                employees: [],
+                total: 0,
+                fullTotal: summary?.employee_count || 0,
+                page,
+                limit,
+                totalPages: 0,
+                message: summary ? "No matching employees found." : `No data. Run: node scripts/aggregate-dashboard.js`
+            });
+        }
+
+        // Get paginated employees
+        const employees = await AlertEmployee.findAll({
+            where: whereClause,
+            order: [['days_until', 'ASC'], ['name', 'ASC']],
+            offset,
+            limit,
+            raw: true
+        });
+
+        // Transform to expected format
+        const formattedEmployees = employees.map(emp => ({
+            employeeId: emp.employee_id,
+            name: emp.name,
+            daysUntil: emp.days_until,
+            vacationDays: type === 'vacation' ? emp.days_until : undefined,
+            extraData: emp.extra_data
+        }));
+
+        const totalPages = Math.ceil(total / limit);
+
+        res.json({
+            success: true,
+            employees: formattedEmployees,
+            total,
+            page,
+            limit,
+            totalPages
+        });
+
+    } catch (error) {
+        console.error('getAlertEmployees error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
 export const getTriggeredAlerts = async (req, res) => {
     try {
         // Check cache first
-        const cacheParams = { date: new Date().toISOString().split('T')[0] }; // Cache per day
+        const cacheParams = { date: new Date().toISOString().split('T')[0] };
         const cached = dashboardCache.get('alerts', cacheParams);
         if (cached) {
             return res.json({ success: true, data: cached.data, meta: cached.meta, fromCache: true });
         }
 
-        const activeAlerts = await Alert.find({ isActive: true });
-        const triggeredAlerts = [];
-        const today = new Date();
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
+        // Read from pre-aggregated summary table
+        const summaries = await AlertsSummary.findAll({ raw: true });
 
-        for (const alert of activeAlerts) {
-            let matchingEmployees = [];
-
-            switch (alert.type) {
-                case "anniversary":
-                    // Employees within X days of hiring anniversary
-                    const anniversaryThreshold = alert.threshold || 30;
-                    const employees = await Employee.find({ hireDate: { $exists: true } })
-                        .select("hireDate firstName lastName employeeId vacationDays birthDate")
-                        .lean();
-
-                    matchingEmployees = employees.filter((emp) => {
-                        if (!emp.hireDate) return false;
-                        const hireDate = new Date(emp.hireDate);
-                        const anniversaryThisYear = new Date(currentYear, hireDate.getMonth(), hireDate.getDate());
-
-                        // If anniversary already passed this year, check next year
-                        if (anniversaryThisYear < today) {
-                            anniversaryThisYear.setFullYear(currentYear + 1);
-                        }
-
-                        const daysUntil = Math.ceil((anniversaryThisYear - today) / (1000 * 60 * 60 * 24));
-                        return daysUntil >= 0 && daysUntil <= anniversaryThreshold;
-                    });
-                    break;
-
-                case "vacation":
-                    // Employees with more than X accumulated vacation days
-                    const vacationThreshold = alert.threshold || 20;
-                    const empsWithVacation = await Employee.find({ vacationDays: { $gt: vacationThreshold } })
-                        .select("vacationDays firstName lastName employeeId hireDate birthDate")
-                        .lean();
-                    matchingEmployees = empsWithVacation;
-                    break;
-
-                case "benefits_change":
-                    // Employees who made benefits changes recently
-                    const changeThreshold = alert.threshold || 7; // days
-                    const cutoffDate = new Date();
-                    cutoffDate.setDate(cutoffDate.getDate() - changeThreshold);
-
-                    const recentChanges = await EmployeeBenefit.findAll({
-                        where: {
-                            last_change_date: { [Op.gte]: cutoffDate.toISOString().split("T")[0] },
-                        },
-                        raw: true,
-                    });
-
-                    const changedEmployeeIds = [...new Set(recentChanges.map((c) => c.employee_id))];
-                    // Only query by employeeId (string field), not _id (ObjectId)
-                    if (changedEmployeeIds.length > 0) {
-                        matchingEmployees = await Employee.find({
-                            employeeId: { $in: changedEmployeeIds }
-                        })
-                            .select("firstName lastName employeeId hireDate birthDate vacationDays")
-                            .lean();
-                    }
-                    break;
-
-                case "birthday":
-                    // Employees with birthdays in current month
-                    const empsWithBirthday = await Employee.find({ birthDate: { $exists: true } })
-                        .select("birthDate firstName lastName employeeId hireDate vacationDays")
-                        .lean();
-                    matchingEmployees = empsWithBirthday.filter((emp) => {
-                        if (!emp.birthDate) return false;
-                        return new Date(emp.birthDate).getMonth() === currentMonth;
-                    });
-                    break;
-            }
-
-            if (matchingEmployees.length > 0) {
-                triggeredAlerts.push({
-                    alert: {
-                        _id: alert._id,
-                        name: alert.name,
-                        type: alert.type,
-                        threshold: alert.threshold,
-                    },
-                    matchingEmployees: matchingEmployees.map((e) => ({
-                        _id: e._id,
-                        employeeId: e.employeeId,
-                        name: `${e.firstName} ${e.lastName || ""}`.trim(),
-                        hireDate: e.hireDate,
-                        birthDate: e.birthDate,
-                        vacationDays: e.vacationDays,
-                    })),
-                    count: matchingEmployees.length,
+        if (summaries.length === 0) {
+            // No pre-aggregated data - check if alerts exist
+            const alertCount = await Alert.countDocuments({ isActive: true });
+            if (alertCount > 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: "No pre-aggregated alerts data. Run: node scripts/aggregate-dashboard.js"
                 });
             }
+            // No alerts configured
+            return res.json({
+                success: true,
+                data: [],
+                meta: { totalAlerts: 0, triggeredCount: 0 }
+            });
         }
 
+        // Get alert configurations for names
+        const activeAlerts = await Alert.find({ isActive: true }).lean();
+        const alertMap = new Map(activeAlerts.map(a => [a.type, a]));
+
+        // Import AlertEmployee for preview data
+        const { AlertEmployee } = await import("../models/sql/index.js");
+
+        // Transform summaries to expected format - fetch preview employees
+        const triggeredAlerts = await Promise.all(summaries.map(async (row) => {
+            const alertConfig = alertMap.get(row.alert_type);
+
+            // Fetch first 5 employees for preview display on cards
+            const previewEmployees = await AlertEmployee.findAll({
+                where: { alert_type: row.alert_type },
+                order: [['days_until', 'ASC'], ['name', 'ASC']],
+                limit: 5,
+                raw: true
+            });
+
+            // Format preview employees for frontend
+            const matchingEmployees = previewEmployees.map(emp => ({
+                employeeId: emp.employee_id,
+                name: emp.name,
+                daysUntil: emp.days_until,
+                vacationDays: row.alert_type === 'vacation' ? emp.days_until : undefined,
+            }));
+
+            return {
+                alert: {
+                    _id: alertConfig?._id,
+                    name: alertConfig?.name || row.alert_type,
+                    type: row.alert_type,
+                    threshold: row.threshold,
+                },
+                matchingEmployees: matchingEmployees,
+                count: row.employee_count,
+            };
+        }));
+
         // Cache the result
-        const responseData = { data: triggeredAlerts, meta: { totalAlerts: activeAlerts.length, triggeredCount: triggeredAlerts.length } };
+        const responseData = {
+            data: triggeredAlerts,
+            meta: { totalAlerts: activeAlerts.length, triggeredCount: triggeredAlerts.length }
+        };
         dashboardCache.set('alerts', cacheParams, responseData);
 
         res.json({
