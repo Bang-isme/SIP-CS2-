@@ -219,7 +219,7 @@ function Dashboard({ onLogout }) {
                             <h2>Benefits Plan Distribution</h2>
                             <span className="card-subtitle">Analyze cost efficiency</span>
                         </div>
-                        {loadingBenefits ? <SkeletonChart /> : (benefits && <BenefitsChart data={benefits} />)}
+                        {loadingBenefits ? <SkeletonChart /> : (benefits && <BenefitsChart data={benefits} onDrilldown={(f) => handleDrilldown({ ...f, context: 'benefits' })} />)}
                     </div>
 
                     {/* Alerts Panel */}

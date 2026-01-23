@@ -184,7 +184,14 @@ export const getTriggeredAlerts = async (req, res) => {
         }
 
         // Read from pre-aggregated summary table
-        const summaries = await AlertsSummary.findAll({ raw: true });
+        let summaries = await AlertsSummary.findAll({ raw: true });
+
+        // Deduplicate summaries by alert_type (fix for potential duplicate aggregation rows)
+        const summaryMap = new Map();
+        summaries.forEach(row => {
+            summaryMap.set(row.alert_type, row);
+        });
+        summaries = Array.from(summaryMap.values());
 
         if (summaries.length === 0) {
             // No pre-aggregated data - check if alerts exist

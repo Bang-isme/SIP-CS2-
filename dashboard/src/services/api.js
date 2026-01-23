@@ -104,6 +104,11 @@ export const getDrilldown = async (filters) => {
     return response.data;
 };
 
+export const getDepartments = async () => {
+    const response = await api.get('/dashboard/departments');
+    return response.data?.data || [];
+};
+
 // Alerts APIs (SELECT only for Case Study 1)
 export const getTriggeredAlerts = async () => {
     const response = await api.get('/alerts/triggered');

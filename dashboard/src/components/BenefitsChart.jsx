@@ -1,6 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-function BenefitsChart({ data }) {
+function BenefitsChart({ data, onDrilldown }) {
   // Transform data for comparison chart
   const chartData = Object.entries(data.byPlan).map(([name, values]) => ({
     name: name.length > 15 ? name.substring(0, 15) + '...' : name,
@@ -62,8 +62,32 @@ function BenefitsChart({ data }) {
             labelFormatter={(label) => chartData.find(d => d.name === label)?.fullName || label}
           />
           <Legend iconType="circle" />
-          <Bar dataKey="shareholder" name="Shareholders" fill="var(--color-success)" radius={[0, 4, 4, 0]} barSize={20} />
-          <Bar dataKey="nonShareholder" name="Non-Shareholders" fill="var(--color-primary-500)" radius={[0, 4, 4, 0]} barSize={20} />
+          <Bar
+            dataKey="shareholder"
+            name="Shareholders"
+            fill="var(--color-success)"
+            radius={[0, 4, 4, 0]}
+            barSize={20}
+            cursor="pointer"
+            onClick={(data) => {
+              if (onDrilldown && data && data.fullName) {
+                onDrilldown({ benefitPlan: data.fullName, isShareholder: 'true' });
+              }
+            }}
+          />
+          <Bar
+            dataKey="nonShareholder"
+            name="Non-Shareholders"
+            fill="var(--color-primary-500)"
+            radius={[0, 4, 4, 0]}
+            barSize={20}
+            cursor="pointer"
+            onClick={(data) => {
+              if (onDrilldown && data && data.fullName) {
+                onDrilldown({ benefitPlan: data.fullName, isShareholder: 'false' });
+              }
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
 

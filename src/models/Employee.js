@@ -73,8 +73,6 @@ const EmployeeSchema = new mongoose.Schema(
 
 // Index for efficient queries
 EmployeeSchema.index({ departmentId: 1 });
-EmployeeSchema.index({ isShareholder: 1 });
-EmployeeSchema.index({ gender: 1 });
-EmployeeSchema.index({ employmentType: 1 });
+// Removed low-cardinality indexes (gender, employmentType, isShareholder) to save ~100MB Data Size
 
 export default mongoose.model("Employee", EmployeeSchema);

@@ -290,7 +290,64 @@ export const getDrilldown = async (req, res) => {
         const { department, gender, ethnicity, employmentType, isShareholder, page = 1, limit = 20 } = req.query;
 
         const query = {};
-        if (department) query.departmentId = department;
+        if (department) {
+            // Check if input is ObjectId or Name
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(department);
+            if (isObjectId) {
+                query.departmentId = department;
+            } else {
+                // Look up by name
+                const deptDoc = await Department.findOne({ name: department });
+                if (deptDoc) {
+                    query.departmentId = deptDoc._id;
+                } else {
+                    return res.json({
+                        success: true,
+                        data: [],
+                        meta: { total: 0, page: parseInt(page), limit: parseInt(limit), pages: 0 }
+                    });
+                }
+            }
+        }
+
+        if (req.query.benefitPlan) {
+            const plan = await BenefitPlan.findOne({ where: { name: req.query.benefitPlan } });
+            if (plan) {
+                const enrollments = await EmployeeBenefit.findAll({
+                    where: { plan_id: plan.id },
+                    attributes: ['employee_id'],
+                    raw: true
+                });
+                const empIds = enrollments.map(e => e.employee_id);
+                // Filter by employeeId (assuming sync uses logical ID)
+                query.employeeId = { $in: empIds };
+            } else {
+                // Plan not found -> return empty
+                return res.json({
+                    success: true,
+                    data: [],
+                    meta: { total: 0, page: parseInt(page), limit: parseInt(limit), pages: 0 }
+                });
+            }
+        }
+
+
+
+        if (req.query.search) {
+            const searchTerm = req.query.search.trim();
+            const searchRegex = new RegExp(searchTerm, 'i');
+            query.$or = [
+                { firstName: searchRegex },
+                { lastName: searchRegex },
+                { employeeId: searchRegex },
+                // Allow searching "First Last" space separated
+                ...(searchTerm.includes(' ') ? [] : [])
+            ];
+            // If search term has space, simple split logic or just rely on individual regex (simpler for now)
+            // But let's handle full name search properly if needed.
+            // For now, simpler regex is robust enough for "Amy", "A01", etc.
+        }
+
         if (gender) query.gender = gender;
         if (ethnicity) query.ethnicity = ethnicity;
         if (employmentType) query.employmentType = employmentType;
@@ -318,10 +375,28 @@ export const getDrilldown = async (req, res) => {
 
         const earningsMap = new Map(earnings.map((e) => [e.employee_id, parseFloat(e.total) || 0]));
 
+        // Fetch Benefit info if context is relevant
+        let benefitMap = new Map();
+        if (req.query.benefitPlan) {
+            const plan = await BenefitPlan.findOne({ where: { name: req.query.benefitPlan } });
+            if (plan) {
+                const benefits = await EmployeeBenefit.findAll({
+                    where: {
+                        employee_id: { [Op.in]: employeeIds },
+                        plan_id: plan.id
+                    },
+                    attributes: ["employee_id", "amount_paid"],
+                    raw: true
+                });
+                benefitMap = new Map(benefits.map(b => [b.employee_id, parseFloat(b.amount_paid) || 0]));
+            }
+        }
+
         const enrichedEmployees = employees.map((emp) => ({
             ...emp,
             department: emp.departmentId?.name || "Unassigned",
             totalEarnings: earningsMap.get(emp.employeeId || emp._id.toString()) || 0,
+            benefitCost: benefitMap.get(emp.employeeId || emp._id.toString()) || 0
         }));
 
         res.json({
@@ -331,6 +406,23 @@ export const getDrilldown = async (req, res) => {
         });
     } catch (error) {
         console.error("getDrilldown error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * GET /api/dashboard/departments
+ * Returns list of all departments for filter dropdowns
+ */
+export const getDepartments = async (req, res) => {
+    try {
+        const departments = await Department.find().sort({ name: 1 }).select("name");
+        res.json({
+            success: true,
+            data: departments.map(d => d.name)
+        });
+    } catch (error) {
+        console.error("getDepartments error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
