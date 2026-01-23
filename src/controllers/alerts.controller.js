@@ -144,13 +144,17 @@ export const getAlertEmployees = async (req, res) => {
         });
 
         // Transform to expected format
-        const formattedEmployees = employees.map(emp => ({
-            employeeId: emp.employee_id,
-            name: emp.name,
-            daysUntil: emp.days_until,
-            vacationDays: type === 'vacation' ? emp.days_until : undefined,
-            extraData: emp.extra_data
-        }));
+        const formattedEmployees = employees.map(emp => {
+            const isVacation = type === 'vacation';
+            return {
+                employeeId: emp.employee_id,
+                name: emp.name,
+                // Avoid redundant data: send 'daysUntil' only for non-vacation types (Anniversary/Birthday)
+                daysUntil: isVacation ? undefined : emp.days_until,
+                vacationDays: isVacation ? emp.days_until : undefined,
+                extraData: emp.extra_data
+            };
+        });
 
         const totalPages = Math.ceil(total / limit);
 
@@ -219,12 +223,17 @@ export const getTriggeredAlerts = async (req, res) => {
             });
 
             // Format preview employees for frontend
-            const matchingEmployees = previewEmployees.map(emp => ({
-                employeeId: emp.employee_id,
-                name: emp.name,
-                daysUntil: emp.days_until,
-                vacationDays: row.alert_type === 'vacation' ? emp.days_until : undefined,
-            }));
+            const matchingEmployees = previewEmployees.map(emp => {
+                const isVacation = row.alert_type === 'vacation';
+                return {
+                    employeeId: emp.employee_id,
+                    name: emp.name,
+                    // Only send daysUntil if NOT vacation (generic date alerts)
+                    daysUntil: isVacation ? undefined : emp.days_until,
+                    // Only send vacationDays if IS vacation
+                    vacationDays: isVacation ? emp.days_until : undefined,
+                };
+            });
 
             return {
                 alert: {

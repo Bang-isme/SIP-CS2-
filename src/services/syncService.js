@@ -1,182 +1,107 @@
 /**
- * Sync Service - Case Study 3: Data Consistency
+ * Sync Service (Refactored for Case Study 4)
  * 
- * Handles synchronization between HR (MongoDB) and Payroll (MySQL) systems.
- * Implements Eventual Consistency pattern with retry mechanism.
+ * Now uses the ServiceRegistry to broadcast sync operations to all active adapters.
+ * The service doesn't know about specific integrations - it just calls the registry.
+ * 
+ * BACKWARDS COMPATIBLE: Keeps the old export name `syncEmployeeToPayroll` for existing callers.
  */
 
-import { SyncLog, Earning, PayRate } from "../models/sql/index.js";
+import serviceRegistry from '../registry/ServiceRegistry.js';
+import { SyncLog } from "../models/sql/index.js";
 import logger from "../utils/logger.js";
 
-const MAX_RETRIES = 3;
-
 /**
- * Sync employee data to Payroll system (MySQL)
- * Called after successful MongoDB operation
- * 
- * @param {string} employeeId - The employee's ID
- * @param {string} action - CREATE, UPDATE, or DELETE
- * @param {object} employeeData - Employee data to sync
- * @returns {object} - Sync result with status
+ * Sync employee data to all registered external systems.
+ * @param {string} employeeId - Employee ID.
+ * @param {string} action - 'CREATE' | 'UPDATE' | 'DELETE'.
+ * @param {Object} employeeData - Employee data from MongoDB.
+ * @returns {Promise<Object>} Aggregated result from all adapters.
  */
-export const syncEmployeeToPayroll = async (employeeId, action, employeeData = {}) => {
-    // Create sync log entry
-    const syncLog = await SyncLog.create({
-        entity_type: "employee",
-        entity_id: employeeId,
-        action: action,
-        status: "PENDING",
-    });
+export async function syncEmployeeToPayroll(employeeId, action, employeeData = {}) {
+    const integrations = serviceRegistry.getIntegrations();
 
-    try {
-        switch (action) {
-            case "CREATE":
-                // Initialize employee in Payroll system
-                // Note: Actual earnings/benefits would be added separately
-                // This ensures the employee exists in the system
-                await ensurePayrollRecordExists(employeeId, employeeData);
-                break;
-
-            case "UPDATE":
-                // Update would sync changed fields if applicable
-                await updatePayrollRecord(employeeId, employeeData);
-                break;
-
-            case "DELETE":
-                // Soft delete or cascade in Payroll
-                await removePayrollRecord(employeeId);
-                break;
-
-            default:
-                throw new Error(`Unknown action: ${action}`);
-        }
-
-        // Mark as success
-        await syncLog.update({
-            status: "SUCCESS",
-            completed_at: new Date(),
-        });
-
-        return { success: true, syncLogId: syncLog.id };
-
-    } catch (error) {
-        // Mark as failed
-        await syncLog.update({
-            status: "FAILED",
-            error_message: error.message,
-            retry_count: syncLog.retry_count + 1,
-        });
-
-        logger.error('SyncService', `Failed to sync employee ${employeeId}`, error);
-
-        return { success: false, error: error.message, syncLogId: syncLog.id };
-    }
-};
-
-/**
- * Ensure employee exists in Payroll system
- */
-const ensurePayrollRecordExists = async (employeeId, data) => {
-    // Check if employee has any payroll records
-    const existingEarning = await Earning.findOne({
-        where: { employee_id: employeeId }
-    });
-
-    if (!existingEarning) {
-        // Create an initial placeholder record to register employee in Payroll
-        // In a real system, this might create a PayRate entry or similar
-        const payRateId = data.payRateId || 1; // Default pay rate
-
-        const existingPayRate = await PayRate.findOne({
-            where: { employee_id: employeeId }
-        });
-
-        if (!existingPayRate) {
-            await PayRate.create({
-                employee_id: employeeId,
-                pay_rate: data.payRate || 0,
-                pay_rate_id: payRateId,
-            });
-        }
+    if (integrations.length === 0) {
+        logger.warn('[SyncService]', 'No active integrations found.');
+        return { success: true, message: 'No integrations configured', results: [] };
     }
 
-    logger.info('SyncService', `Employee ${employeeId} synced to Payroll (CREATE)`);
-};
+    logger.info('[SyncService]', `Broadcasting ${action} to ${integrations.length} integration(s)...`);
+
+    // Prepare data object for adapters
+    const dataForSync = {
+        employeeId,
+        ...employeeData,
+    };
+
+    const results = await Promise.allSettled(
+        integrations.map(adapter => adapter.sync(dataForSync, action))
+    );
+
+    const aggregatedResults = results.map((result, index) => ({
+        adapter: integrations[index].name,
+        status: result.status,
+        value: result.status === 'fulfilled' ? result.value : null,
+        error: result.status === 'rejected' ? result.reason?.message : null,
+    }));
+
+    // Check if all succeeded
+    const allSucceeded = aggregatedResults.every(r => r.status === 'fulfilled' && r.value?.success);
+
+    return {
+        success: allSucceeded,
+        message: allSucceeded ? 'All integrations synced' : 'Some integrations failed',
+        results: aggregatedResults,
+    };
+}
 
 /**
- * Update employee payroll record
+ * Sync employee data to all systems (alias for syncEmployeeToPayroll).
  */
-const updatePayrollRecord = async (employeeId, data) => {
-    if (data.payRate !== undefined) {
-        await PayRate.update(
-            { pay_rate: data.payRate },
-            { where: { employee_id: employeeId } }
-        );
-    }
-
-    logger.info('SyncService', `Employee ${employeeId} synced to Payroll (UPDATE)`);
-};
+export const syncEmployeeToAll = syncEmployeeToPayroll;
 
 /**
- * Remove employee from Payroll (soft delete approach)
+ * Initialize sync service (calls registry initialization).
  */
-const removePayrollRecord = async (employeeId) => {
-    // In a real system, you might soft-delete or archive
-    // For now, we'll log this action but not actually delete payroll history
-    logger.info('SyncService', `Employee ${employeeId} marked for removal in Payroll (DELETE)`);
-
-    // Note: We don't delete earnings/vacation records - they're historical data
-    // Only mark the employee as inactive if needed
-};
+export async function initSyncService() {
+    await serviceRegistry.initialize();
+}
 
 /**
- * Retry failed sync operations (called by cron job or manually)
- * @returns {object} - Results of retry attempts
+ * Check health of all integrations.
+ */
+export async function checkIntegrationHealth() {
+    return serviceRegistry.healthCheckAll();
+}
+
+/**
+ * Retry failed sync operations (kept for backwards compatibility).
+ * TODO: Could iterate through adapters that support retry.
  */
 export const retryFailedSyncs = async () => {
     const failedLogs = await SyncLog.findAll({
         where: {
             status: "FAILED",
-            retry_count: { $lt: MAX_RETRIES }
         },
         order: [["createdAt", "ASC"]],
         limit: 100,
     });
 
-    const results = {
+    logger.info('[SyncService]', `Found ${failedLogs.length} failed syncs to retry.`);
+
+    // In adapter-based architecture, retries would re-broadcast to all adapters
+    // This is a simplified implementation
+    return {
         total: failedLogs.length,
         retried: 0,
         succeeded: 0,
         failed: 0,
+        message: 'Retry functionality pending adapter-level implementation',
     };
-
-    for (const log of failedLogs) {
-        results.retried++;
-
-        try {
-            // Re-attempt the sync
-            const syncResult = await syncEmployeeToPayroll(
-                log.entity_id,
-                log.action,
-                {} // Would need to fetch current data
-            );
-
-            if (syncResult.success) {
-                results.succeeded++;
-            } else {
-                results.failed++;
-            }
-        } catch (error) {
-            results.failed++;
-            logger.error('SyncService', `Retry failed for ${log.entity_id}`, error);
-        }
-    }
-
-    return results;
 };
 
 /**
- * Get sync status for an entity
+ * Get sync status for an entity (kept for backwards compatibility).
  */
 export const getSyncStatus = async (entityType, entityId) => {
     const log = await SyncLog.findOne({
@@ -186,12 +111,14 @@ export const getSyncStatus = async (entityType, entityId) => {
         },
         order: [["createdAt", "DESC"]],
     });
-
     return log;
 };
 
 export default {
     syncEmployeeToPayroll,
+    syncEmployeeToAll,
+    initSyncService,
+    checkIntegrationHealth,
     retryFailedSyncs,
     getSyncStatus,
 };

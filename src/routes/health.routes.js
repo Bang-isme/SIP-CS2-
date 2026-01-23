@@ -1,6 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import sequelize from "../mysqlDatabase.js";
+import { checkIntegrationHealth } from "../services/syncService.js";
 
 const router = Router();
 
@@ -41,6 +42,25 @@ router.get("/", async (req, res) => {
 
     const statusCode = allHealthy ? 200 : 503;
     res.status(statusCode).json(health);
+});
+
+/**
+ * GET /api/health/integrations
+ * Case Study 4: Check health of all integration adapters
+ */
+router.get("/integrations", async (req, res) => {
+    try {
+        const integrationHealth = await checkIntegrationHealth();
+        const allHealthy = integrationHealth.every(i => i.healthy);
+
+        res.json({
+            status: allHealthy ? "healthy" : "degraded",
+            timestamp: new Date().toISOString(),
+            integrations: integrationHealth
+        });
+    } catch (error) {
+        res.status(500).json({ status: "error", message: error.message });
+    }
 });
 
 /**

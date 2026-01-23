@@ -148,7 +148,7 @@ function AlertsPanel({ alerts }) {
                     {emp.vacationDays !== undefined && (
                       <span className="emp-tag vacation">{emp.vacationDays} d</span>
                     )}
-                    {emp.daysUntil !== undefined && (
+                    {emp.daysUntil !== undefined && alert.alert.type !== 'vacation' && (
                       <span className="emp-tag date">{emp.daysUntil} d</span>
                     )}
                     {(alert.alert.type === 'anniversary' || alert.alert.type === 'birthday') && emp.daysUntil === undefined && (
