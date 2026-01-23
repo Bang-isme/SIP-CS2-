@@ -10,6 +10,7 @@ import VacationSummary from "./VacationSummary.js";
 import BenefitsSummary from "./BenefitsSummary.js";
 import AlertsSummary from "./AlertsSummary.js";
 import AlertEmployee from "./AlertEmployee.js";
+import SyncLog from "./SyncLog.js";
 
 export {
     sequelize,
@@ -23,4 +24,5 @@ export {
     BenefitsSummary,
     AlertsSummary,
     AlertEmployee,
+    SyncLog,
 };

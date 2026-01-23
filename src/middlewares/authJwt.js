@@ -13,13 +13,13 @@ export const verifyToken = async (req, res, next) => {
     req.userId = decoded.id;
 
     const user = await User.findById(req.userId, { password: 0 });
-    
+
     let orgTokens = user.tokens.filter(t => t.token === token);
-    if(orgTokens.length == 0){
+    if (orgTokens.length == 0) {
       return res.status(401).json({ message: "Token is died" });
     }
     if (!user) return res.status(404).json({ message: "No user found" });
-    
+
     next();
   } catch (error) {
     return res.status(401).json({ message: "Unauthorized!" });

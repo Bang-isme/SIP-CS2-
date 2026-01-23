@@ -13,20 +13,66 @@ const api = axios.create({
 // Add token to requests
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
+
+    // Debug logging for development
+    if (process.env.NODE_ENV !== 'production' && !token) {
+        console.warn('[API] No token found in localStorage');
+    }
+
     if (token) {
         config.headers['x-access-token'] = token;
     }
     return config;
+}, (error) => {
+    return Promise.reject(error);
 });
+
+// Response interceptor for debugging
+api.interceptors.response.use(
+    response => response,
+    error => {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+            console.error('[API] Auth Error:', error.response.data?.message);
+            // Optional: Auto-logout on 401
+            // localStorage.removeItem('token');
+            // window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
 
 // Auth
 export const login = async (email, password) => {
-    const response = await api.post('/auth/signin', { email, password });
-    // Backend returns { success, data, token } - token is at root level
-    if (response.data?.token) {
-        localStorage.setItem('token', response.data.token);
+    try {
+        const response = await api.post('/auth/signin', { email, password });
+        console.log('[API] Login response:', response.data);
+
+        // Backend returns { success, data, token } or just { token, ... }
+        // Handle both possible structures
+        const token = response.data?.token || response.data?.data?.token;
+
+        if (token) {
+            console.log('[API] Token saved to localStorage');
+            localStorage.setItem('token', token);
+        } else {
+            console.error('[API] No token in response!', response.data);
+        }
+
+        return response.data;
+    } catch (error) {
+        console.error('[API] Login failed:', error);
+        throw error;
     }
-    return response.data;
+};
+
+export const register = async (username, email, password) => {
+    try {
+        const response = await api.post('/auth/signup', { username, email, password });
+        return response.data;
+    } catch (error) {
+        console.error('[API] Registration failed:', error);
+        throw error;
+    }
 };
 
 export const logout = () => {

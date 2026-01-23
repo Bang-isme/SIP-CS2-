@@ -11,12 +11,15 @@ import authRoutes from "./routes/auth.routes.js";
 import employeeRoutes from "./routes/employee.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import alertsRoutes from "./routes/alerts.routes.js";
+import syncRoutes from "./routes/sync.routes.js";
+import healthRoutes from "./routes/health.routes.js";
 
 const app = express();
 
 // Settings
 app.set("port", process.env.PORT || 4000);
 app.set("json spaces", 4);
+app.set("etag", false); // Disable 304 responses for easier debugging
 
 // Middlewares
 app.use(
@@ -38,6 +41,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/employee", employeeRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/alerts", alertsRoutes);
+app.use("/api/sync", syncRoutes);
+app.use("/api/health", healthRoutes);
 
 export default app;
+
 
