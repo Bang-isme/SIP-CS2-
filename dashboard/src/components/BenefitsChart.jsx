@@ -116,8 +116,9 @@ function BenefitsChart({ data, onDrilldown }) {
           display: block;
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
+          color: var(--color-text-secondary);
           margin-bottom: var(--space-1);
-          text-transform: uppercase;
+          /* text-transform: uppercase; */
           font-weight: 600;
         }
         .summary-value {
@@ -137,8 +138,9 @@ function BenefitsChart({ data, onDrilldown }) {
         .benefits-container h4 {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
+          color: var(--color-text-secondary);
           margin: 0;
-          text-transform: uppercase;
+          /* text-transform: uppercase; */
           font-weight: 600;
         }
       `}</style>

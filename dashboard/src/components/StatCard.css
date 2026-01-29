@@ -37,7 +37,7 @@
     font-size: var(--font-size-xs);
     font-weight: 600;
     color: var(--color-text-secondary);
-    text-transform: uppercase;
+    /* text-transform: uppercase; Removed for Title Case */
     letter-spacing: 0.05em;
     margin: 0;
 }

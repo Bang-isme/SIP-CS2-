@@ -61,7 +61,7 @@ function EarningsChart({ data, onDrilldown }) {
             labelFormatter={(label) => chartData.find(d => d.name === label)?.fullName || label}
           />
           <Legend iconType="circle" />
-          <Bar dataKey="current" name="Current Year" fill="var(--color-primary-600)" radius={[4, 4, 0, 0]} maxBarSize={50} />
+          <Bar dataKey="current" name="Current Year" fill="var(--color-primary-600)" radius={[4, 4, 0, 0]} maxBarSize={50} cursor="pointer" />
           <Bar dataKey="previous" name="Previous Year" fill="var(--color-text-tertiary)" radius={[4, 4, 0, 0]} maxBarSize={50} />
         </BarChart>
       </ResponsiveContainer>
@@ -110,7 +110,7 @@ function EarningsChart({ data, onDrilldown }) {
         .stat-label {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          text-transform: uppercase;
+          /* text-transform: uppercase; */
           letter-spacing: 0.05em;
           font-weight: 600;
         }
@@ -123,7 +123,7 @@ function EarningsChart({ data, onDrilldown }) {
         .chart-breakdown h4 {
           font-size: var(--font-size-xs);
           color: var(--color-text-secondary);
-          text-transform: uppercase;
+          /* text-transform: uppercase; */
           margin-bottom: var(--space-2);
         }
         .breakdown-grid {

@@ -35,13 +35,15 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   // Advanced Filters State
   const [deptFilter, setDeptFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [minValue, setMinValue] = useState(''); // New "Smart Filter" (UI Prep)
 
   // Combine all filters
   const activeFilters = useMemo(() => ({
     ...initialFilters,
     department: deptFilter || undefined,
-    employmentType: typeFilter || undefined
-  }), [initialFilters, deptFilter, typeFilter]);
+    employmentType: typeFilter || undefined,
+    minValue: minValue || undefined
+  }), [initialFilters, deptFilter, typeFilter, minValue]);
 
   useEffect(() => {
     loadData();
@@ -96,7 +98,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
             <span className="search-icon">🔍</span>
             <input
               type="text"
-              placeholder="Search by name or ID (Server-side)..."
+              placeholder="Search ID or Name..."
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
               className="search-input"
@@ -133,6 +135,16 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
                 Part-time
               </button>
             </div>
+          </div>
+
+          <div className="min-value-group">
+            <input
+              type="number"
+              placeholder="Min Value..."
+              className="min-value-input"
+              value={minValue}
+              onChange={(e) => { setMinValue(e.target.value); setPage(1); }}
+            />
           </div>
         </div>
 
@@ -192,7 +204,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
                         <span className={`status-badge ${emp.employmentType === 'Full-time' ? 'success' : 'warning'}`}>
                           {emp.employmentType}
                         </span>
-                        {emp.isShareholder && <span className="shareholder-tag">✓ Shareholder</span>}
+                        {emp.isShareholder && <span className="shareholder-tag">Shareholder</span>}
                       </td>
                       <td className="text-right font-mono">
                         {activeFilters.context === 'vacation' ? (
@@ -255,6 +267,13 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
           display: flex; align-items: center; justify-content: center; z-index: 1000;
           animation: fadeIn 0.2s ease-out;
         }
+        /* ... existing styles ... */
+        .min-value-input {
+            width: 100px; padding: 8px 12px; border: 1px solid var(--border);
+            border-radius: var(--radius); outline: none; font-size: 0.9rem;
+        }
+        .min-value-input:focus { border-color: var(--primary); }
+        /* ... */
         .modal-content {
           background: var(--bg-card); border-radius: var(--radius-xl); width: 95%; max-width: 1100px;
           height: 85vh; display: flex; flex-direction: column; overflow: hidden;
@@ -346,8 +365,10 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
         .status-badge.warning { background: var(--warning-bg); color: var(--warning); }
         
         .shareholder-tag { 
-          margin-left: 8px; font-size: 0.75rem; color: #8B5CF6; background: #F5F3FF; 
-          padding: 2px 6px; border-radius: 4px; border: 1px solid #EDE9FE;
+          margin-left: 8px; font-size: 0.75rem; 
+          color: var(--primary); background: var(--primary-subtle); 
+          padding: 2px 6px; border-radius: 4px; border: 1px solid var(--primary-subtle);
+          font-weight: 500;
         }
 
         .text-right { text-align: right; }
@@ -390,7 +411,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-    </div>
+    </div >
   );
 }
 

@@ -22,8 +22,8 @@ function AlertsPanel({ alerts }) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const alertConfig = {
-    anniversary: { icon: '🎂', color: '#f59e0b', bg: '#fffbeb', label: 'Hiring Anniversary' },
-    vacation: { icon: '🏖️', color: '#3b82f6', bg: '#eff6ff', label: 'High Vacation Balance' },
+    anniversary: { icon: '🎂', color: '#f59e0b', bg: '#fffbeb', label: 'Anniversaries' },
+    vacation: { icon: '🏖️', color: '#ef4444', bg: '#fef2f2', label: 'High Vacation Balance' }, // Red for urgency
     benefits_change: { icon: '📋', color: '#10b981', bg: '#ecfdf5', label: 'Benefits Update' },
     birthday: { icon: '🎉', color: '#ec4899', bg: '#fdf2f8', label: 'Birthday Alert' },
   };

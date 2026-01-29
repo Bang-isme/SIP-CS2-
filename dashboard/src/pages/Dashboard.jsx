@@ -108,14 +108,17 @@ function Dashboard({ onLogout }) {
         const empCount = benefits ? (benefits.byShareholder.shareholder.count + benefits.byShareholder.nonShareholder.count) : 1;
         const totalBenefits = benefits ? (benefits.byShareholder.shareholder.totalPaid + benefits.byShareholder.nonShareholder.totalPaid) : 0;
         const avgBenefits = empCount ? totalBenefits / empCount : 0;
+        // Benefits context logic: Hide subtext if we can't calculate meaningful delta or reference
+        const benefitsSubtext = "Per Employee / Year";
+        const benefitsTrend = "neutral";
 
-        // 4. Alerts
-        const activeAlerts = alerts ? alerts.length : 0;
+        // 4. Alerts (Sum of actual impact)
+        const activeAlerts = alerts ? alerts.reduce((acc, curr) => acc + curr.count, 0) : 0;
 
         return {
             earnings: { val: totalEarnings, trend: earningsTrend },
             vacation: { val: totalVacation, trend: vacationTrend },
-            benefits: { val: avgBenefits, count: empCount },
+            benefits: { val: avgBenefits, subtext: benefitsSubtext, trend: benefitsTrend },
             alerts: { val: activeAlerts }
         };
     }, [earnings, vacation, benefits, alerts]);
@@ -178,8 +181,8 @@ function Dashboard({ onLogout }) {
                         title="Avg Benefits Cost"
                         value={formatMoney(stats.benefits.val)}
                         icon="❤️"
-                        subtext="Per Employee / Year"
-                        trend="neutral"
+                        subtext={stats.benefits.subtext}
+                        trend={stats.benefits.trend}
                         loading={loadingBenefits}
                     />
                     <StatCard

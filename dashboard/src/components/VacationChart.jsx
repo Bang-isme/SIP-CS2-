@@ -51,7 +51,8 @@ function VacationChart({ data, onDrilldown }) {
                                             key={`cell-${index}`}
                                             fill={entry.fill}
                                             stroke="none"
-                                            style={{ outline: 'none' }}
+                                            style={{ outline: 'none', cursor: 'pointer' }}
+                                            onClick={() => onDrilldown?.({ isShareholder: entry.name === 'Shareholders' ? 'true' : 'false' })}
                                         />
                                     ))}
                                 </Pie>
@@ -142,7 +143,7 @@ function VacationChart({ data, onDrilldown }) {
             font-weight: 700;
             letter-spacing: 0.05em;
             margin-bottom: var(--space-4);
-            text-transform: uppercase;
+            /* text-transform: uppercase; */
         }
 
         /* Donut Chart */
