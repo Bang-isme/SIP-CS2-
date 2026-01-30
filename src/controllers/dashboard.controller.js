@@ -392,17 +392,30 @@ export const getDrilldown = async (req, res) => {
             }
         }
 
-        const enrichedEmployees = employees.map((emp) => ({
+        let enrichedEmployees = employees.map((emp) => ({
             ...emp,
             department: emp.departmentId?.name || "Unassigned",
             totalEarnings: earningsMap.get(emp.employeeId || emp._id.toString()) || 0,
             benefitCost: benefitMap.get(emp.employeeId || emp._id.toString()) || 0
         }));
 
+        // CEO Query: "Employees earning over $X" - Client-side filter after enrichment
+        // (Server-side pre-filter would require restructuring pagination; this is acceptable for demo)
+        const minEarnings = parseFloat(req.query.minEarnings);
+        if (minEarnings && !isNaN(minEarnings)) {
+            enrichedEmployees = enrichedEmployees.filter(emp => emp.totalEarnings >= minEarnings);
+        }
+
         res.json({
             success: true,
             data: enrichedEmployees,
-            meta: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / limit) },
+            meta: {
+                total: minEarnings && !isNaN(minEarnings) ? enrichedEmployees.length : total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: Math.ceil((minEarnings && !isNaN(minEarnings) ? enrichedEmployees.length : total) / limit),
+                minEarningsApplied: minEarnings || null
+            },
         });
     } catch (error) {
         console.error("getDrilldown error:", error);

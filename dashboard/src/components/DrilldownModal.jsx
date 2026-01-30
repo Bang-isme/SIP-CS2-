@@ -35,15 +35,15 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   // Advanced Filters State
   const [deptFilter, setDeptFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [minValue, setMinValue] = useState(''); // New "Smart Filter" (UI Prep)
+  const [minEarnings, setMinEarnings] = useState(''); // CEO Query: "Employees earning over $X"
 
   // Combine all filters
   const activeFilters = useMemo(() => ({
     ...initialFilters,
     department: deptFilter || undefined,
     employmentType: typeFilter || undefined,
-    minValue: minValue || undefined
-  }), [initialFilters, deptFilter, typeFilter, minValue]);
+    minEarnings: minEarnings || undefined
+  }), [initialFilters, deptFilter, typeFilter, minEarnings]);
 
   useEffect(() => {
     loadData();
@@ -137,13 +137,15 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
             </div>
           </div>
 
-          <div className="min-value-group">
+          {/* CEO Query Filter: Employees earning over $X */}
+          <div className="earnings-filter-group">
+            <span className="filter-label">Min Earnings $</span>
             <input
               type="number"
-              placeholder="Min Value..."
-              className="min-value-input"
-              value={minValue}
-              onChange={(e) => { setMinValue(e.target.value); setPage(1); }}
+              placeholder="e.g. 50000"
+              className="earnings-input"
+              value={minEarnings}
+              onChange={(e) => { setMinEarnings(e.target.value); setPage(1); }}
             />
           </div>
         </div>
@@ -267,13 +269,35 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
           display: flex; align-items: center; justify-content: center; z-index: 1000;
           animation: fadeIn 0.2s ease-out;
         }
-        /* ... existing styles ... */
-        .min-value-input {
-            width: 100px; padding: 8px 12px; border: 1px solid var(--border);
-            border-radius: var(--radius); outline: none; font-size: 0.9rem;
+        /* Earnings Filter (CEO Query) */
+        .earnings-filter-group {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: var(--bg-subtle);
+          padding: 6px 12px;
+          border-radius: var(--radius);
+          border: 1px solid var(--border);
         }
-        .min-value-input:focus { border-color: var(--primary); }
-        /* ... */
+        .filter-label {
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text-secondary);
+          white-space: nowrap;
+        }
+        .earnings-input {
+          width: 100px;
+          padding: 6px 10px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          outline: none;
+          font-size: 0.85rem;
+          background: var(--bg-card);
+        }
+        .earnings-input:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+        }
         .modal-content {
           background: var(--bg-card); border-radius: var(--radius-xl); width: 95%; max-width: 1100px;
           height: 85vh; display: flex; flex-direction: column; overflow: hidden;

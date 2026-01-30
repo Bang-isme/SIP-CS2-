@@ -232,6 +232,7 @@ export const getTriggeredAlerts = async (req, res) => {
             // Format preview employees for frontend
             const matchingEmployees = previewEmployees.map(emp => {
                 const isVacation = row.alert_type === 'vacation';
+                const isBenefits = row.alert_type === 'benefits_change';
                 return {
                     employeeId: emp.employee_id,
                     name: emp.name,
@@ -239,6 +240,8 @@ export const getTriggeredAlerts = async (req, res) => {
                     daysUntil: isVacation ? undefined : emp.days_until,
                     // Only send vacationDays if IS vacation
                     vacationDays: isVacation ? emp.days_until : undefined,
+                    // Send extraData for benefits_change
+                    extraData: isBenefits ? emp.extra_data : undefined,
                 };
             });
 

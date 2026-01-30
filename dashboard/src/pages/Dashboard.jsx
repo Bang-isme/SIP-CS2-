@@ -112,14 +112,15 @@ function Dashboard({ onLogout }) {
         const benefitsSubtext = "Per Employee / Year";
         const benefitsTrend = "neutral";
 
-        // 4. Alerts (Sum of actual impact)
-        const activeAlerts = alerts ? alerts.reduce((acc, curr) => acc + curr.count, 0) : 0;
+        // 4. Alerts - Separate category count from total affected
+        const alertCategories = alerts ? alerts.filter(a => a.count > 0).length : 0;
+        const totalAffected = alerts ? alerts.reduce((acc, curr) => acc + curr.count, 0) : 0;
 
         return {
             earnings: { val: totalEarnings, trend: earningsTrend },
             vacation: { val: totalVacation, trend: vacationTrend },
             benefits: { val: avgBenefits, subtext: benefitsSubtext, trend: benefitsTrend },
-            alerts: { val: activeAlerts }
+            alerts: { categories: alertCategories, affected: totalAffected }
         };
     }, [earnings, vacation, benefits, alerts]);
 
@@ -187,10 +188,10 @@ function Dashboard({ onLogout }) {
                     />
                     <StatCard
                         title="Action Items"
-                        value={stats.alerts.val}
+                        value={`${stats.alerts.categories} Alerts`}
                         icon="🔔"
-                        subtext="Requires Immediate Attention"
-                        trend={stats.alerts.val > 0 ? 'down' : 'up'} // Alerts are bad
+                        subtext={`${formatNum(stats.alerts.affected)} employees affected`}
+                        trend={stats.alerts.categories > 0 ? 'down' : 'up'}
                         loading={loadingAlerts}
                     />
                 </section>

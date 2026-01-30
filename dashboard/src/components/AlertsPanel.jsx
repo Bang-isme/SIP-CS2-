@@ -22,10 +22,10 @@ function AlertsPanel({ alerts }) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const alertConfig = {
-    anniversary: { icon: '🎂', color: '#f59e0b', bg: '#fffbeb', label: 'Anniversaries' },
-    vacation: { icon: '🏖️', color: '#ef4444', bg: '#fef2f2', label: 'High Vacation Balance' }, // Red for urgency
-    benefits_change: { icon: '📋', color: '#10b981', bg: '#ecfdf5', label: 'Benefits Update' },
-    birthday: { icon: '🎉', color: '#ec4899', bg: '#fdf2f8', label: 'Birthday Alert' },
+    anniversary: { icon: '🎂', color: '#f59e0b', bg: '#fffbeb', label: 'Anniversaries', priority: 'info', badge: '🟢' },
+    vacation: { icon: '🏖️', color: '#ef4444', bg: '#fef2f2', label: 'High Vacation Balance', priority: 'critical', badge: '🔴' },
+    benefits_change: { icon: '📋', color: '#10b981', bg: '#ecfdf5', label: 'Benefits Update', priority: 'warning', badge: '🟡' },
+    birthday: { icon: '🎉', color: '#ec4899', bg: '#fdf2f8', label: 'Birthday Alert', priority: 'info', badge: '🟢' },
   };
 
   // Debounce search input
@@ -132,6 +132,7 @@ function AlertsPanel({ alerts }) {
                 <div className="alert-title-wrap">
                   <span className="alert-icon">{config.icon}</span>
                   <span className="alert-name">{config.label || alert.alert.name}</span>
+                  <span className="priority-badge" title={config.priority}>{config.badge}</span>
                 </div>
                 <span className="alert-badge">{alert.count}</span>
               </div>
@@ -148,11 +149,15 @@ function AlertsPanel({ alerts }) {
                     {emp.vacationDays !== undefined && (
                       <span className="emp-tag vacation">{emp.vacationDays} d</span>
                     )}
-                    {emp.daysUntil !== undefined && alert.alert.type !== 'vacation' && (
+                    {emp.daysUntil !== undefined && alert.alert.type !== 'vacation' && alert.alert.type !== 'benefits_change' && (
                       <span className="emp-tag date">{emp.daysUntil} d</span>
                     )}
                     {(alert.alert.type === 'anniversary' || alert.alert.type === 'birthday') && emp.daysUntil === undefined && (
                       <span className="emp-tag date">Soon</span>
+                    )}
+                    {/* Benefits change: show extra_data instead of days */}
+                    {alert.alert.type === 'benefits_change' && emp.extraData && (
+                      <span className="emp-tag benefits">{emp.extraData}</span>
                     )}
                   </div>
                 ))}
