@@ -32,9 +32,12 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     return () => clearTimeout(timer);
   }, [localSearch]);
 
-  // Advanced Filters State
-  const [deptFilter, setDeptFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  // Advanced Filters State - Initialize from props to preserve chart clicks
+  const [deptFilter, setDeptFilter] = useState(initialFilters?.department || '');
+  const [typeFilter, setTypeFilter] = useState(initialFilters?.employmentType || '');
+  const [genderFilter, setGenderFilter] = useState(initialFilters?.gender || '');
+  const [ethnicityFilter, setEthnicityFilter] = useState(initialFilters?.ethnicity || '');
+  const [shareholderFilter, setShareholderFilter] = useState(initialFilters?.isShareholder !== undefined ? String(initialFilters.isShareholder) : '');
   const [minEarnings, setMinEarnings] = useState(''); // CEO Query: "Employees earning over $X"
 
   // Combine all filters
@@ -42,8 +45,11 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     ...initialFilters,
     department: deptFilter || undefined,
     employmentType: typeFilter || undefined,
+    gender: genderFilter || undefined,
+    ethnicity: ethnicityFilter || undefined,
+    isShareholder: shareholderFilter || undefined,
     minEarnings: minEarnings || undefined
-  }), [initialFilters, deptFilter, typeFilter, minEarnings]);
+  }), [initialFilters, deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, minEarnings]);
 
   useEffect(() => {
     loadData();
@@ -72,13 +78,67 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   // Data to display (already filtered by backend)
   const displayData = data?.data || [];
 
-  // Removed client-side filtering logic
-
-
   const totalPages = data?.meta?.pages || 1;
   const totalRecords = data?.meta?.total || 0;
 
+  // Handle Export CSV
+  const [exporting, setExporting] = useState(false);
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Fetch all records for current filter (up to 10k)
+      const response = await getDrilldown({
+        ...activeFilters,
+        page: 1,
+        limit: 10000,
+        search: debouncedSearch
+      });
+
+      const records = response.data || [];
+      if (records.length === 0) {
+        alert("No records to export");
+        return;
+      }
+
+      // Define CSV headers
+      const headers = ["EmployeeID", "Name", "Department", "Gender", "Ethnicity", "Type", "Shareholder", activeFilters.context === 'vacation' ? "VacationDays" : "TotalEarnings"];
+
+      // Convert to CSV rows
+      const rows = records.map(emp => [
+        emp.employeeId,
+        `"${emp.firstName} ${emp.lastName || ''}"`,
+        `"${emp.departmentId?.name || 'Unassigned'}"`,
+        emp.gender,
+        emp.ethnicity,
+        emp.employmentType,
+        emp.isShareholder ? "Yes" : "No",
+        activeFilters.context === 'vacation' ? emp.vacationDays : emp.totalEarnings
+      ]);
+
+      const csvContent = [
+        headers.join(","),
+        ...rows.map(r => r.join(","))
+      ].join("\n");
+
+      // Trigger Download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `ajax_export_${activeFilters.context}_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+    } catch (err) {
+      console.error("Export failed", err);
+      alert("Failed to export data");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -89,7 +149,33 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
             <h2>Employee Details</h2>
             <p className="subtitle">View and filter employee records</p>
           </div>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              className="export-btn"
+              onClick={handleExport}
+              disabled={exporting}
+              style={{
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                cursor: exporting ? 'wait' : 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {exporting ? 'Exporting...' : (
+                <>
+                  <span>📥</span> Export CSV
+                </>
+              )}
+            </button>
+            <button className="close-btn" onClick={onClose}>×</button>
+          </div>
         </div>
 
         {/* Filter Bar */}
@@ -105,35 +191,62 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
             />
           </div>
 
-          <div className="filter-group">
-            <select
-              value={deptFilter}
-              onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
-              className={`filter-select ${deptFilter ? 'active' : ''}`}
-            >
-              <option value="">All Departments</option>
-              {departments.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
+          <div className="filter-group-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+            <div className="filter-group">
+              <select
+                value={deptFilter}
+                onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
+                className={`filter-select ${deptFilter ? 'active' : ''}`}
+              >
+                <option value="">All Departments</option>
+                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
 
-            <div className="toggle-group">
-              <button
-                className={`toggle-btn ${typeFilter === '' ? 'active' : ''}`}
-                onClick={() => { setTypeFilter(''); setPage(1); }}
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+                className={`filter-select ${typeFilter ? 'active' : ''}`}
               >
-                All
-              </button>
-              <button
-                className={`toggle-btn ${typeFilter === 'Full-time' ? 'active' : ''}`}
-                onClick={() => { setTypeFilter('Full-time'); setPage(1); }}
+                <option value="">All Types</option>
+                <option value="Full-time">Full-time</option>
+                <option value="Part-time">Part-time</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <select
+                value={genderFilter}
+                onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
+                className={`filter-select ${genderFilter ? 'active' : ''}`}
               >
-                Full-time
-              </button>
-              <button
-                className={`toggle-btn ${typeFilter === 'Part-time' ? 'active' : ''}`}
-                onClick={() => { setTypeFilter('Part-time'); setPage(1); }}
+                <option value="">All Genders</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+
+              <select
+                value={ethnicityFilter}
+                onChange={(e) => { setEthnicityFilter(e.target.value); setPage(1); }}
+                className={`filter-select ${ethnicityFilter ? 'active' : ''}`}
               >
-                Part-time
-              </button>
+                <option value="">All Ethnicities</option>
+                <option value="Asian">Asian</option>
+                <option value="Caucasian">Caucasian</option>
+                <option value="Hispanic">Hispanic</option>
+                <option value="African American">Blocking</option>
+                <option value="Other">Other</option>
+              </select>
+
+              <select
+                value={shareholderFilter}
+                onChange={(e) => { setShareholderFilter(e.target.value); setPage(1); }}
+                className={`filter-select ${shareholderFilter ? 'active' : ''}`}
+                style={{ border: shareholderFilter === 'true' ? '1px solid #10b981' : '' }}
+              >
+                <option value="">Shareholder Status</option>
+                <option value="true">Shareholders Only</option>
+                <option value="false">Non-Shareholders</option>
+              </select>
             </div>
           </div>
 
@@ -149,6 +262,53 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
             />
           </div>
         </div>
+
+        {/* Financial Summary Header (New) */}
+        {data?.summary && (
+          <div className="financial-summary-header" style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            display: 'flex',
+            gap: '24px',
+            alignItems: 'center'
+          }}>
+            <h4 style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>SELECTION TOTALS:</h4>
+
+            {/* Earnings - show for earnings context or no context */}
+            {(activeFilters.context === 'earnings' || !activeFilters.context) && (
+              <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Earnings</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#059669' }}>{formatCurrency(data.summary.totalEarnings)}</span>
+              </div>
+            )}
+
+            {/* Benefits - show for benefits context or no context */}
+            {(activeFilters.context === 'benefits' || !activeFilters.context) && (
+              <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Benefits Cost</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#0284c7' }}>{formatCurrency(data.summary.totalBenefits)}</span>
+              </div>
+            )}
+
+            {/* Vacation - show for vacation context or no context */}
+            {(activeFilters.context === 'vacation' || !activeFilters.context) && (
+              <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Vacation Days</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#7c3aed' }}>
+                  {(data.summary.totalVacation || 0).toLocaleString()} days
+                </span>
+              </div>
+            )}
+
+            <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column', marginLeft: 'auto' }}>
+              <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Count</span>
+              <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{data.summary.count?.toLocaleString() || 0}</span>
+            </div>
+          </div>
+        )}
 
         {/* Data Area */}
         <div className="table-container">

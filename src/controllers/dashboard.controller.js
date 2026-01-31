@@ -406,6 +406,208 @@ export const getDrilldown = async (req, res) => {
             enrichedEmployees = enrichedEmployees.filter(emp => emp.totalEarnings >= minEarnings);
         }
 
+        // Calculate Summary Totals for the entire filtered set (not just paginated page)
+        const hasActiveFilter = department || gender || ethnicity || employmentType || isShareholder || minEarnings;
+        const currentYear = new Date().getFullYear();
+        const context = req.query.context || 'earnings';
+
+        let summaryTotalEarnings = 0;
+        let summaryTotalBenefits = 0;
+        let summaryTotalVacation = 0;
+        let summaryCount = 0;
+
+        if (!hasActiveFilter) {
+            // =====================================================
+            // FAST PATH: Use Pre-aggregated data for "All" case
+            // =====================================================
+            const [earningsTotal, benefitsTotal, vacationTotal] = await Promise.all([
+                EarningsSummary.findOne({
+                    where: { year: currentYear, group_type: 'total', group_value: 'all' },
+                    raw: true
+                }),
+                BenefitsSummary.findOne({
+                    where: { plan_name: '_overall', shareholder_type: 'shareholder' },
+                    raw: true
+                }).then(async (sh) => {
+                    const nonSh = await BenefitsSummary.findOne({
+                        where: { plan_name: '_overall', shareholder_type: 'nonShareholder' },
+                        raw: true
+                    });
+                    return {
+                        total: (parseFloat(sh?.total_paid) || 0) + (parseFloat(nonSh?.total_paid) || 0)
+                    };
+                }),
+                VacationSummary.findOne({
+                    where: { year: currentYear, group_type: 'total', group_value: 'all' },
+                    raw: true
+                })
+            ]);
+
+            summaryTotalEarnings = parseFloat(earningsTotal?.current_total) || 0;
+            summaryTotalBenefits = parseFloat(benefitsTotal?.total) || 0;
+            summaryTotalVacation = parseInt(vacationTotal?.current_total) || 0;
+            summaryCount = parseInt(earningsTotal?.employee_count) || total;
+
+        } else {
+            // =====================================================
+            // FILTERED PATH
+            // =====================================================
+            const matchCount = await Employee.countDocuments(query);
+            summaryCount = matchCount;
+
+            // Check if we can use pre-aggregated data for SINGLE dimension filter
+            const activeFilters = [
+                gender ? { type: 'gender', value: gender } : null,
+                department ? { type: 'department', value: department } : null,
+                ethnicity ? { type: 'ethnicity', value: ethnicity } : null,
+                employmentType ? { type: 'employmentType', value: employmentType } : null,
+                isShareholder ? { type: 'shareholder', value: isShareholder === 'true' ? 'shareholder' : 'nonShareholder' } : null
+            ].filter(Boolean);
+
+            // If SINGLE dimension filter, try pre-aggregated path
+            if (activeFilters.length === 1 && !minEarnings) {
+                const filter = activeFilters[0];
+                const [earningsAgg, vacationAgg] = await Promise.all([
+                    EarningsSummary.findOne({
+                        where: { year: currentYear, group_type: filter.type, group_value: filter.value },
+                        raw: true
+                    }),
+                    VacationSummary.findOne({
+                        where: { year: currentYear, group_type: filter.type, group_value: filter.value },
+                        raw: true
+                    })
+                ]);
+
+                if (earningsAgg) {
+                    summaryTotalEarnings = parseFloat(earningsAgg.current_total) || 0;
+                    summaryTotalVacation = parseInt(vacationAgg?.current_total) || 0;
+
+                    // BenefitsSummary doesn't have gender/dept breakdown
+                    // Only calculate Benefits if context requires it (not earnings, not vacation)
+                    if (context === 'benefits' || !context) {
+                        // Calculate benefits real-time using cursor (not skip/limit for performance)
+                        const cursor = Employee.find(query).select("employeeId _id").lean().cursor();
+                        let benefitsTotal = 0;
+                        let batchIdsBuffer = [];
+
+                        for await (const doc of cursor) {
+                            batchIdsBuffer.push(doc.employeeId || doc._id.toString());
+
+                            if (batchIdsBuffer.length >= 50000) {
+                                const currentBatchIds = [...batchIdsBuffer];
+                                batchIdsBuffer = [];
+                                const batchBenefits = await EmployeeBenefit.findOne({
+                                    where: { employee_id: { [Op.in]: currentBatchIds } },
+                                    attributes: [[fn("SUM", col("amount_paid")), "total"]],
+                                    raw: true
+                                });
+                                benefitsTotal += parseFloat(batchBenefits?.total) || 0;
+                            }
+                        }
+                        // Process remaining
+                        if (batchIdsBuffer.length > 0) {
+                            const batchBenefits = await EmployeeBenefit.findOne({
+                                where: { employee_id: { [Op.in]: batchIdsBuffer } },
+                                attributes: [[fn("SUM", col("amount_paid")), "total"]],
+                                raw: true
+                            });
+                            benefitsTotal += parseFloat(batchBenefits?.total) || 0;
+                        }
+                        summaryTotalBenefits = benefitsTotal;
+                    }
+                }
+            }
+            // Multi-dimension filter or minEarnings:
+            // Use batched calculation for datasets up to 1,000,000 records
+            // This prevents "0" totals while keeping memory usage safe (50k batches)
+            else if (matchCount > 0 && matchCount <= 1000000) {
+                // OPTIMIZED BATCH: Use Cursor + Parallel Processing
+                // 1. Stream IDs from Mongo (no skip() penalty)
+                // 2. Buffer into batches (50k)
+                // 3. Fire-and-forget MySQL queries (Promise.all)
+
+                const cursor = Employee.find(query).select("employeeId _id").lean().cursor();
+                let batchIdsBuffer = [];
+                const parallelPromises = [];
+
+                for await (const doc of cursor) {
+                    batchIdsBuffer.push(doc.employeeId || doc._id.toString());
+
+                    if (batchIdsBuffer.length >= 50000) {
+                        const currentBatchIds = [...batchIdsBuffer];
+                        batchIdsBuffer = [];
+
+                        const batchPromise = (async () => {
+                            const subPromises = [];
+
+                            // Earnings - Only needed for 'earnings' context or generic
+                            if (context === 'earnings' || !context) {
+                                subPromises.push(Earning.findOne({
+                                    where: { employee_id: { [Op.in]: currentBatchIds } },
+                                    attributes: [[fn("SUM", col("amount")), "total"]],
+                                    raw: true
+                                }));
+                            } else { subPromises.push(Promise.resolve({ total: 0 })); }
+
+                            // Benefits - Only needed for 'benefits' context or generic
+                            if (context === 'benefits' || !context) {
+                                subPromises.push(EmployeeBenefit.findOne({
+                                    where: { employee_id: { [Op.in]: currentBatchIds } },
+                                    attributes: [[fn("SUM", col("amount_paid")), "total"]],
+                                    raw: true
+                                }));
+                            } else { subPromises.push(Promise.resolve({ total: 0 })); }
+
+                            // Vacation - Only needed for 'vacation' context or generic
+                            if (context === 'vacation' || !context) {
+                                subPromises.push(VacationRecord.findOne({
+                                    where: { employee_id: { [Op.in]: currentBatchIds } },
+                                    attributes: [[fn("SUM", col("days_taken")), "total"]],
+                                    raw: true
+                                }));
+                            } else { subPromises.push(Promise.resolve({ total: 0 })); }
+
+                            const [eRes, bRes, vRes] = await Promise.all(subPromises);
+                            return {
+                                earnings: parseFloat(eRes?.total) || 0,
+                                benefits: parseFloat(bRes?.total) || 0,
+                                vacation: parseInt(vRes?.total) || 0
+                            };
+                        })();
+                        parallelPromises.push(batchPromise);
+                    }
+                }
+
+                // Process remaining buffer
+                if (batchIdsBuffer.length > 0) {
+                    const currentBatchIds = [...batchIdsBuffer];
+                    const batchPromise = (async () => {
+                        const subPromises = [];
+                        // Earnings - context-aware
+                        if (context === 'earnings' || !context) { subPromises.push(Earning.findOne({ where: { employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("amount")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
+                        // Benefits - context-aware
+                        if (context === 'benefits' || !context) { subPromises.push(EmployeeBenefit.findOne({ where: { employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("amount_paid")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
+                        // Vacation - context-aware
+                        if (context === 'vacation' || !context) { subPromises.push(VacationRecord.findOne({ where: { employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("days_taken")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
+
+                        const [eRes, bRes, vRes] = await Promise.all(subPromises);
+                        return { earnings: parseFloat(eRes?.total) || 0, benefits: parseFloat(bRes?.total) || 0, vacation: parseInt(vRes?.total) || 0 };
+                    })();
+                    parallelPromises.push(batchPromise);
+                }
+
+                const results = await Promise.all(parallelPromises);
+                summaryTotalEarnings = results.reduce((acc, c) => acc + c.earnings, 0);
+                summaryTotalBenefits = results.reduce((acc, c) => acc + c.benefits, 0);
+                summaryTotalVacation = results.reduce((acc, c) => acc + c.vacation, 0);
+            }
+            // If > 1M, we admit defeat and show count only to avoid timeout
+            else {
+                // > 1M records: Just show count.
+                // This is extremely rare for filtered queries.
+            }
+        }
+
         res.json({
             success: true,
             data: enrichedEmployees,
@@ -416,6 +618,16 @@ export const getDrilldown = async (req, res) => {
                 pages: Math.ceil((minEarnings && !isNaN(minEarnings) ? enrichedEmployees.length : total) / limit),
                 minEarningsApplied: minEarnings || null
             },
+            summary: {
+                totalEarnings: summaryTotalEarnings,
+                totalBenefits: summaryTotalBenefits,
+                totalVacation: summaryTotalVacation,
+                count: summaryCount,
+                calculated: hasActiveFilter,
+                source: hasActiveFilter
+                    ? (summaryCount <= 50000 ? 'realtime' : 'realtime-batched')
+                    : 'pre-aggregated'
+            }
         });
     } catch (error) {
         console.error("getDrilldown error:", error);

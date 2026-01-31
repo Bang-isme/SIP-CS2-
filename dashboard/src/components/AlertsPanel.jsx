@@ -149,10 +149,20 @@ function AlertsPanel({ alerts }) {
                     {emp.vacationDays !== undefined && (
                       <span className="emp-tag vacation">{emp.vacationDays} d</span>
                     )}
-                    {emp.daysUntil !== undefined && alert.alert.type !== 'vacation' && alert.alert.type !== 'benefits_change' && (
+                    {/* Standard date countdown for Anniversary */}
+                    {emp.daysUntil !== undefined && alert.alert.type === 'anniversary' && (
                       <span className="emp-tag date">{emp.daysUntil} d</span>
                     )}
-                    {(alert.alert.type === 'anniversary' || alert.alert.type === 'birthday') && emp.daysUntil === undefined && (
+                    {/* Birthday: Show formatted Date (e.g. Feb 12) */}
+                    {alert.alert.type === 'birthday' && emp.extraData && (
+                      <span className="emp-tag date">{emp.daysUntil} d</span>
+                    )}
+                    {alert.alert.type === 'birthday' && emp.extraData && (
+                      <span className="emp-tag date">
+                        {new Date(emp.extraData).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                    {(alert.alert.type === 'anniversary') && emp.daysUntil === undefined && (
                       <span className="emp-tag date">Soon</span>
                     )}
                     {/* Benefits change: show extra_data instead of days */}

@@ -240,8 +240,8 @@ export const getTriggeredAlerts = async (req, res) => {
                     daysUntil: isVacation ? undefined : emp.days_until,
                     // Only send vacationDays if IS vacation
                     vacationDays: isVacation ? emp.days_until : undefined,
-                    // Send extraData for benefits_change
-                    extraData: isBenefits ? emp.extra_data : undefined,
+                    // Send extraData for benefits_change OR birthday (to show date)
+                    extraData: (isBenefits || row.alert_type === 'birthday') ? emp.extra_data : undefined,
                 };
             });
 

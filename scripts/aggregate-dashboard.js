@@ -508,7 +508,9 @@ async function aggregateAlerts() {
             }
 
             case "birthday": {
-                const threshold = alert.threshold || 30;
+                // Modified: Strict "Current Month" logic per CEO requirement
+                // Old logic: Upcoming 30 days
+
                 const cursor = Employee.find({ birthDate: { $exists: true } })
                     .select("employeeId firstName lastName birthDate")
                     .lean()
@@ -517,21 +519,25 @@ async function aggregateAlerts() {
                 for await (const emp of cursor) {
                     if (!emp.birthDate) continue;
                     const birthDate = new Date(emp.birthDate);
-                    const birthdayThisYear = new Date(currentYear, birthDate.getMonth(), birthDate.getDate());
 
-                    if (birthdayThisYear < today) {
-                        birthdayThisYear.setFullYear(currentYear + 1);
-                    }
-
-                    const daysUntil = Math.ceil((birthdayThisYear - today) / (1000 * 60 * 60 * 24));
-                    if (daysUntil >= 0 && daysUntil <= threshold) {
+                    // Check if birth month matches current month (0-indexed)
+                    if (birthDate.getMonth() === currentMonth) {
                         totalCount++;
+
+                        // Calculate day of month for display
+                        const dayOfMonth = birthDate.getDate();
+                        const birthdayThisYear = new Date(currentYear, currentMonth, dayOfMonth);
+
+                        // Calculate days until (can be negative if birthday passed this month)
+                        // This allows showing "Feb 12" (past) or "Feb 28" (future)
+                        const daysUntil = Math.ceil((birthdayThisYear - today) / (1000 * 60 * 60 * 24));
+
                         employeeBatch.push({
                             alert_type: "birthday",
                             employee_id: emp.employeeId,
                             name: `${emp.firstName} ${emp.lastName || ""}`.trim(),
-                            days_until: daysUntil,
-                            extra_data: emp.birthDate?.toISOString?.() || String(emp.birthDate),
+                            days_until: daysUntil, // Can be negative now, frontend handles display
+                            extra_data: emp.birthDate?.toISOString?.() || String(emp.birthDate), // Full date for formatting
                             aggregated_at: now
                         });
 
