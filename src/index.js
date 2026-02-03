@@ -4,6 +4,7 @@ import { connectMySQL, syncDatabase } from "./mysqlDatabase.js"; // MySQL
 import { PORT } from "./config.js";
 import "./libs/initialSetup.js";
 import { initSyncService } from "./services/syncService.js"; // Case Study 4: Adapter Registry
+import { startIntegrationEventWorker } from "./workers/integrationEventWorker.js";
 
 // Initialize databases and integration services
 const initializeSystems = async () => {
@@ -16,6 +17,9 @@ const initializeSystems = async () => {
     // 2. Case Study 4: Initialize Service Registry & Adapters
     await initSyncService();
     console.log("[Startup] All integration adapters initialized.");
+
+    // 3. Case Study 4: Start Outbox Worker
+    startIntegrationEventWorker();
 };
 
 initializeSystems();

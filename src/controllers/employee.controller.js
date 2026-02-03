@@ -1,5 +1,7 @@
 import Employee from "../models/Employee.js";
 import { syncEmployeeToPayroll } from "../services/syncService.js";
+import { enqueueIntegrationEvent } from "../services/integrationEventService.js";
+import { OUTBOX_ENABLED } from "../config.js";
 
 /**
  * Create Employee - Case Study 3: Data Consistency
@@ -33,11 +35,32 @@ export const createEmployee = async (req, res) => {
 
         const savedEmployee = await employee.save();
 
-        // Step 2: Sync to Payroll (MySQL) - Eventual Consistency
-        const syncResult = await syncEmployeeToPayroll(employeeId, "CREATE", {
-            payRate,
-            payRateId,
-        });
+        let sync = { status: "QUEUED", message: "Queued for async sync" };
+
+        if (!OUTBOX_ENABLED) {
+            // Step 2: Sync to Payroll (MySQL) - Eventual Consistency
+            const syncResult = await syncEmployeeToPayroll(employeeId, "CREATE", {
+                payRate,
+                payRateId,
+            });
+            sync = {
+                status: syncResult.success ? "SUCCESS" : "PENDING",
+                message: syncResult.success
+                    ? "Synced to Payroll system"
+                    : "Will retry sync automatically",
+            };
+        } else {
+            const payload = {
+                ...savedEmployee.toObject(),
+                _id: savedEmployee._id?.toString(),
+            };
+            await enqueueIntegrationEvent({
+                entityType: "employee",
+                entityId: savedEmployee.employeeId,
+                action: "CREATE",
+                payload,
+            });
+        }
 
         // Return success with sync status
         return res.status(201).json({
@@ -51,12 +74,7 @@ export const createEmployee = async (req, res) => {
                 employmentType: savedEmployee.employmentType,
                 isShareholder: savedEmployee.isShareholder,
             },
-            sync: {
-                status: syncResult.success ? "SUCCESS" : "PENDING",
-                message: syncResult.success
-                    ? "Synced to Payroll system"
-                    : "Will retry sync automatically",
-            }
+            sync,
         });
     } catch (error) {
         console.error("createEmployee error:", error);
@@ -79,15 +97,28 @@ export const updateEmployee = async (req, res) => {
             return res.status(404).json({ success: false, message: "Employee not found" });
         }
 
-        // Step 2: Sync to Payroll
-        const syncResult = await syncEmployeeToPayroll(employee.employeeId, "UPDATE", updateData);
+        let sync = { status: "QUEUED" };
+        if (!OUTBOX_ENABLED) {
+            // Step 2: Sync to Payroll
+            const syncResult = await syncEmployeeToPayroll(employee.employeeId, "UPDATE", updateData);
+            sync = { status: syncResult.success ? "SUCCESS" : "PENDING" };
+        } else {
+            const payload = {
+                ...employee.toObject(),
+                _id: employee._id?.toString(),
+            };
+            await enqueueIntegrationEvent({
+                entityType: "employee",
+                entityId: employee.employeeId,
+                action: "UPDATE",
+                payload,
+            });
+        }
 
         return res.json({
             success: true,
             data: employee,
-            sync: {
-                status: syncResult.success ? "SUCCESS" : "PENDING",
-            }
+            sync,
         });
     } catch (error) {
         console.error("updateEmployee error:", error);
@@ -108,12 +139,23 @@ export const deleteEmployee = async (req, res) => {
             return res.status(404).json({ success: false, message: "Employee not found" });
         }
 
-        // Sync deletion to Payroll
-        await syncEmployeeToPayroll(employee.employeeId, "DELETE");
+        if (!OUTBOX_ENABLED) {
+            // Sync deletion to Payroll
+            await syncEmployeeToPayroll(employee.employeeId, "DELETE");
+        } else {
+            await enqueueIntegrationEvent({
+                entityType: "employee",
+                entityId: employee.employeeId,
+                action: "DELETE",
+                payload: { employeeId: employee.employeeId },
+            });
+        }
 
         return res.json({
             success: true,
-            message: "Employee deleted and synced",
+            message: OUTBOX_ENABLED
+                ? "Employee deleted and queued for sync"
+                : "Employee deleted and synced",
         });
     } catch (error) {
         console.error("deleteEmployee error:", error);

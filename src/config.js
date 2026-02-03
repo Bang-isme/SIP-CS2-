@@ -46,3 +46,13 @@ export const MYSQL_PORT = process.env.MYSQL_PORT || 3306;
 export const MYSQL_USER = process.env.MYSQL_USER || "root";
 export const MYSQL_PASSWORD = process.env.MYSQL_PASSWORD || "";
 export const MYSQL_DATABASE = process.env.MYSQL_DATABASE || "payroll_db";
+
+// ===========================================
+// Outbox / Integration Worker (Case Study 4)
+// ===========================================
+export const OUTBOX_ENABLED = process.env.OUTBOX_ENABLED
+  ? process.env.OUTBOX_ENABLED === "true"
+  : true;
+export const OUTBOX_POLL_INTERVAL_MS = parseInt(process.env.OUTBOX_POLL_INTERVAL_MS, 10) || 5000;
+export const OUTBOX_BATCH_SIZE = parseInt(process.env.OUTBOX_BATCH_SIZE, 10) || 50;
+export const OUTBOX_MAX_ATTEMPTS = parseInt(process.env.OUTBOX_MAX_ATTEMPTS, 10) || 5;

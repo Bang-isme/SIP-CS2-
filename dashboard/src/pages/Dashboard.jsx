@@ -13,6 +13,7 @@ import AlertsPanel from '../components/AlertsPanel';
 import DrilldownModal from '../components/DrilldownModal';
 import { SkeletonChart, SkeletonList } from '../components/Skeletons';
 import StatCard from '../components/StatCard';
+import IntegrationEventsPanel from '../components/IntegrationEventsPanel';
 import { FiBell, FiCalendar, FiDollarSign, FiHeart } from 'react-icons/fi';
 import './Dashboard.css';
 
@@ -261,11 +262,21 @@ function Dashboard({ onLogout }) {
 
    {/* Alerts Panel */}
    <div className="card alerts-section">
-   <div className="card-header">
-    <h2>Action Items & Alerts</h2>
-    <span className="badge-count">{stats.alerts.categories}</span>
+    <div className="card-header">
+     <h2>Action Items & Alerts</h2>
+     <span className="badge-count">{stats.alerts.categories}</span>
+    </div>
+    {loadingAlerts ? <SkeletonList /> : (alerts && <AlertsPanel alerts={alerts} />)}
    </div>
-   {loadingAlerts ? <SkeletonList /> : (alerts && <AlertsPanel alerts={alerts} />)}
+  </section>
+
+  <section className="charts-grid-tertiary">
+   <div className="card integration-section">
+    <div className="card-header">
+     <h2>Integration Queue</h2>
+     <span className="badge-count">Outbox</span>
+    </div>
+    <IntegrationEventsPanel />
    </div>
   </section>
   </div>

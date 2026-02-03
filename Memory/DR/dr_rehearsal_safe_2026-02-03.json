@@ -1,0 +1,20 @@
+{
+  "type": "DR_REHEARSAL_SAFE",
+  "startedAt": "2026-02-03T18:53:51.865Z",
+  "finishedAt": "2026-02-03T18:53:53.570Z",
+  "durationMs": 1705,
+  "note": "Non-destructive rehearsal: count verification only.",
+  "mongo": {
+    "employees": 500000
+  },
+  "mysql": {
+    "integration_events": 2,
+    "sync_logs": 8,
+    "earnings_summary": 20,
+    "vacation_summary": 20,
+    "benefits_summary": 14,
+    "alert_employees": 160661
+  },
+  "rtoEstimate": "N/A (safe run)",
+  "rpoEstimate": "N/A (safe run)"
+}

@@ -14,6 +14,7 @@ import dashboardRoutes from "./routes/dashboard.routes.js";
 import alertsRoutes from "./routes/alerts.routes.js";
 import syncRoutes from "./routes/sync.routes.js";
 import healthRoutes from "./routes/health.routes.js";
+import integrationRoutes from "./routes/integration.routes.js";
 
 const app = express();
 
@@ -51,5 +52,6 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/alerts", alertsRoutes);
 app.use("/api/sync", syncRoutes);
 app.use("/api/health", healthRoutes);
+app.use("/api/integrations", integrationRoutes);
 
 export default app;

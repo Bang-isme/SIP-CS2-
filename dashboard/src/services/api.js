@@ -128,4 +128,31 @@ export const getAlerts = async () => {
     return response.data;
 };
 
+// Integrations (Outbox Monitor)
+export const getIntegrationEvents = async ({ status, page = 1, limit = 10 } = {}) => {
+    const response = await api.get('/integrations/events', {
+        params: {
+            ...(status && status !== 'ALL' ? { status } : {}),
+            page,
+            limit,
+        },
+    });
+    return response.data;
+};
+
+export const retryIntegrationEvent = async (id) => {
+    const response = await api.post(`/integrations/events/retry/${id}`);
+    return response.data;
+};
+
+export const retryDeadIntegrationEvents = async () => {
+    const response = await api.post('/integrations/events/retry-dead');
+    return response.data;
+};
+
+export const replayIntegrationEvents = async (payload = {}) => {
+    const response = await api.post('/integrations/events/replay', payload);
+    return response.data;
+};
+
 export default api;

@@ -4,6 +4,7 @@ import { getDrilldown, getDepartments, exportDrilldownCsv } from '../services/ap
 
 function DrilldownModal({ filters: initialFilters, onClose }) {
  const [data, setData] = useState(null);
+ const [summaryState, setSummaryState] = useState({ data: null, loading: false, key: '' });
  const [loading, setLoading] = useState(true);
  const [page, setPage] = useState(1);
  const [pageSize, setPageSize] = useState(20);
@@ -12,6 +13,8 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const [departments, setDepartments] = useState([]);
  const requestIdRef = useRef(0);
  const abortRef = useRef(null);
+ const summaryRequestIdRef = useRef(0);
+ const summaryAbortRef = useRef(null);
  const containerRef = useRef(null);
  const [containerHeight, setContainerHeight] = useState(420);
 
@@ -68,6 +71,11 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   minEarnings: minEarnings || undefined
  }), [initialFilters, deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings]);
 
+ const summaryKey = useMemo(() => JSON.stringify({
+  ...activeFilters,
+  search: debouncedSearch
+ }), [activeFilters, debouncedSearch]);
+
  useEffect(() => {
   loadData();
  }, [activeFilters, page, pageSize, debouncedSearch]);
@@ -104,6 +112,44 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
    }, { signal: controller.signal });
    if (requestId !== requestIdRef.current) return;
    setData(response);
+
+    // Initialize summary state from fast response
+    const incomingSummary = response?.summary || null;
+    const shouldLoadBackground = Boolean(incomingSummary?.partial) && (response?.meta?.total || 0) <= 10000;
+    const isSameKeyFull = summaryState.key === summaryKey && summaryState.data?.partial === false;
+    setSummaryState({
+     data: incomingSummary,
+     loading: shouldLoadBackground,
+     key: summaryKey
+    });
+
+    // Background full summary (Hybrid) - only if fast mode and count small
+    if (shouldLoadBackground && !isSameKeyFull) {
+     const summaryRequestId = ++summaryRequestIdRef.current;
+     if (summaryAbortRef.current) summaryAbortRef.current.abort();
+     const summaryController = new AbortController();
+     summaryAbortRef.current = summaryController;
+     try {
+      const fullResponse = await getDrilldown({
+       ...activeFilters,
+       page: 1,
+       limit: 1,
+       search: debouncedSearch,
+       bulk: 1,
+       summary: 'full'
+      }, { signal: summaryController.signal });
+      if (summaryRequestId !== summaryRequestIdRef.current) return;
+      setSummaryState({
+       data: fullResponse?.summary || incomingSummary,
+       loading: false,
+       key: summaryKey
+      });
+     } catch (err) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+      console.error(err);
+      setSummaryState(prev => ({ ...prev, loading: false }));
+     }
+    }
   } catch (err) {
    if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
    console.error(err);
@@ -116,9 +162,11 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
  const formatCurrency = (value) => `$${(value || 0).toLocaleString()}`;
 
- const summaryPartial = data?.summary?.partial;
- const renderCurrency = (value) => summaryPartial ? '--' : formatCurrency(value);
- const renderVacation = (value) => summaryPartial ? '--' : `${(value || 0).toLocaleString()} days`;
+ const summaryData = summaryState.data || data?.summary;
+ const summaryPartial = summaryData?.partial;
+ const summaryLoading = summaryState.loading;
+ const renderCurrency = (value) => (summaryLoading || summaryPartial) ? '--' : formatCurrency(value);
+ const renderVacation = (value) => (summaryLoading || summaryPartial) ? '--' : `${(value || 0).toLocaleString()} days`;
  const isVirtual = pageSize >= 1000;
  const virtualHeaderHeight = 44;
  const rowHeight = 56;
@@ -375,7 +423,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     )}
 
     {/* Financial Summary Header (New) */}
-    {data?.summary && (
+    {summaryData && (
      <div className="financial-summary-header" style={{
       background: '#f8fafc',
       border: '1px solid #e2e8f0',
@@ -387,7 +435,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      alignItems: 'center'
     }}>
       <h4 style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>SELECTION TOTALS:</h4>
-      {summaryPartial && (
+      {(summaryPartial || summaryLoading) && (
        <span style={{ fontSize: '11px', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '2px 6px', borderRadius: '999px' }}>
         FAST MODE
        </span>
@@ -397,7 +445,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       {(activeFilters.context === 'earnings' || !activeFilters.context) && (
        <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
         <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Earnings</span>
-        <span style={{ fontSize: '16px', fontWeight: 700, color: '#059669' }}>{renderCurrency(data.summary.totalEarnings)}</span>
+        <span style={{ fontSize: '16px', fontWeight: 700, color: '#059669' }}>{renderCurrency(summaryData.totalEarnings)}</span>
        </div>
       )}
 
@@ -405,7 +453,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       {(activeFilters.context === 'benefits' || !activeFilters.context) && (
        <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
         <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Benefits Cost</span>
-        <span style={{ fontSize: '16px', fontWeight: 700, color: '#0284c7' }}>{renderCurrency(data.summary.totalBenefits)}</span>
+        <span style={{ fontSize: '16px', fontWeight: 700, color: '#0284c7' }}>{renderCurrency(summaryData.totalBenefits)}</span>
        </div>
       )}
 
@@ -414,14 +462,14 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
        <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
         <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Vacation Days</span>
         <span style={{ fontSize: '16px', fontWeight: 700, color: '#7c3aed' }}>
-         {renderVacation(data.summary.totalVacation)}
+         {renderVacation(summaryData.totalVacation)}
         </span>
        </div>
       )}
 
       <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column', marginLeft: 'auto' }}>
        <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Count</span>
-       <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{data.summary.count?.toLocaleString() || 0}</span>
+       <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{summaryData.count?.toLocaleString() || 0}</span>
       </div>
      </div>
     )}

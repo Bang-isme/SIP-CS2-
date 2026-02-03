@@ -168,6 +168,13 @@
     gap: var(--space-5);
 }
 
+/* Row 4: Integration Queue */
+.charts-grid-tertiary {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+}
+
 /* --- Component: The "Panel" (Card replacement) --- */
 .card {
     background: var(--color-bg-card);

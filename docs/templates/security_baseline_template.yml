@@ -1,0 +1,6 @@
+tls_min_version: "1.2"
+admin_actions_audited: true
+db_user_least_privilege: true
+secrets_rotation_days: 90
+backup_encryption: AES256
+audit_log_retention_days: 365

@@ -1,0 +1,7 @@
+backup_frequency: daily
+incremental_frequency: hourly
+retention_days: 30
+encryption: AES256
+storage_location: s3://company-backups/payroll
+verify_after_backup: true
+restore_test_frequency: quarterly

@@ -1,8 +1,8 @@
 # Case Study Progress
 
-> Last Updated: 2026-02-03T16:30:00+07:00
+> Last Updated: 2026-02-03T23:59:00+07:00
 
-## Current Stage: Case Study 2 - COMPLETE ✅
+## Current Stage: Case Study 2 - COMPLETE
 
 ---
 
@@ -17,10 +17,20 @@ See: Memory/Context/case_study_requirements_summary.md
 - Drilldown performance: added bulk mode (`limit>=1000` or `bulk=1`) + fast summary (`summary=fast`) to keep response under 10s.
 - Export CSV: switched to backend streaming endpoint to avoid huge JSON payload.
 - UI stability: cancel stale drilldown requests to prevent 20-row response overriding 10k.
+- UI polish (executive minimal): refined spacing/typography, card rhythm, charts, alerts, and drilldown visuals.
+- Alerts display fix: Anniversary shows "1 day/2 days"; Birthday shows date (no negative days).
+- Guide docs completed: `docs/case_study_guide.md` (Case 1-5 status, CEO Memo alignment).
+- Hybrid totals: fast mode shows count quickly; if COUNT <= 10,000, background summary updates totals.
+- Case Study 4 implemented: Outbox + Worker for async integration events.
+- Case Study 4 monitor: added Integration Events API (list + retry).
+- Case Study 4 demo: added script to insert FAILED/DEAD outbox events.
+- Case Study 4 UI: Integration Queue panel added to Dashboard.
+- Demo script updated: keep FAILED visible (next_run_at in future) and clear old demo rows.
+- Case Study 4 replay: added admin replay filters (FAILED/DEAD) for DLQ recovery.
 
 ## Case Study 2: The Dashboard
 
-### Status: ✅ COMPLETE
+### Status: COMPLETE
 
 ### Requirements Checklist
 
@@ -37,14 +47,14 @@ See: Memory/Context/case_study_requirements_summary.md
 #### Implementation Status
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Dashboard Summary Cards | ✅ | 4 KPI cards |
-| Earnings Chart | ✅ | By department with drill-down |
-| Vacation Chart | ✅ | By demographics |
-| Benefits Chart | ✅ | Shareholder vs Non-shareholder |
-| Alerts Panel | ✅ | 4 alert types with preview |
-| Drilldown Modal | ✅ | Pagination + search |
-| Jump to Page | ✅ | Added 2026-01-23 |
-| Alert Config UI | ⚠️ | Nice-to-have, not required |
+| Dashboard Summary Cards | DONE | 4 KPI cards |
+| Earnings Chart | DONE | By department with drill-down |
+| Vacation Chart | DONE | By demographics |
+| Benefits Chart | DONE | Shareholder vs Non-shareholder |
+| Alerts Panel | DONE | 4 alert types with preview |
+| Drilldown Modal | DONE | Pagination + search |
+| Jump to Page | DONE | Added 2026-01-23 |
+| Alert Config UI | NOTE | Nice-to-have, not required |
 
 #### API Endpoints
 - [x] `GET /api/dashboard/earnings`
@@ -59,7 +69,7 @@ See: Memory/Context/case_study_requirements_summary.md
 
 ## Case Study 3: Integrated System
 
-### Status: ✅ COMPLETE
+### Status: COMPLETE
 
 ### Implementation Summary
 - **Sync Service**: Eventual consistency pattern with retry mechanism
@@ -87,9 +97,12 @@ See: Memory/Context/case_study_requirements_summary.md
 
 ## Case Study 4: Fully Integrated System
 
-### Status: 🔲 NOT STARTED
+### Status: Design completed / Implementation pending
 
 ### Focus Areas
+- [x] Outbox integration events
+- [x] Worker + retry/backoff
+- [x] DLQ replay (admin replay filters + UI)
 - [ ] Scalable architecture design
 - [ ] Extensibility for new systems
 - [ ] Middleware-centric design
@@ -98,10 +111,13 @@ See: Memory/Context/case_study_requirements_summary.md
 
 ## Case Study 5: Network Integration
 
-### Status: 🔲 NOT STARTED
+### Status: Design completed / Implementation pending
 
 ### Focus Areas
-- [ ] Network architecture diagram
-- [ ] Security boundaries
-- [ ] Backup and recovery plan
-- [ ] Availability strategy
+- [x] Network architecture diagram (ASCII)
+- [x] Security baseline checklist
+- [x] Backup and recovery plan (docs + templates)
+- [x] DR rehearsal evidence (safe run report)
+- [x] Availability strategy (docs)
+
+
