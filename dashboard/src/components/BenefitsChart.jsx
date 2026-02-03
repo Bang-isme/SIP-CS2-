@@ -39,7 +39,7 @@ function BenefitsChart({ data, onDrilldown }) {
           <XAxis
             type="number"
             tickFormatter={formatCurrency}
-            tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+            tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }}
             axisLine={false}
             tickLine={false}
           />
@@ -47,21 +47,22 @@ function BenefitsChart({ data, onDrilldown }) {
             type="category"
             dataKey="name"
             width={120}
-            tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
+            tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip
             cursor={{ fill: 'var(--color-bg-subtle)' }}
             contentStyle={{
-              borderRadius: '8px',
-              border: 'none',
+              borderRadius: '10px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg-card)',
               boxShadow: 'var(--shadow-lg)'
             }}
             formatter={(value) => formatCurrency(value)}
             labelFormatter={(label) => chartData.find(d => d.name === label)?.fullName || label}
           />
-          <Legend iconType="circle" />
+          <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)' }} />
           <Bar
             dataKey="shareholder"
             name="Shareholders"
@@ -103,7 +104,7 @@ function BenefitsChart({ data, onDrilldown }) {
           border-radius: var(--radius-md);
           text-align: center;
           background: var(--color-bg-subtle);
-          border: 1px solid transparent;
+          border: 1px solid var(--color-border);
           transition: all 0.2s;
         }
         .summary-card:hover {
@@ -114,16 +115,16 @@ function BenefitsChart({ data, onDrilldown }) {
         
         .summary-label {
           display: block;
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          color: var(--color-text-secondary);
+          font-size: 0.7rem;
+          color: var(--color-text-tertiary);
           margin-bottom: var(--space-1);
-          /* text-transform: uppercase; */
-          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 700;
         }
         .summary-value {
           display: block;
-          font-size: var(--font-size-xl);
+          font-size: var(--font-size-2xl);
           font-weight: 700;
         }
         .text-success { color: var(--color-success); }
@@ -131,17 +132,17 @@ function BenefitsChart({ data, onDrilldown }) {
         
         .summary-count {
           display: block;
-          font-size: var(--font-size-xs);
+          font-size: 0.7rem;
           color: var(--color-text-tertiary);
           margin-top: var(--space-1);
         }
         .benefits-container h4 {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          color: var(--color-text-secondary);
+          font-size: 0.7rem;
+          color: var(--color-text-tertiary);
           margin: 0;
-          /* text-transform: uppercase; */
-          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 700;
         }
       `}</style>
     </div>

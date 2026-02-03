@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { FixedSizeList as VirtualList } from 'react-window';
 import { getDrilldown, getDepartments, exportDrilldownCsv } from '../services/api';
 
 function DrilldownModal({ filters: initialFilters, onClose }) {
@@ -11,6 +12,8 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const [departments, setDepartments] = useState([]);
  const requestIdRef = useRef(0);
  const abortRef = useRef(null);
+ const containerRef = useRef(null);
+ const [containerHeight, setContainerHeight] = useState(420);
 
  // Fetch departments on mount
  useEffect(() => {
@@ -40,7 +43,18 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const [genderFilter, setGenderFilter] = useState(initialFilters?.gender || '');
  const [ethnicityFilter, setEthnicityFilter] = useState(initialFilters?.ethnicity || '');
  const [shareholderFilter, setShareholderFilter] = useState(initialFilters?.isShareholder !== undefined ? String(initialFilters.isShareholder) : '');
+ const [benefitPlanFilter, setBenefitPlanFilter] = useState(initialFilters?.benefitPlan || '');
  const [minEarnings, setMinEarnings] = useState(''); // CEO Query: "Employees earning over $X"
+
+ useEffect(() => {
+  setDeptFilter(initialFilters?.department || '');
+  setTypeFilter(initialFilters?.employmentType || '');
+  setGenderFilter(initialFilters?.gender || '');
+  setEthnicityFilter(initialFilters?.ethnicity || '');
+  setShareholderFilter(initialFilters?.isShareholder !== undefined ? String(initialFilters.isShareholder) : '');
+  setBenefitPlanFilter(initialFilters?.benefitPlan || '');
+  setPage(1);
+ }, [initialFilters]);
 
  // Combine all filters
  const activeFilters = useMemo(() => ({
@@ -50,12 +64,25 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   gender: genderFilter || undefined,
   ethnicity: ethnicityFilter || undefined,
   isShareholder: shareholderFilter || undefined,
+  benefitPlan: benefitPlanFilter || undefined,
   minEarnings: minEarnings || undefined
- }), [initialFilters, deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, minEarnings]);
+ }), [initialFilters, deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings]);
 
  useEffect(() => {
   loadData();
  }, [activeFilters, page, pageSize, debouncedSearch]);
+
+ useEffect(() => {
+  if (!containerRef.current || typeof ResizeObserver === 'undefined') return;
+  const observer = new ResizeObserver((entries) => {
+   const entry = entries[0];
+   if (!entry) return;
+   const nextHeight = Math.max(entry.contentRect.height, 200);
+   setContainerHeight(nextHeight);
+  });
+  observer.observe(containerRef.current);
+  return () => observer.disconnect();
+ }, []);
 
  const loadData = async () => {
   const requestId = ++requestIdRef.current;
@@ -92,6 +119,68 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const summaryPartial = data?.summary?.partial;
  const renderCurrency = (value) => summaryPartial ? '--' : formatCurrency(value);
  const renderVacation = (value) => summaryPartial ? '--' : `${(value || 0).toLocaleString()} days`;
+ const isVirtual = pageSize >= 1000;
+ const virtualHeaderHeight = 44;
+ const rowHeight = 56;
+ const listHeight = Math.max(containerHeight - virtualHeaderHeight, 200);
+
+ const activeFilterChips = useMemo(() => {
+  const chips = [];
+  if (deptFilter) chips.push({ key: 'dept', label: `Department: ${deptFilter}`, onClear: () => setDeptFilter('') });
+  if (typeFilter) chips.push({ key: 'type', label: `Type: ${typeFilter}`, onClear: () => setTypeFilter('') });
+  if (genderFilter) chips.push({ key: 'gender', label: `Gender: ${genderFilter}`, onClear: () => setGenderFilter('') });
+  if (ethnicityFilter) chips.push({ key: 'ethnicity', label: `Ethnicity: ${ethnicityFilter}`, onClear: () => setEthnicityFilter('') });
+  if (shareholderFilter) {
+   const label = shareholderFilter === 'true' ? 'Shareholder' : 'Non-shareholder';
+   chips.push({ key: 'shareholder', label: `Status: ${label}`, onClear: () => setShareholderFilter('') });
+  }
+  if (benefitPlanFilter) chips.push({ key: 'benefitPlan', label: `Plan: ${benefitPlanFilter}`, onClear: () => setBenefitPlanFilter('') });
+  if (minEarnings) chips.push({ key: 'minEarnings', label: `Min Earnings: $${Number(minEarnings).toLocaleString()}`, onClear: () => setMinEarnings('') });
+  if (debouncedSearch) chips.push({ key: 'search', label: `Search: ${debouncedSearch}`, onClear: () => setLocalSearch('') });
+  return chips;
+ }, [deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings, debouncedSearch]);
+
+ const VirtualRow = ({ index, style }) => {
+  const emp = displayData[index];
+  if (!emp) return null;
+  return (
+   <div className={`virtual-row ${index % 2 === 0 ? 'even' : 'odd'}`} style={style}>
+    <div className="virtual-cell index">{(page - 1) * pageSize + index + 1}</div>
+    <div className="virtual-cell employee">
+     <div className="emp-cell">
+      <div className="emp-avatar">{emp.firstName?.[0]}{emp.lastName?.[0]}</div>
+      <div>
+       <div className="emp-name">{emp.firstName} {emp.lastName}</div>
+       <div className="emp-id">{emp.employeeId}</div>
+      </div>
+     </div>
+    </div>
+    <div className="virtual-cell department">
+     <span className="dept-tag">{emp.department || 'Unassigned'}</span>
+    </div>
+    <div className="virtual-cell role">
+     <div className="meta-cell">
+      <span>{emp.gender || 'Unknown'}</span>
+      <span className="dot">-</span>
+      <span>{emp.ethnicity || 'Unknown'}</span>
+     </div>
+    </div>
+    <div className="virtual-cell status">
+     <span className={`status-badge ${emp.employmentType === 'Full-time' ? 'success' : 'warning'}`}>
+      {emp.employmentType}
+     </span>
+     {emp.isShareholder && <span className="shareholder-tag">Shareholder</span>}
+    </div>
+    <div className="virtual-cell earnings text-right">
+     {activeFilters.context === 'vacation' ? (
+      <span className="vacation-days">{emp.vacationDays || 0} d</span>
+     ) : (
+      <span className="earnings-val">{formatCurrency(emp.totalEarnings)}</span>
+     )}
+    </div>
+   </div>
+  );
+ };
 
 
  // Data to display (already filtered by backend)
@@ -249,8 +338,41 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
        value={minEarnings}
        onChange={(e) => { setMinEarnings(e.target.value); setPage(1); }}
       />
+      <div className="quick-filters">
+       <button type="button" onClick={() => { setMinEarnings('100000'); setPage(1); }}>Over 100k</button>
+       <button type="button" onClick={() => { setMinEarnings('150000'); setPage(1); }}>Over 150k</button>
+       <button type="button" onClick={() => { setMinEarnings('200000'); setPage(1); }}>Over 200k</button>
+       <button type="button" className="ghost" onClick={() => { setMinEarnings(''); setPage(1); }}>Clear</button>
+      </div>
      </div>
     </div>
+
+    {activeFilterChips.length > 0 && (
+     <div className="active-filters">
+      <span className="active-label">Active Filters:</span>
+      <div className="chip-row">
+       {activeFilterChips.map((chip) => (
+        <button key={chip.key} className="filter-chip" onClick={() => { chip.onClear(); setPage(1); }}>
+         <span>{chip.label}</span>
+         <span className="chip-close">x</span>
+        </button>
+       ))}
+      </div>
+      <button className="clear-all" onClick={() => {
+       setDeptFilter('');
+       setTypeFilter('');
+       setGenderFilter('');
+       setEthnicityFilter('');
+       setShareholderFilter('');
+       setBenefitPlanFilter('');
+       setMinEarnings('');
+       setLocalSearch('');
+       setPage(1);
+      }}>
+       Clear All
+      </button>
+     </div>
+    )}
 
     {/* Financial Summary Header (New) */}
     {data?.summary && (
@@ -305,75 +427,107 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     )}
 
     {/* Data Area */}
-    <div className="table-container">
+    <div className="table-container" ref={containerRef}>
      {loading ? (
       <div className="loading-state">
        <div className="spinner"></div>
        <p>Loading records...</p>
       </div>
      ) : (
-      <table className="drilldown-table">
-       <thead>
-        <tr>
-         <th>#</th>
-         <th>Employee</th>
-         <th>Department</th>
-         <th>Role Info</th>
-         <th>Status</th>
-         <th className="text-right">
-          {activeFilters.context === 'vacation' ? 'Vacation Used' : 'Earnings'}
-         </th>
-        </tr>
-       </thead>
-       <tbody>
-        {displayData.length === 0 ? (
-         <tr>
-          <td colSpan="6" className="no-results">
+      <>
+       {isVirtual ? (
+        <div className="virtual-table">
+         <div className="virtual-header">
+          <div>#</div>
+          <div>Employee</div>
+          <div>Department</div>
+          <div>Role Info</div>
+          <div>Status</div>
+          <div className="text-right">{activeFilters.context === 'vacation' ? 'Vacation Used' : 'Earnings'}</div>
+         </div>
+         {displayData.length === 0 ? (
+          <div className="no-results">
            <div className="empty-state">
             <span>EMPTY</span>
             <p>No employees found matching filters</p>
            </div>
-          </td>
-         </tr>
-        ) : (
-         displayData.map((emp, idx) => (
-          <tr key={emp._id}>
-           <td className="text-muted">{(page - 1) * pageSize + idx + 1}</td>
-           <td>
-            <div className="emp-cell">
-             <div className="emp-avatar">{emp.firstName[0]}{emp.lastName[0]}</div>
-             <div>
-              <div className="emp-name">{emp.firstName} {emp.lastName}</div>
-              <div className="emp-id">{emp.employeeId}</div>
-             </div>
-            </div>
-           </td>
-           <td><span className="dept-tag">{emp.department || 'Unassigned'}</span></td>
-           <td>
-            <div className="meta-cell">
-             <span>{emp.gender || 'Unknown'}</span>
-             <span className="dot">-</span>
-             <span>{emp.ethnicity || 'Unknown'}</span>
-            </div>
-           </td>
-           <td>
-            <span className={`status-badge ${emp.employmentType === 'Full-time' ? 'success' : 'warning'}`}>
-             {emp.employmentType}
-            </span>
-            {emp.isShareholder && <span className="shareholder-tag">Shareholder</span>}
-           </td>
-           <td className="text-right font-mono">
-            {activeFilters.context === 'vacation' ? (
-             <span className="vacation-days">{emp.vacationDays || 0} d</span>
-            ) : (
-             <span className="earnings-val">{formatCurrency(emp.totalEarnings)}</span>
-            )}
-           </td>
+          </div>
+         ) : (
+          <VirtualList
+           height={listHeight}
+           itemCount={displayData.length}
+           itemSize={rowHeight}
+           width="100%"
+          >
+           {VirtualRow}
+          </VirtualList>
+         )}
+        </div>
+       ) : (
+        <table className="drilldown-table">
+         <thead>
+          <tr>
+           <th>#</th>
+           <th>Employee</th>
+           <th>Department</th>
+           <th>Role Info</th>
+           <th>Status</th>
+           <th className="text-right">
+            {activeFilters.context === 'vacation' ? 'Vacation Used' : 'Earnings'}
+           </th>
           </tr>
-         ))
-        )}
-       </tbody>
-      </table>
+         </thead>
+         <tbody>
+          {displayData.length === 0 ? (
+           <tr>
+            <td colSpan="6" className="no-results">
+             <div className="empty-state">
+              <span>EMPTY</span>
+              <p>No employees found matching filters</p>
+             </div>
+            </td>
+           </tr>
+          ) : (
+           displayData.map((emp, idx) => (
+            <tr key={emp._id}>
+             <td className="text-muted">{(page - 1) * pageSize + idx + 1}</td>
+             <td>
+              <div className="emp-cell">
+               <div className="emp-avatar">{emp.firstName[0]}{emp.lastName[0]}</div>
+               <div>
+                <div className="emp-name">{emp.firstName} {emp.lastName}</div>
+                <div className="emp-id">{emp.employeeId}</div>
+               </div>
+              </div>
+             </td>
+             <td><span className="dept-tag">{emp.department || 'Unassigned'}</span></td>
+             <td>
+              <div className="meta-cell">
+               <span>{emp.gender || 'Unknown'}</span>
+               <span className="dot">-</span>
+               <span>{emp.ethnicity || 'Unknown'}</span>
+              </div>
+             </td>
+             <td>
+              <span className={`status-badge ${emp.employmentType === 'Full-time' ? 'success' : 'warning'}`}>
+               {emp.employmentType}
+              </span>
+              {emp.isShareholder && <span className="shareholder-tag">Shareholder</span>}
+             </td>
+             <td className="text-right font-mono">
+              {activeFilters.context === 'vacation' ? (
+               <span className="vacation-days">{emp.vacationDays || 0} d</span>
+              ) : (
+               <span className="earnings-val">{formatCurrency(emp.totalEarnings)}</span>
+              )}
+             </td>
+            </tr>
+           ))
+          )}
+         </tbody>
+        </table>
+       )}
+      </>
      )}
     </div>
 
@@ -452,8 +606,84 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      border-color: var(--primary);
      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
     }
+    .quick-filters {
+     display: flex;
+     gap: 6px;
+     flex-wrap: wrap;
+     margin-left: 8px;
+    }
+    .quick-filters button {
+     padding: 4px 8px;
+     border-radius: 999px;
+     border: 1px solid var(--border);
+     background: white;
+     font-size: 0.75rem;
+     color: var(--text-secondary);
+     font-weight: 600;
+     cursor: pointer;
+    }
+    .quick-filters button:hover {
+     border-color: var(--primary);
+     color: var(--primary);
+    }
+    .quick-filters .ghost {
+     border-style: dashed;
+     color: var(--text-tertiary);
+    }
+    .active-filters {
+     display: flex;
+     align-items: center;
+     gap: 12px;
+     padding: 8px 16px;
+     border-bottom: 1px solid var(--border);
+     background: var(--bg-app);
+     flex-wrap: wrap;
+    }
+    .active-label {
+     font-size: 0.75rem;
+     color: var(--text-secondary);
+     font-weight: 600;
+    }
+    .chip-row {
+     display: flex;
+     gap: 6px;
+     flex-wrap: wrap;
+    }
+    .filter-chip {
+     display: inline-flex;
+     align-items: center;
+     gap: 6px;
+     border: 1px solid var(--border);
+     border-radius: 999px;
+     padding: 4px 8px;
+     font-size: 0.75rem;
+     color: var(--text-main);
+     background: var(--bg-card);
+     cursor: pointer;
+    }
+    .filter-chip:hover {
+     border-color: var(--primary);
+     color: var(--primary);
+    }
+    .chip-close {
+     font-size: 0.7rem;
+     color: var(--text-tertiary);
+    }
+    .clear-all {
+     margin-left: auto;
+     font-size: 0.75rem;
+     border: 1px solid var(--border);
+     background: white;
+     border-radius: 999px;
+     padding: 4px 10px;
+     cursor: pointer;
+    }
+    .clear-all:hover {
+     border-color: var(--danger);
+     color: var(--danger);
+    }
     .modal-content {
-     background: var(--bg-card); border-radius: var(--radius-xl); width: 95%; max-width: 1100px;
+     background: var(--bg-card); border-radius: var(--radius-xl); width: 96%; max-width: 1120px;
      height: 85vh; display: flex; flex-direction: column; overflow: hidden;
      box-shadow: var(--shadow-lg); border: 1px solid var(--border);
      animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -461,11 +691,11 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     
     /* Header */
     .modal-header {
-     padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;
+     padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center;
      border-bottom: 1px solid var(--border); background: #ffffff;
     }
-    .modal-header h2 { font-size: 1.25rem; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
-    .subtitle { font-size: 0.875rem; color: var(--text-secondary); }
+    .modal-header h2 { font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+    .modal-header .subtitle { font-size: 0.8rem; color: var(--text-tertiary); }
     .close-btn { 
      width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); 
      background: transparent; color: var(--text-tertiary); cursor: pointer; transition: all 0.2s;
@@ -475,23 +705,24 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
     /* Filter Bar */
     .filter-bar {
-     padding: 1rem 1.5rem; background: var(--bg-app); border-bottom: 1px solid var(--border);
-     display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;
+     padding: 0.9rem 1.5rem; background: var(--bg-app); border-bottom: 1px solid var(--border);
+     display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center;
     }
     .search-group {
      position: relative; flex: 1; min-width: 250px;
     }
     .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); }
     .search-input {
-     width: 100%; padding: 10px 12px 10px 36px; border: 1px solid var(--border); 
-     border-radius: var(--radius); outline: none; transition: all 0.2s; font-size: 0.9rem;
+     width: 100%; padding: 9px 12px 9px 36px; border: 1px solid var(--border); 
+     border-radius: var(--radius); outline: none; transition: all 0.2s; font-size: 0.85rem;
+     background: var(--bg-card);
     }
     .search-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--primary-subtle); }
 
-    .filter-group { display: flex; gap: 1rem; align-items: center; }
+    .filter-group { display: flex; gap: var(--space-3); align-items: center; }
     .filter-select {
-     padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius);
-     background: white; color: var(--text-secondary); font-size: 0.9rem; outline: none; cursor: pointer;
+     padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+     background: white; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;
     }
     .filter-select.active { border-color: var(--primary); color: var(--primary); background: var(--primary-subtle); }
 
@@ -507,23 +738,59 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     .toggle-btn.active { background: var(--primary-subtle); color: var(--primary); font-weight: 500; }
 
     /* Table */
-    .table-container { flex: 1; overflow: auto; position: relative; }
+    .table-container { flex: 1; overflow: auto; position: relative; background: var(--bg-card); }
     .drilldown-table { width: 100%; border-collapse: collapse; }
     .drilldown-table th {
      position: sticky; top: 0; background: var(--bg-app); color: var(--text-secondary);
-     font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+     font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
      padding: 12px 1.5rem; text-align: left; border-bottom: 1px solid var(--border);
     }
     .drilldown-table td {
-     padding: 12px 1.5rem; border-bottom: 1px solid var(--border); color: var(--text-main); font-size: 0.9rem;
+     padding: 12px 1.5rem; border-bottom: 1px solid var(--border); color: var(--text-main); font-size: 0.88rem;
      vertical-align: middle;
     }
+
+    .virtual-table {
+     display: flex;
+     flex-direction: column;
+     height: 100%;
+    }
+    .virtual-header {
+     display: grid;
+     grid-template-columns: 60px 1.6fr 1fr 1.2fr 1fr 140px;
+     gap: 0;
+     position: sticky;
+     top: 0;
+     background: var(--bg-app);
+     color: var(--text-secondary);
+     font-weight: 700;
+     font-size: 0.7rem;
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+     padding: 12px 1.5rem;
+     border-bottom: 1px solid var(--border);
+     z-index: 2;
+    }
+    .virtual-row {
+     display: grid;
+     grid-template-columns: 60px 1.6fr 1fr 1.2fr 1fr 140px;
+     padding: 10px 1.5rem;
+     border-bottom: 1px solid var(--border);
+     color: var(--text-main);
+     font-size: 0.88rem;
+     align-items: center;
+    }
+    .virtual-row.even { background: white; }
+    .virtual-row.odd { background: #fbfdff; }
+    .virtual-cell { display: flex; align-items: center; }
+    .virtual-cell.earnings { justify-content: flex-end; font-family: var(--font-family-mono); }
+    .virtual-cell.index { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
     .drilldown-table tr:hover td { background: var(--bg-hover); }
 
     /* Cell Styles */
     .emp-cell { display: flex; align-items: center; gap: 12px; }
     .emp-avatar {
-     width: 36px; height: 36px; background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%);
+     width: 34px; height: 34px; background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%);
      color: var(--primary); border-radius: 50%; display: grid; place-items: center;
      font-weight: 600; font-size: 0.8rem;
     }
@@ -531,8 +798,8 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     .emp-id { font-size: 0.75rem; color: var(--text-tertiary); font-family: monospace; }
     
     .dept-tag { 
-     padding: 4px 8px; border-radius: 20px; background: #F3F4F6; 
-     color: var(--text-secondary); font-size: 0.8rem; font-weight: 500;
+     padding: 4px 10px; border-radius: 999px; background: var(--bg-subtle); 
+     color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; border: 1px solid var(--border);
     }
     
     .meta-cell { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 0.85rem; }

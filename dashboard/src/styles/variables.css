@@ -21,19 +21,19 @@
     --color-accent-hover: #1e40af;
 
     /* Neutrals: Canvas */
-    --color-bg-body: #f1f5f9;  /* Slightly darker than pure white for contrast */
+    --color-bg-body: #f5f7fb;  /* Softer canvas */
     --color-bg-card: #ffffff;
-    --color-bg-subtle: #f8fafc;
-    --color-bg-panel: #eef2f6; /* For sidebars/headers */
+    --color-bg-subtle: #f9fbfd;
+    --color-bg-panel: #eef3f8; /* For sidebars/headers */
 
     /* Text */
     --color-text-main: #0f172a;    /* High contrast */
-    --color-text-secondary: #475569; /* Balanced */
-    --color-text-tertiary: #94a3b8;  /* Muted metadata */
+    --color-text-secondary: #4b5b70; /* Balanced */
+    --color-text-tertiary: #8a98ad;  /* Muted metadata */
     
     /* Borders & Separators */
-    --color-border: #e2e8f0;
-    --color-border-hover: #cbd5e1;
+    --color-border: #e5ecf3;
+    --color-border-hover: #d7e1ec;
     --color-divider: #e2e8f0;
 
     /* Semantic Status (Signal Lights - slightly desaturated) */
@@ -54,6 +54,7 @@
     --space-2: 8px;
     --space-3: 12px;
     --space-4: 16px;
+    --space-5: 20px;
     --space-6: 24px;
     --space-8: 32px;
     --space-12: 48px;
@@ -77,7 +78,7 @@
     --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.08), 0 4px 6px -4px rgb(15 23 42 / 0.04);
     
     /* Bento Grid Effect: Subtle border + very light shadow */
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 10px 20px -16px rgb(15 23 42 / 0.18);
 
     /* --- Animation --- */
     --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -85,9 +86,9 @@
     --duration-normal: 0.25s;
 
     /* --- BorderRadius (Engineered/Sharp) --- */
-    --radius-sm: 3px;
-    --radius-md: 6px;  /* Standard for inputs/buttons */
-    --radius-lg: 8px;  /* Standard for Cards */
-    --radius-xl: 12px; /* Containers */
+    --radius-sm: 4px;
+    --radius-md: 8px;  /* Standard for inputs/buttons */
+    --radius-lg: 10px;  /* Standard for Cards */
+    --radius-xl: 14px; /* Containers */
     --radius-full: 9999px;
 }

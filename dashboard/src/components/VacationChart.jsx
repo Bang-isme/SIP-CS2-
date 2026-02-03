@@ -57,7 +57,7 @@ function VacationChart({ data, onDrilldown }) {
                                     ))}
                                 </Pie>
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: 'var(--shadow-lg)' }}
+                                    contentStyle={{ borderRadius: '10px', border: '1px solid var(--color-border)', background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-lg)' }}
                                     formatter={(val) => `${formatNum(val)} days`}
                                 />
                             </PieChart>
@@ -141,9 +141,9 @@ function VacationChart({ data, onDrilldown }) {
             font-size: 0.7rem;
             color: var(--color-text-tertiary);
             font-weight: 700;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
             margin-bottom: var(--space-4);
-            /* text-transform: uppercase; */
+            text-transform: uppercase;
         }
 
         /* Donut Chart */
@@ -161,14 +161,14 @@ function VacationChart({ data, onDrilldown }) {
         }
         .total-days {
             display: block;
-            font-size: 1.5rem;
+            font-size: 1.65rem;
             font-weight: 700;
             color: var(--color-primary-800);
             line-height: 1;
         }
         .unit {
-            font-size: 0.85rem;
-            color: var(--color-text-secondary);
+            font-size: 0.8rem;
+            color: var(--color-text-tertiary);
         }
 
         /* Custom Legend */
@@ -183,7 +183,7 @@ function VacationChart({ data, onDrilldown }) {
             align-items: center;
             gap: 6px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--color-text-secondary);
             transition: opacity 0.2s;
         }
@@ -201,7 +201,7 @@ function VacationChart({ data, onDrilldown }) {
             align-items: center;
             justify-content: space-between;
             padding: var(--space-2) var(--space-3);
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
             cursor: pointer;
             transition: background 0.2s;
         }
@@ -217,14 +217,14 @@ function VacationChart({ data, onDrilldown }) {
         }
         
         .label {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--color-text-secondary);
         }
         
 .value {
-            font-weight: 600;
+            font-weight: 700;
             color: var(--color-primary-900);
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
 
         @media (max-width: 1200px) {

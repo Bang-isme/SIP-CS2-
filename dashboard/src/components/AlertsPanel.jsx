@@ -40,7 +40,8 @@ function AlertsPanel({ alerts }) {
    color: '#f59e0b',
    bg: '#fffbeb',
    label: 'Anniversaries',
-   priority: 'Info',
+   severity: 'Low',
+   severityRank: 1,
    priorityIcon: FiBell,
    priorityColor: '#64748b',
   },
@@ -49,7 +50,8 @@ function AlertsPanel({ alerts }) {
    color: '#ef4444',
    bg: '#fef2f2',
    label: 'High Vacation Balance',
-   priority: 'Critical',
+   severity: 'High',
+   severityRank: 3,
    priorityIcon: FiAlertTriangle,
    priorityColor: '#ef4444',
   },
@@ -58,7 +60,8 @@ function AlertsPanel({ alerts }) {
    color: '#10b981',
    bg: '#ecfdf5',
    label: 'Benefits Update',
-   priority: 'Warning',
+   severity: 'Medium',
+   severityRank: 2,
    priorityIcon: FiAlertTriangle,
    priorityColor: '#f59e0b',
   },
@@ -67,10 +70,33 @@ function AlertsPanel({ alerts }) {
    color: '#ec4899',
    bg: '#fdf2f8',
    label: 'Birthday Alert',
-   priority: 'Info',
+   severity: 'Low',
+   severityRank: 1,
    priorityIcon: FiBell,
    priorityColor: '#64748b',
   },
+ };
+
+ const formatDayLabel = (daysUntil) => {
+  const value = Number(daysUntil);
+  if (!Number.isFinite(value)) return 'Upcoming';
+  if (value === 0) return 'Today';
+  if (value < 0) return 'Upcoming';
+  return `${value} day${value === 1 ? '' : 's'}`;
+ };
+
+ const formatBirthdayLabel = (emp) => {
+  if (emp?.extraData) {
+   const date = new Date(emp.extraData);
+   if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+   }
+  }
+  const value = Number(emp?.daysUntil);
+  if (!Number.isFinite(value)) return 'This month';
+  if (value === 0) return 'Today';
+  if (value < 0) return 'This month';
+  return `${value} day${value === 1 ? '' : 's'}`;
  };
 
  // Debounce search input
@@ -161,11 +187,23 @@ function AlertsPanel({ alerts }) {
   );
  }
 
+ const sortedAlerts = useMemo(() => {
+  if (!alerts) return [];
+  return [...alerts].sort((a, b) => {
+   const aConfig = alertConfig[a.alert.type] || {};
+   const bConfig = alertConfig[b.alert.type] || {};
+   const aRank = aConfig.severityRank || 0;
+   const bRank = bConfig.severityRank || 0;
+   if (bRank !== aRank) return bRank - aRank;
+   return (b.count || 0) - (a.count || 0);
+  });
+ }, [alerts]);
+
  return (
   <div className="alerts-container">
    <div className="alerts-grid">
-    {alerts.map((alert, index) => {
-     const config = alertConfig[alert.alert.type] || { icon: FiBell, color: '#64748b', bg: '#f8fafc', priority: 'Info', priorityIcon: FiBell, priorityColor: '#64748b' };
+    {sortedAlerts.map((alert, index) => {
+     const config = alertConfig[alert.alert.type] || { icon: FiBell, color: '#64748b', bg: '#f8fafc', severity: 'Low', severityRank: 0, priorityIcon: FiBell, priorityColor: '#64748b' };
      const Icon = config.icon || FiBell;
      const PriorityIcon = config.priorityIcon || FiBell;
 
@@ -181,8 +219,9 @@ function AlertsPanel({ alerts }) {
           <Icon size={16} />
          </span>
          <span className="alert-name">{config.label || alert.alert.name}</span>
-         <span className="priority-badge" title={config.priority} style={{ color: config.priorityColor }}>
+         <span className="priority-badge" title={`Severity: ${config.severity}`} style={{ color: config.priorityColor }}>
           <PriorityIcon size={12} />
+          <span className="priority-text">{config.severity}</span>
          </span>
         </div>
         <span className="alert-badge">{alert.count}</span>
@@ -197,25 +236,20 @@ function AlertsPanel({ alerts }) {
            <span className="emp-id">{emp.employeeId}</span>
           </div>
           {/* Tags logic */}
-          {emp.vacationDays !== undefined && (
-           <span className="emp-tag vacation">{emp.vacationDays} d</span>
+         {emp.vacationDays !== undefined && (
+          <span className="emp-tag vacation">{emp.vacationDays} d</span>
+         )}
+         {/* Standard date countdown for Anniversary */}
+         {emp.daysUntil !== undefined && alert.alert.type === 'anniversary' && (
+          <span className="emp-tag date">{formatDayLabel(emp.daysUntil)}</span>
+         )}
+          {/* Birthday: Always show date, fallback to friendly label */}
+          {alert.alert.type === 'birthday' && (
+           <span className="emp-tag date">{formatBirthdayLabel(emp)}</span>
           )}
-          {/* Standard date countdown for Anniversary */}
-          {emp.daysUntil !== undefined && alert.alert.type === 'anniversary' && (
-           <span className="emp-tag date">{emp.daysUntil} d</span>
-          )}
-                    {/* Birthday: Show date (preferred) or fallback to daysUntil */}
-                    {alert.alert.type === 'birthday' && emp.extraData && (
-                      <span className="emp-tag date">
-                        {new Date(emp.extraData).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                    )}
-                    {alert.alert.type === 'birthday' && !emp.extraData && emp.daysUntil !== undefined && (
-                      <span className="emp-tag date">{emp.daysUntil} d</span>
-                    )}
-          {(alert.alert.type === 'anniversary') && emp.daysUntil === undefined && (
-           <span className="emp-tag date">Soon</span>
-          )}
+         {(alert.alert.type === 'anniversary') && emp.daysUntil === undefined && (
+          <span className="emp-tag date">Soon</span>
+         )}
           {/* Benefits change: show extra_data instead of days */}
           {alert.alert.type === 'benefits_change' && emp.extraData && (
            <span className="emp-tag benefits">{emp.extraData}</span>
@@ -304,7 +338,8 @@ function AlertsPanel({ alerts }) {
            <th>Employee</th>
            <th>ID</th>
            {selectedAlert.alert.type === 'vacation' && <th>Balance</th>}
-           {(selectedAlert.alert.type === 'anniversary' || selectedAlert.alert.type === 'birthday') && <th>Days Left</th>}
+           {(selectedAlert.alert.type === 'anniversary') && <th>Days Left</th>}
+           {(selectedAlert.alert.type === 'birthday') && <th>Date</th>}
           </tr>
          </thead>
          <tbody>
@@ -325,8 +360,11 @@ function AlertsPanel({ alerts }) {
               <td><span className="emp-tag vacation">{emp.vacationDays} days</span></td>
              )}
 
-             {(selectedAlert.alert.type === 'anniversary' || selectedAlert.alert.type === 'birthday') && (
-              <td><span className="emp-tag date">{emp.daysUntil ?? 'Upcoming'}</span></td>
+             {(selectedAlert.alert.type === 'anniversary') && (
+              <td><span className="emp-tag date">{formatDayLabel(emp.daysUntil)}</span></td>
+             )}
+             {(selectedAlert.alert.type === 'birthday') && (
+              <td><span className="emp-tag date">{formatBirthdayLabel(emp)}</span></td>
              )}
             </tr>
            ))

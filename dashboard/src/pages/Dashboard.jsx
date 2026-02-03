@@ -20,12 +20,15 @@ function Dashboard({ onLogout }) {
  // Granular loading states
  const [earnings, setEarnings] = useState(null);
  const [loadingEarnings, setLoadingEarnings] = useState(true);
+ const [earningsMeta, setEarningsMeta] = useState(null);
 
  const [vacation, setVacation] = useState(null);
  const [loadingVacation, setLoadingVacation] = useState(true);
+ const [vacationMeta, setVacationMeta] = useState(null);
 
  const [benefits, setBenefits] = useState(null);
  const [loadingBenefits, setLoadingBenefits] = useState(true);
+ const [benefitsMeta, setBenefitsMeta] = useState(null);
 
  const [alerts, setAlerts] = useState(null);
  const [loadingAlerts, setLoadingAlerts] = useState(true);
@@ -53,6 +56,7 @@ function Dashboard({ onLogout }) {
  try {
   const res = await getEarningsSummary(currentYear);
   setEarnings(res.data);
+  setEarningsMeta(res.meta || null);
  } catch (err) {
   console.error("Earnings failed", err);
  } finally {
@@ -64,6 +68,7 @@ function Dashboard({ onLogout }) {
  try {
   const res = await getVacationSummary(currentYear);
   setVacation(res.data);
+  setVacationMeta(res.meta || null);
  } catch (err) {
   console.error("Vacation failed", err);
  } finally {
@@ -75,6 +80,7 @@ function Dashboard({ onLogout }) {
  try {
   const res = await getBenefitsSummary();
   setBenefits(res.data);
+  setBenefitsMeta(res.meta || null);
  } catch (err) {
   console.error("Benefits failed", err);
  } finally {
@@ -145,6 +151,21 @@ function Dashboard({ onLogout }) {
 
  const formatMoney = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
  const formatNum = (n) => new Intl.NumberFormat('en-US').format(n);
+ const formatUpdatedAt = (value) => {
+  if (!value) return 'Unknown';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+ };
+
+ const lastUpdatedAt = useMemo(() => {
+  const candidates = [earningsMeta?.updatedAt, vacationMeta?.updatedAt, benefitsMeta?.updatedAt]
+   .filter(Boolean)
+   .map((v) => new Date(v))
+   .filter((d) => !Number.isNaN(d.getTime()));
+  if (candidates.length === 0) return null;
+  return new Date(Math.max(...candidates.map((d) => d.getTime()))).toISOString();
+ }, [earningsMeta, vacationMeta, benefitsMeta]);
 
  return (
  <div className="dashboard-container">
@@ -154,6 +175,9 @@ function Dashboard({ onLogout }) {
    <span>HQ</span> HR & Payroll Analytics
    </h1>
    <span className="subtitle">Executive Overview - FY {currentYear}</span>
+   <span className="subtitle subtitle-meta">
+    Data updated: {formatUpdatedAt(lastUpdatedAt)}
+   </span>
   </div>
   <div className="header-right">
    <div className="system-status">

@@ -14,7 +14,7 @@
     /* Solid, no glass blur */
     border-bottom: 1px solid var(--color-border);
     padding: 0 var(--space-8);
-    height: 64px;
+    height: 72px;
     /* Fixed industrial height */
     display: flex;
     justify-content: space-between;
@@ -24,8 +24,15 @@
     z-index: 100;
 }
 
+.header-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
 .header-left h1 {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-xl);
     /* Smaller, tighter */
     color: var(--color-primary-900);
     display: flex;
@@ -39,20 +46,24 @@
 .subtitle {
     font-size: var(--font-size-sm);
     color: var(--color-text-tertiary);
-    /* Muted */
     font-weight: 400;
-    padding-left: var(--space-3);
-    border-left: 1px solid var(--color-border);
-    margin-left: var(--space-3);
-    height: 24px;
-    display: flex;
-    align-items: center;
+    line-height: 1.2;
+}
+
+.subtitle.subtitle-meta {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+}
+
+.header-left .subtitle + .subtitle {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
 }
 
 .header-right {
     display: flex;
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-3);
 }
 
 /* System Status Tag */
@@ -60,8 +71,8 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--font-size-xs);
-    font-weight: 500;
+    font-size: 0.7rem;
+    font-weight: 600;
     color: var(--color-text-secondary);
     background: var(--color-bg-subtle);
     padding: 4px 10px;
@@ -80,7 +91,7 @@
 /* Actions */
 .refresh-btn,
 .logout-btn {
-    height: 32px;
+    height: 34px;
     padding: 0 var(--space-4);
     border-radius: var(--radius-md);
     font-weight: 500;
@@ -137,7 +148,7 @@
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-4);
+    gap: var(--space-5);
     /* Tighter gap */
 }
 
@@ -146,7 +157,7 @@
     display: grid;
     grid-template-columns: 2fr 1fr;
     /* 66% - 33% */
-    gap: var(--space-4);
+    gap: var(--space-5);
     min-height: 400px;
 }
 
@@ -154,7 +165,7 @@
 .charts-grid-secondary {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
+    gap: var(--space-5);
 }
 
 /* --- Component: The "Panel" (Card replacement) --- */
@@ -164,7 +175,7 @@
     border: 1px solid var(--color-border);
     /* No shadow default, only border */
     box-shadow: var(--shadow-card);
-    padding: var(--space-6);
+    padding: var(--space-5);
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -177,7 +188,7 @@
 }
 
 .card-header {
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-5);
     display: flex;
     justify-content: space-between;
     align-items: baseline;
@@ -187,10 +198,9 @@
 }
 
 .card-header h2 {
-    font-size: var(--font-size-base);
-    /* Smaller, label-like */
+    font-size: var(--font-size-sm);
     color: var(--color-primary-700);
-    font-weight: 600;
+    font-weight: 700;
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -210,7 +220,7 @@
     /* Square badge */
     font-size: var(--font-size-xs);
     font-family: var(--font-family-mono);
-    font-weight: 500;
+    font-weight: 600;
 }
 
 /* Responsive Breakpoints */

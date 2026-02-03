@@ -79,9 +79,16 @@ export const getEarningsSummary = async (req, res) => {
         };
 
         let employeeCount = 0;
+        let updatedAt = null;
 
         for (const row of summaries) {
             employeeCount = row.employee_count || employeeCount;
+            if (row.computed_at) {
+                const computedAt = new Date(row.computed_at);
+                if (!updatedAt || computedAt > updatedAt) {
+                    updatedAt = computedAt;
+                }
+            }
             const value = {
                 current: parseFloat(row.current_total) || 0,
                 previous: parseFloat(row.previous_total) || 0
@@ -110,13 +117,13 @@ export const getEarningsSummary = async (req, res) => {
         }
 
         // Cache the small result
-        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount } };
+        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null } };
         dashboardCache.set('earnings', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { currentYear, previousYear, employeeCount },
+            meta: { currentYear, previousYear, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null },
         });
     } catch (error) {
         console.error("getEarningsSummary error:", error);
@@ -165,9 +172,16 @@ export const getVacationSummary = async (req, res) => {
         };
 
         let employeeCount = 0;
+        let updatedAt = null;
 
         for (const row of summaries) {
             employeeCount = row.employee_count || employeeCount;
+            if (row.computed_at) {
+                const computedAt = new Date(row.computed_at);
+                if (!updatedAt || computedAt > updatedAt) {
+                    updatedAt = computedAt;
+                }
+            }
             const value = {
                 current: parseInt(row.current_total) || 0,
                 previous: parseInt(row.previous_total) || 0
@@ -196,13 +210,13 @@ export const getVacationSummary = async (req, res) => {
         }
 
         // Cache the small result
-        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount } };
+        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null } };
         dashboardCache.set('vacation', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { currentYear, previousYear, employeeCount },
+            meta: { currentYear, previousYear, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null },
         });
     } catch (error) {
         console.error("getVacationSummary error:", error);
@@ -245,7 +259,14 @@ export const getBenefitsSummary = async (req, res) => {
         let planCount = 0;
         const employeeCount = await Employee.countDocuments();
 
+        let updatedAt = null;
         for (const row of summaries) {
+            if (row.computed_at) {
+                const computedAt = new Date(row.computed_at);
+                if (!updatedAt || computedAt > updatedAt) {
+                    updatedAt = computedAt;
+                }
+            }
             const value = {
                 totalPaid: parseFloat(row.total_paid) || 0,
                 count: row.enrollment_count || 0,
@@ -267,13 +288,13 @@ export const getBenefitsSummary = async (req, res) => {
         }
 
         // Cache the small result
-        const responseData = { data: summary, meta: { planCount: planCount / 2, employeeCount } };
+        const responseData = { data: summary, meta: { planCount: planCount / 2, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null } };
         dashboardCache.set('benefits', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { planCount: planCount / 2, employeeCount },
+            meta: { planCount: planCount / 2, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null },
         });
     } catch (error) {
         console.error("getBenefitsSummary error:", error);

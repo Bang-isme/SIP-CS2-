@@ -40,27 +40,28 @@ function EarningsChart({ data, onDrilldown }) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
           <XAxis
             dataKey="name"
-            tick={{ fontSize: 12, fill: 'var(--color-text-secondary)' }}
+            tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             tickFormatter={formatCurrency}
-            tick={{ fontSize: 12, fill: 'var(--color-text-secondary)' }}
+            tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip
             cursor={{ fill: 'var(--color-bg-subtle)' }}
             contentStyle={{
-              borderRadius: '8px',
-              border: 'none',
+              borderRadius: '10px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg-card)',
               boxShadow: 'var(--shadow-lg)'
             }}
             formatter={(value) => formatCurrency(value)}
             labelFormatter={(label) => chartData.find(d => d.name === label)?.fullName || label}
           />
-          <Legend iconType="circle" />
+          <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)' }} />
           <Bar dataKey="current" name="Current Year" fill="var(--color-primary-600)" radius={[4, 4, 0, 0]} maxBarSize={50} cursor="pointer" />
           <Bar dataKey="previous" name="Previous Year" fill="var(--color-text-tertiary)" radius={[4, 4, 0, 0]} maxBarSize={50} />
         </BarChart>
@@ -108,23 +109,25 @@ function EarningsChart({ data, onDrilldown }) {
           flex-direction: column;
         }
         .stat-label {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          /* text-transform: uppercase; */
-          letter-spacing: 0.05em;
-          font-weight: 600;
+          font-size: 0.7rem;
+          color: var(--color-text-tertiary);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 700;
         }
         .stat-value {
           font-size: var(--font-size-lg);
           font-weight: 700;
-          color: var(--color-primary-700);
+          color: var(--color-primary-800);
         }
         .chart-breakdown { margin-top: var(--space-4); }
         .chart-breakdown h4 {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          /* text-transform: uppercase; */
+          font-size: 0.7rem;
+          color: var(--color-text-tertiary);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
           margin-bottom: var(--space-2);
+          font-weight: 700;
         }
         .breakdown-grid {
           display: flex;
@@ -134,17 +137,17 @@ function EarningsChart({ data, onDrilldown }) {
         .breakdown-item {
           background: var(--color-bg-subtle);
           padding: var(--space-1) var(--space-3);
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-md);
           cursor: pointer;
           display: flex;
           gap: var(--space-2);
           align-items: center;
           transition: all 0.2s;
-          border: 1px solid transparent;
+          border: 1px solid var(--color-border);
         }
         .breakdown-item:hover {
-          background: var(--color-primary-50);
-          border-color: var(--color-primary-100);
+          background: var(--color-bg-card);
+          border-color: var(--color-border-hover);
           color: var(--color-primary-700);
         }
         .breakdown-label {
@@ -157,13 +160,13 @@ function EarningsChart({ data, onDrilldown }) {
           color: inherit;
         }
         .breakdown-tag {
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             text-transform: uppercase;
             color: var(--color-text-tertiary);
-            background: rgba(0,0,0,0.05);
+            background: var(--color-bg-panel);
             padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 600;
+            border-radius: 999px;
+            font-weight: 700;
         }
       `}</style>
     </div>

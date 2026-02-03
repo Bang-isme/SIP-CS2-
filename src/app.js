@@ -30,7 +30,13 @@ app.use(
   })
 );
 app.use(helmet());
-app.use(compression());
+const shouldCompress = (req, res) => {
+  if (req.originalUrl?.startsWith("/api/dashboard/drilldown/export")) {
+    return false;
+  }
+  return compression.filter(req, res);
+};
+app.use(compression({ filter: shouldCompress }));
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -47,4 +53,3 @@ app.use("/api/sync", syncRoutes);
 app.use("/api/health", healthRoutes);
 
 export default app;
-
