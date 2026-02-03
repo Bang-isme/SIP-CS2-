@@ -99,8 +99,16 @@ export const getBenefitsSummary = async () => {
     return response.data;
 };
 
-export const getDrilldown = async (filters) => {
-    const response = await api.get('/dashboard/drilldown', { params: filters });
+export const getDrilldown = async (filters, config = {}) => {
+    const response = await api.get('/dashboard/drilldown', { params: filters, ...config });
+    return response.data;
+};
+
+export const exportDrilldownCsv = async (filters) => {
+    const response = await api.get('/dashboard/drilldown/export', {
+        params: filters,
+        responseType: 'blob'
+    });
     return response.data;
 };
 

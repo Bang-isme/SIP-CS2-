@@ -1,10 +1,22 @@
 # Case Study Progress
 
-> Last Updated: 2026-01-23T03:05:00+07:00
+> Last Updated: 2026-02-03T16:30:00+07:00
 
 ## Current Stage: Case Study 2 - COMPLETE ✅
 
 ---
+
+## Reference Requirements (Case 1-5)
+CEO Memo core: dashboard summary (earnings/vacation/benefits), drill-down to details, alerts (anniversary, vacation threshold, benefits change, birthdays in current month), no required legacy replacement.
+
+See: Memory/Context/case_study_requirements_summary.md
+
+---
+
+## Recent Fixes (2026-02-03)
+- Drilldown performance: added bulk mode (`limit>=1000` or `bulk=1`) + fast summary (`summary=fast`) to keep response under 10s.
+- Export CSV: switched to backend streaming endpoint to avoid huge JSON payload.
+- UI stability: cancel stale drilldown requests to prevent 20-row response overriding 10k.
 
 ## Case Study 2: The Dashboard
 

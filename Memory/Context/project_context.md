@@ -1,6 +1,6 @@
 # Project Context - SIP_CS (System Integration Project Case Study)
 
-> Last Updated: 2026-01-23T03:05:00+07:00
+> Last Updated: 2026-02-03T16:30:00+07:00
 
 ## Project Overview
 
@@ -64,3 +64,14 @@ d:\SIP_CS 2\SIP_CS\
 2. **Hybrid Pagination**: AlertEmployee table allows API pagination for 40k+ records
 3. **Cursor Streaming**: aggregate-dashboard.js uses MongoDB cursor to process 500k employees with constant memory
 4. **Dynamic Thresholds**: Alert thresholds read from MongoDB Alert collection, not hardcoded
+
+## Case Study Requirements Summary (2026-02-03)
+- Summary file: Memory/Context/case_study_requirements_summary.md
+- Contents: CEO Memo requirements, Case Study 1-5 deliverables, crosswalk matrix, priorities, architecture, artifacts, assumptions
+
+## Recent Performance Fixes (2026-02-03)
+- Drilldown bulk mode: `bulk=1` or `limit>=1000` returns lean/minimal fields, skips populate, maps department via cache.
+- Summary fast mode: `summary=fast` returns count only and avoids heavy totals computation.
+- Added CSV streaming export: `GET /api/dashboard/drilldown/export`.
+- Enabled gzip compression and disabled pretty JSON in production.
+- Frontend cancels stale drilldown requests to prevent race condition (20-row response overriding 10k).

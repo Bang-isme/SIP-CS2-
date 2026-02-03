@@ -41,6 +41,7 @@ const Earning = sequelize.define(
         indexes: [
             { fields: ["employee_id"] },
             { fields: ["year", "month"] },
+            { fields: ["year", "employee_id"] },
         ],
     }
 );

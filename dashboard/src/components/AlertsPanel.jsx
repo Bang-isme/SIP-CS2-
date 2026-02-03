@@ -1,357 +1,411 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import {
+ FiAlertTriangle,
+ FiBell,
+ FiCalendar,
+ FiChevronsLeft,
+ FiChevronsRight,
+ FiChevronLeft,
+ FiChevronRight,
+ FiClipboard,
+ FiGift,
+ FiSearch,
+ FiX,
+} from 'react-icons/fi';
 import api from '../services/api';
 import './AlertsPanel.css';
 
 function AlertsPanel({ alerts }) {
-  const [selectedAlert, setSelectedAlert] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [pageSize, setPageSize] = useState(50); // Default to 50 for list view
-  const [currentPage, setCurrentPage] = useState(1);
+ const [selectedAlert, setSelectedAlert] = useState(null);
+ const [searchTerm, setSearchTerm] = useState('');
+ const [pageSize, setPageSize] = useState(50); // Default to 50 for list view
+ const [currentPage, setCurrentPage] = useState(1);
 
-  // API-based pagination state
-  const [apiEmployees, setApiEmployees] = useState([]);
-  const [apiTotal, setApiTotal] = useState(0);
-  const [apiTotalPages, setApiTotalPages] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState(null);
+ // API-based pagination state
+ const [apiEmployees, setApiEmployees] = useState([]);
+ const [apiTotal, setApiTotal] = useState(0);
+ const [apiTotalPages, setApiTotalPages] = useState(0);
+ const [isLoading, setIsLoading] = useState(false);
+ const [apiError, setApiError] = useState(null);
 
-  // Always use API pagination to ensure full data access
-  const [useApiPagination, setUseApiPagination] = useState(true);
+ // Always use API pagination to ensure full data access
+ const [useApiPagination, setUseApiPagination] = useState(true);
 
-  // Debounced search
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+ // Debounced search
+ const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const alertConfig = {
-    anniversary: { icon: '🎂', color: '#f59e0b', bg: '#fffbeb', label: 'Anniversaries', priority: 'info', badge: '🟢' },
-    vacation: { icon: '🏖️', color: '#ef4444', bg: '#fef2f2', label: 'High Vacation Balance', priority: 'critical', badge: '🔴' },
-    benefits_change: { icon: '📋', color: '#10b981', bg: '#ecfdf5', label: 'Benefits Update', priority: 'warning', badge: '🟡' },
-    birthday: { icon: '🎉', color: '#ec4899', bg: '#fdf2f8', label: 'Birthday Alert', priority: 'info', badge: '🟢' },
-  };
+ const alertConfig = {
+  anniversary: {
+   icon: FiCalendar,
+   color: '#f59e0b',
+   bg: '#fffbeb',
+   label: 'Anniversaries',
+   priority: 'Info',
+   priorityIcon: FiBell,
+   priorityColor: '#64748b',
+  },
+  vacation: {
+   icon: FiAlertTriangle,
+   color: '#ef4444',
+   bg: '#fef2f2',
+   label: 'High Vacation Balance',
+   priority: 'Critical',
+   priorityIcon: FiAlertTriangle,
+   priorityColor: '#ef4444',
+  },
+  benefits_change: {
+   icon: FiClipboard,
+   color: '#10b981',
+   bg: '#ecfdf5',
+   label: 'Benefits Update',
+   priority: 'Warning',
+   priorityIcon: FiAlertTriangle,
+   priorityColor: '#f59e0b',
+  },
+  birthday: {
+   icon: FiGift,
+   color: '#ec4899',
+   bg: '#fdf2f8',
+   label: 'Birthday Alert',
+   priority: 'Info',
+   priorityIcon: FiBell,
+   priorityColor: '#64748b',
+  },
+ };
 
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-      setCurrentPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+ // Debounce search input
+ useEffect(() => {
+  const timer = setTimeout(() => {
+   setDebouncedSearch(searchTerm);
+   setCurrentPage(1);
+  }, 300);
+  return () => clearTimeout(timer);
+ }, [searchTerm]);
 
-  // Fetch employees from API when modal is open
-  const fetchEmployees = useCallback(async () => {
-    if (!selectedAlert) return;
+ // Fetch employees from API when modal is open
+ const fetchEmployees = useCallback(async () => {
+  if (!selectedAlert) return;
 
-    setIsLoading(true);
-    setApiError(null);
+  setIsLoading(true);
+  setApiError(null);
 
-    try {
-      const params = {
-        page: currentPage,
-        limit: pageSize,
-        ...(debouncedSearch && { search: debouncedSearch })
-      };
+  try {
+   const params = {
+    page: currentPage,
+    limit: pageSize,
+    ...(debouncedSearch && { search: debouncedSearch })
+   };
 
-      // Ensure endpoint exists for all types
-      const response = await api.get(`/alerts/${selectedAlert.alert.type}/employees`, { params });
-      const data = response.data;
+   // Ensure endpoint exists for all types
+   const response = await api.get(`/alerts/${selectedAlert.alert.type}/employees`, { params });
+   const data = response.data;
 
-      if (data.success) {
-        setApiEmployees(data.employees || []);
-        setApiTotal(data.total || 0);
-        setApiTotalPages(data.totalPages || 0);
+   if (data.success) {
+    setApiEmployees(data.employees || []);
+    setApiTotal(data.total || 0);
+    setApiTotalPages(data.totalPages || 0);
 
-        if (data.message) {
-          // Optional: Handle advisory messages
-          // setApiError(data.message); 
-        }
-      } else {
-        setApiError(data.message || 'Failed to fetch employees');
-      }
-    } catch (error) {
-      console.error('Error fetching alert employees:', error);
-      // Fallback for types that might not have endpoints (safety net)
-      setApiError(error.response?.data?.message || "Could not retrieve full list from server.");
-    } finally {
-      setIsLoading(false);
+    if (data.message) {
+     // Optional: Handle advisory messages
+     // setApiError(data.message); 
     }
-  }, [selectedAlert, currentPage, pageSize, debouncedSearch]);
-
-  // Fetch when dependencies change
-  useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
-
-  const handleViewMore = (alert) => {
-    setSelectedAlert(alert);
-    setSearchTerm('');
-    setDebouncedSearch('');
-    setCurrentPage(1);
-    setApiEmployees([]);
-    setApiTotal(0);
-    setApiError(null);
-    setUseApiPagination(true); // Force API mode
-  };
-
-  const closeModal = () => {
-    setSelectedAlert(null);
-    setSearchTerm('');
-    setDebouncedSearch('');
-    setCurrentPage(1);
-    setApiEmployees([]);
-    setApiTotal(0);
-    setApiError(null);
-  };
-
-  const handlePageSizeChange = (e) => {
-    setPageSize(Number(e.target.value));
-    setCurrentPage(1);
-  };
-
-  if (!alerts || alerts.length === 0) {
-    return (
-      <div className="no-alerts">
-        <div className="empty-state-icon">✅</div>
-        <p>System Clear. No action items.</p>
-      </div>
-    );
+   } else {
+    setApiError(data.message || 'Failed to fetch employees');
+   }
+  } catch (error) {
+   console.error('Error fetching alert employees:', error);
+   // Fallback for types that might not have endpoints (safety net)
+   setApiError(error.response?.data?.message || "Could not retrieve full list from server.");
+  } finally {
+   setIsLoading(false);
   }
+ }, [selectedAlert, currentPage, pageSize, debouncedSearch]);
 
+ // Fetch when dependencies change
+ useEffect(() => {
+  fetchEmployees();
+ }, [fetchEmployees]);
+
+ const handleViewMore = (alert) => {
+  setSelectedAlert(alert);
+  setSearchTerm('');
+  setDebouncedSearch('');
+  setCurrentPage(1);
+  setApiEmployees([]);
+  setApiTotal(0);
+  setApiError(null);
+  setUseApiPagination(true); // Force API mode
+ };
+
+ const closeModal = () => {
+  setSelectedAlert(null);
+  setSearchTerm('');
+  setDebouncedSearch('');
+  setCurrentPage(1);
+  setApiEmployees([]);
+  setApiTotal(0);
+  setApiError(null);
+ };
+
+ const handlePageSizeChange = (e) => {
+  setPageSize(Number(e.target.value));
+  setCurrentPage(1);
+ };
+
+ if (!alerts || alerts.length === 0) {
   return (
-    <div className="alerts-container">
-      <div className="alerts-grid">
-        {alerts.map((alert, index) => {
-          const config = alertConfig[alert.alert.type] || { icon: '🔔', color: '#64748b', bg: '#f8fafc' };
+   <div className="no-alerts">
+    <div className="empty-state-icon"><FiBell size={24} /></div>
+    <p>System Clear. No action items.</p>
+   </div>
+  );
+ }
 
-          return (
-            <div
-              key={index}
-              className="alert-card"
-              style={{ '--accent-color': config.color }}
-            >
-              <div className="alert-header">
-                <div className="alert-title-wrap">
-                  <span className="alert-icon">{config.icon}</span>
-                  <span className="alert-name">{config.label || alert.alert.name}</span>
-                  <span className="priority-badge" title={config.priority}>{config.badge}</span>
-                </div>
-                <span className="alert-badge">{alert.count}</span>
-              </div>
+ return (
+  <div className="alerts-container">
+   <div className="alerts-grid">
+    {alerts.map((alert, index) => {
+     const config = alertConfig[alert.alert.type] || { icon: FiBell, color: '#64748b', bg: '#f8fafc', priority: 'Info', priorityIcon: FiBell, priorityColor: '#64748b' };
+     const Icon = config.icon || FiBell;
+     const PriorityIcon = config.priorityIcon || FiBell;
 
-              <div className="alert-body custom-scrollbar">
-                {/* Safe array access to prevent crash */}
-                {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, 5).map((emp, i) => (
-                  <div key={i} className="employee-row">
-                    <div className="emp-details">
-                      <span className="emp-name">{emp.name}</span>
-                      <span className="emp-id">{emp.employeeId}</span>
-                    </div>
-                    {/* Tags logic */}
-                    {emp.vacationDays !== undefined && (
-                      <span className="emp-tag vacation">{emp.vacationDays} d</span>
-                    )}
-                    {/* Standard date countdown for Anniversary */}
-                    {emp.daysUntil !== undefined && alert.alert.type === 'anniversary' && (
-                      <span className="emp-tag date">{emp.daysUntil} d</span>
-                    )}
-                    {/* Birthday: Show formatted Date (e.g. Feb 12) */}
-                    {alert.alert.type === 'birthday' && emp.extraData && (
-                      <span className="emp-tag date">{emp.daysUntil} d</span>
-                    )}
+     return (
+      <div
+       key={index}
+       className="alert-card"
+       style={{ '--accent-color': config.color }}
+      >
+       <div className="alert-header">
+        <div className="alert-title-wrap">
+         <span className="alert-icon" style={{ color: config.color }}>
+          <Icon size={16} />
+         </span>
+         <span className="alert-name">{config.label || alert.alert.name}</span>
+         <span className="priority-badge" title={config.priority} style={{ color: config.priorityColor }}>
+          <PriorityIcon size={12} />
+         </span>
+        </div>
+        <span className="alert-badge">{alert.count}</span>
+       </div>
+
+       <div className="alert-body custom-scrollbar">
+        {/* Safe array access to prevent crash */}
+        {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, 5).map((emp, i) => (
+         <div key={i} className="employee-row">
+          <div className="emp-details">
+           <span className="emp-name">{emp.name}</span>
+           <span className="emp-id">{emp.employeeId}</span>
+          </div>
+          {/* Tags logic */}
+          {emp.vacationDays !== undefined && (
+           <span className="emp-tag vacation">{emp.vacationDays} d</span>
+          )}
+          {/* Standard date countdown for Anniversary */}
+          {emp.daysUntil !== undefined && alert.alert.type === 'anniversary' && (
+           <span className="emp-tag date">{emp.daysUntil} d</span>
+          )}
+                    {/* Birthday: Show date (preferred) or fallback to daysUntil */}
                     {alert.alert.type === 'birthday' && emp.extraData && (
                       <span className="emp-tag date">
                         {new Date(emp.extraData).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </span>
                     )}
-                    {(alert.alert.type === 'anniversary') && emp.daysUntil === undefined && (
-                      <span className="emp-tag date">Soon</span>
+                    {alert.alert.type === 'birthday' && !emp.extraData && emp.daysUntil !== undefined && (
+                      <span className="emp-tag date">{emp.daysUntil} d</span>
                     )}
-                    {/* Benefits change: show extra_data instead of days */}
-                    {alert.alert.type === 'benefits_change' && emp.extraData && (
-                      <span className="emp-tag benefits">{emp.extraData}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+          {(alert.alert.type === 'anniversary') && emp.daysUntil === undefined && (
+           <span className="emp-tag date">Soon</span>
+          )}
+          {/* Benefits change: show extra_data instead of days */}
+          {alert.alert.type === 'benefits_change' && emp.extraData && (
+           <span className="emp-tag benefits">{emp.extraData}</span>
+          )}
+         </div>
+        ))}
+       </div>
 
-              {alert.count > 5 && (
-                <div className="alert-footer">
-                  <button
-                    className="view-more-btn"
-                    onClick={() => handleViewMore(alert)}
-                  >
-                    View Record ({alert.count})
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
+       {alert.count > 5 && (
+        <div className="alert-footer">
+         <button
+          className="view-more-btn"
+          onClick={() => handleViewMore(alert)}
+         >
+          View Record ({alert.count})
+         </button>
+        </div>
+       )}
+      </div>
+     );
+    })}
+   </div>
+
+   {/* Modal with Forced API Pagination */}
+   {selectedAlert && (
+    <div className="alert-modal-overlay" onClick={closeModal}>
+     <div className="alert-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-header">
+       <div className="modal-title">
+        <span className="alert-icon">
+         {(() => {
+          const ModalIcon = alertConfig[selectedAlert.alert.type]?.icon || FiBell;
+          return <ModalIcon size={16} />;
+         })()}
+        </span>
+        <h3>{alertConfig[selectedAlert.alert.type]?.label || selectedAlert.alert.name}</h3>
+       </div>
+       <span className="modal-count">
+        {apiTotal} records
+       </span>
+       <button className="modal-close" onClick={closeModal}><FiX /></button>
       </div>
 
-      {/* Modal with Forced API Pagination */}
-      {selectedAlert && (
-        <div className="alert-modal-overlay" onClick={closeModal}>
-          <div className="alert-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">
-                <span className="alert-icon">
-                  {alertConfig[selectedAlert.alert.type]?.icon || '🔔'}
-                </span>
-                <h3>{alertConfig[selectedAlert.alert.type]?.label || selectedAlert.alert.name}</h3>
-              </div>
-              <span className="modal-count">
-                {apiTotal} records
-              </span>
-              <button className="modal-close" onClick={closeModal}>×</button>
-            </div>
+      {/* Controls */}
+      <div className="modal-controls">
+       <div className="search-box">
+        <span className="search-icon"><FiSearch size={14} /></span>
+        <input
+         type="text"
+         placeholder="ID or Name..."
+         value={searchTerm}
+         onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        {searchTerm && (
+         <button className="clear-search" onClick={() => setSearchTerm('')}><FiX size={12} /></button>
+        )}
+       </div>
+       <div className="page-size-control">
+        <select value={pageSize} onChange={handlePageSizeChange}>
+         <option value={10}>10</option>
+         <option value={50}>50</option>
+         <option value={100}>100</option>
+         <option value={500}>500</option>
+        </select>
+       </div>
+      </div>
 
-            {/* Controls */}
-            <div className="modal-controls">
-              <div className="search-box">
-                <span className="search-icon">🔍</span>
-                <input
-                  type="text"
-                  placeholder="ID or Name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                  <button className="clear-search" onClick={() => setSearchTerm('')}>×</button>
-                )}
-              </div>
-              <div className="page-size-control">
-                <select value={pageSize} onChange={handlePageSizeChange}>
-                  <option value={10}>10</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={500}>500</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Error Notice */}
-            {apiError && !isLoading && (
-              <div className="api-notice">
-                <span>⚠️ {apiError}</span>
-              </div>
-            )}
-
-            <div className="modal-body custom-scrollbar">
-              {isLoading ? (
-                <div className="modal-loading">
-                  <div className="spinner"></div>
-                  <p>Retrieving records...</p>
-                </div>
-              ) : (
-                <table className="employee-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Employee</th>
-                      <th>ID</th>
-                      {selectedAlert.alert.type === 'vacation' && <th>Balance</th>}
-                      {(selectedAlert.alert.type === 'anniversary' || selectedAlert.alert.type === 'birthday') && <th>Days Left</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {apiEmployees.length === 0 ? (
-                      <tr>
-                        <td colSpan="5" className="no-results">
-                          {searchTerm ? `No matches for "${searchTerm}"` : 'No records found.'}
-                        </td>
-                      </tr>
-                    ) : (
-                      apiEmployees.map((emp, i) => (
-                        <tr key={i}>
-                          <td>{(currentPage - 1) * pageSize + i + 1}</td>
-                          <td className="font-medium">{emp.name}</td>
-                          <td className="text-mono">{emp.employeeId}</td>
-
-                          {selectedAlert.alert.type === 'vacation' && (
-                            <td><span className="emp-tag vacation">{emp.vacationDays} days</span></td>
-                          )}
-
-                          {(selectedAlert.alert.type === 'anniversary' || selectedAlert.alert.type === 'birthday') && (
-                            <td><span className="emp-tag date">{emp.daysUntil ?? 'Upcoming'}</span></td>
-                          )}
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Pagination Controls */}
-            <div className="modal-pagination">
-              <div className="pagination-info">
-                {apiTotal > 0 ? `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, apiTotal)} of ${apiTotal}` : 'No data'}
-              </div>
-              <div className="pagination-buttons">
-                <button
-                  disabled={currentPage === 1 || isLoading}
-                  onClick={() => setCurrentPage(1)}
-                  className="page-btn"
-                >
-                  ⟪
-                </button>
-                <button
-                  disabled={currentPage === 1 || isLoading}
-                  onClick={() => setCurrentPage(p => p - 1)}
-                  className="page-btn"
-                >
-                  ←
-                </button>
-
-                {/* Jump to Page Input */}
-                <div className="page-jump">
-                  <span>Page</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max={apiTotalPages || 1}
-                    value={currentPage}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val >= 1 && val <= apiTotalPages) {
-                        setCurrentPage(val);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const val = parseInt(e.target.value);
-                        if (val >= 1 && val <= apiTotalPages) {
-                          setCurrentPage(val);
-                        }
-                      }
-                    }}
-                    className="page-input"
-                    disabled={isLoading}
-                  />
-                  <span>/ {apiTotalPages || 1}</span>
-                </div>
-
-                <button
-                  disabled={currentPage >= apiTotalPages || isLoading}
-                  onClick={() => setCurrentPage(p => p + 1)}
-                  className="page-btn"
-                >
-                  →
-                </button>
-                <button
-                  disabled={currentPage >= apiTotalPages || isLoading}
-                  onClick={() => setCurrentPage(apiTotalPages)}
-                  className="page-btn"
-                >
-                  ⟫
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Error Notice */}
+      {apiError && !isLoading && (
+       <div className="api-notice">
+        <span>{apiError}</span>
+       </div>
       )}
+
+      <div className="modal-body custom-scrollbar">
+       {isLoading ? (
+        <div className="modal-loading">
+         <div className="spinner"></div>
+         <p>Retrieving records...</p>
+        </div>
+       ) : (
+        <table className="employee-table">
+         <thead>
+          <tr>
+           <th>#</th>
+           <th>Employee</th>
+           <th>ID</th>
+           {selectedAlert.alert.type === 'vacation' && <th>Balance</th>}
+           {(selectedAlert.alert.type === 'anniversary' || selectedAlert.alert.type === 'birthday') && <th>Days Left</th>}
+          </tr>
+         </thead>
+         <tbody>
+          {apiEmployees.length === 0 ? (
+           <tr>
+            <td colSpan="5" className="no-results">
+             {searchTerm ? `No matches for "${searchTerm}"` : 'No records found.'}
+            </td>
+           </tr>
+          ) : (
+           apiEmployees.map((emp, i) => (
+            <tr key={i}>
+             <td>{(currentPage - 1) * pageSize + i + 1}</td>
+             <td className="font-medium">{emp.name}</td>
+             <td className="text-mono">{emp.employeeId}</td>
+
+             {selectedAlert.alert.type === 'vacation' && (
+              <td><span className="emp-tag vacation">{emp.vacationDays} days</span></td>
+             )}
+
+             {(selectedAlert.alert.type === 'anniversary' || selectedAlert.alert.type === 'birthday') && (
+              <td><span className="emp-tag date">{emp.daysUntil ?? 'Upcoming'}</span></td>
+             )}
+            </tr>
+           ))
+          )}
+         </tbody>
+        </table>
+       )}
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="modal-pagination">
+       <div className="pagination-info">
+        {apiTotal > 0 ? `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, apiTotal)} of ${apiTotal}` : 'No data'}
+       </div>
+       <div className="pagination-buttons">
+        <button
+         disabled={currentPage === 1 || isLoading}
+         onClick={() => setCurrentPage(1)}
+         className="page-btn"
+        >
+         <FiChevronsLeft />
+        </button>
+        <button
+         disabled={currentPage === 1 || isLoading}
+         onClick={() => setCurrentPage(p => p - 1)}
+         className="page-btn"
+        >
+         <FiChevronLeft />
+        </button>
+
+        {/* Jump to Page Input */}
+        <div className="page-jump">
+         <span>Page</span>
+         <input
+          type="number"
+          min="1"
+          max={apiTotalPages || 1}
+          value={currentPage}
+          onChange={(e) => {
+           const val = parseInt(e.target.value);
+           if (val >= 1 && val <= apiTotalPages) {
+            setCurrentPage(val);
+           }
+          }}
+          onKeyDown={(e) => {
+           if (e.key === 'Enter') {
+            const val = parseInt(e.target.value);
+            if (val >= 1 && val <= apiTotalPages) {
+             setCurrentPage(val);
+            }
+           }
+          }}
+          className="page-input"
+          disabled={isLoading}
+         />
+         <span>/ {apiTotalPages || 1}</span>
+        </div>
+
+        <button
+         disabled={currentPage >= apiTotalPages || isLoading}
+         onClick={() => setCurrentPage(p => p + 1)}
+         className="page-btn"
+        >
+         <FiChevronRight />
+        </button>
+        <button
+         disabled={currentPage >= apiTotalPages || isLoading}
+         onClick={() => setCurrentPage(apiTotalPages)}
+         className="page-btn"
+        >
+         <FiChevronsRight />
+        </button>
+       </div>
+      </div>
+     </div>
     </div>
-  );
+   )}
+  </div>
+ );
 }
 
 export default AlertsPanel;

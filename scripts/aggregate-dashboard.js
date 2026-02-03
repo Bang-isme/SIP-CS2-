@@ -23,6 +23,7 @@ import {
     VacationRecord,
     BenefitPlan,
     EmployeeBenefit,
+    EarningsEmployeeYear,
     EarningsSummary,
     VacationSummary,
     BenefitsSummary,
@@ -104,6 +105,7 @@ async function aggregateEarnings(targetYear) {
     const byShareholder = { shareholder: { current: 0, previous: 0 }, nonShareholder: { current: 0, previous: 0 } };
     let total = { current: 0, previous: 0 };
     let employeeCount = 0;
+    let earningsUpdates = [];
 
     // Stream employees
     const cursor = Employee.find()
@@ -116,6 +118,18 @@ async function aggregateEarnings(targetYear) {
         const empId = emp.employeeId;
         const current = currentMap.get(empId) || 0;
         const previous = previousMap.get(empId) || 0;
+
+        // Update annual earnings snapshot in MongoDB (for fast minEarnings filter)
+        earningsUpdates.push({
+            updateOne: {
+                filter: { _id: emp._id },
+                update: { $set: { annualEarnings: current, annualEarningsYear: targetYear } }
+            }
+        });
+        if (earningsUpdates.length >= BATCH_SIZE) {
+            await Employee.bulkWrite(earningsUpdates, { ordered: false });
+            earningsUpdates = [];
+        }
 
         if (current === 0 && previous === 0) continue;
 
@@ -156,6 +170,11 @@ async function aggregateEarnings(targetYear) {
         }
     }
 
+    if (earningsUpdates.length > 0) {
+        await Employee.bulkWrite(earningsUpdates, { ordered: false });
+        earningsUpdates = [];
+    }
+
     // Save to EarningsSummary table
     await EarningsSummary.destroy({ where: { year: targetYear } });
 
@@ -182,6 +201,30 @@ async function aggregateEarnings(targetYear) {
 
     await EarningsSummary.bulkCreate(rows);
     console.log(`   ✓ Saved ${rows.length} earnings summary rows`);
+    // Save to EarningsEmployeeYear table (fast minEarnings queries)
+    const currentYearRows = (currentEarnings || []).map(e => ({
+        employee_id: e.employee_id,
+        year: targetYear,
+        total: parseFloat(e.total) || 0
+    }));
+    const previousYearRows = (previousEarnings || []).map(e => ({
+        employee_id: e.employee_id,
+        year: targetYear - 1,
+        total: parseFloat(e.total) || 0
+    }));
+
+    await EarningsEmployeeYear.destroy({ where: { year: targetYear } });
+    await EarningsEmployeeYear.destroy({ where: { year: targetYear - 1 } });
+
+    if (currentYearRows.length > 0) {
+        await EarningsEmployeeYear.bulkCreate(currentYearRows);
+    }
+    if (previousYearRows.length > 0) {
+        await EarningsEmployeeYear.bulkCreate(previousYearRows);
+    }
+
+    console.log(`   OK Saved ${currentYearRows.length} earnings-employee rows for ${targetYear}`);
+    console.log(`   OK Saved ${previousYearRows.length} earnings-employee rows for ${targetYear - 1}`);
 }
 
 async function aggregateVacation(targetYear) {

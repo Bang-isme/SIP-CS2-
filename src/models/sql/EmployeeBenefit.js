@@ -47,6 +47,7 @@ const EmployeeBenefit = sequelize.define(
         indexes: [
             { fields: ["employee_id"] },
             { fields: ["plan_id"] },
+            { fields: ["last_change_date"] }, // Optimized for benefits_change alert
         ],
     }
 );

@@ -64,6 +64,14 @@ const EmployeeSchema = new mongoose.Schema(
     payRateId: {
       type: Number,
     },
+    // Derived analytics (updated by aggregation job)
+    annualEarnings: {
+      type: Number,
+      default: 0,
+    },
+    annualEarningsYear: {
+      type: Number,
+    },
   },
   {
     timestamps: true,
@@ -73,6 +81,7 @@ const EmployeeSchema = new mongoose.Schema(
 
 // Index for efficient queries
 EmployeeSchema.index({ departmentId: 1 });
+EmployeeSchema.index({ annualEarningsYear: 1, annualEarnings: 1 });
 // Removed low-cardinality indexes (gender, employmentType, isShareholder) to save ~100MB Data Size
 
 export default mongoose.model("Employee", EmployeeSchema);

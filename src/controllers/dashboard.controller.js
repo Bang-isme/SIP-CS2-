@@ -1,7 +1,7 @@
 import Employee from "../models/Employee.js";
 import Department from "../models/Department.js";
-import { Earning, VacationRecord, BenefitPlan, EmployeeBenefit, EarningsSummary, VacationSummary, BenefitsSummary } from "../models/sql/index.js";
-import { Op, fn, col, literal } from "sequelize";
+import { Earning, VacationRecord, BenefitPlan, EmployeeBenefit, EarningsSummary, EarningsEmployeeYear, VacationSummary, BenefitsSummary } from "../models/sql/index.js";
+import { Op, fn, col } from "sequelize";
 import dashboardCache from "../utils/cache.js";
 
 
@@ -288,8 +288,29 @@ export const getBenefitsSummary = async (req, res) => {
 export const getDrilldown = async (req, res) => {
     try {
         const { department, gender, ethnicity, employmentType, isShareholder, page = 1, limit = 20 } = req.query;
+        const currentYear = new Date().getFullYear();
+        const earningsYear = parseInt(req.query.year) || currentYear;
+        const pageNum = Math.max(parseInt(page) || 1, 1);
+        const limitNum = Math.min(parseInt(limit) || 20, 10000);
+        const bulkMode = req.query.bulk === "1" || limitNum >= 1000;
+        const summaryMode = req.query.summary || (bulkMode ? "fast" : "full");
 
         const query = {};
+        const applyEmployeeIdFilter = (ids) => {
+            if (!Array.isArray(ids) || ids.length === 0) return false;
+            if (!query.employeeId) {
+                query.employeeId = { $in: ids };
+                return true;
+            }
+            if (query.employeeId?.$in) {
+                const idSet = new Set(query.employeeId.$in);
+                const intersection = ids.filter(id => idSet.has(id));
+                query.employeeId = { $in: intersection };
+                return intersection.length > 0;
+            }
+            // Fallback: if query.employeeId is a direct value, keep it
+            return true;
+        };
         if (department) {
             // Check if input is ObjectId or Name
             const isObjectId = /^[0-9a-fA-F]{24}$/.test(department);
@@ -320,7 +341,14 @@ export const getDrilldown = async (req, res) => {
                 });
                 const empIds = enrollments.map(e => e.employee_id);
                 // Filter by employeeId (assuming sync uses logical ID)
-                query.employeeId = { $in: empIds };
+                const ok = applyEmployeeIdFilter(empIds);
+                if (!ok) {
+                    return res.json({
+                        success: true,
+                        data: [],
+                        meta: { total: 0, page: parseInt(page), limit: parseInt(limit), pages: 0 }
+                    });
+                }
             } else {
                 // Plan not found -> return empty
                 return res.json({
@@ -335,17 +363,19 @@ export const getDrilldown = async (req, res) => {
 
         if (req.query.search) {
             const searchTerm = req.query.search.trim();
-            const searchRegex = new RegExp(searchTerm, 'i');
-            query.$or = [
-                { firstName: searchRegex },
-                { lastName: searchRegex },
-                { employeeId: searchRegex },
-                // Allow searching "First Last" space separated
-                ...(searchTerm.includes(' ') ? [] : [])
-            ];
-            // If search term has space, simple split logic or just rely on individual regex (simpler for now)
-            // But let's handle full name search properly if needed.
-            // For now, simpler regex is robust enough for "Amy", "A01", etc.
+            if (searchTerm) {
+                const searchRegex = new RegExp(searchTerm, 'i');
+                query.$or = [
+                    { firstName: searchRegex },
+                    { lastName: searchRegex },
+                    { employeeId: searchRegex },
+                    // Allow searching "First Last" space separated
+                    ...(searchTerm.includes(' ') ? [] : [])
+                ];
+                // If search term has space, simple split logic or just rely on individual regex (simpler for now)
+                // But let's handle full name search properly if needed.
+                // For now, simpler regex is robust enough for "Amy", "A01", etc.
+            }
         }
 
         if (gender) query.gender = gender;
@@ -353,27 +383,68 @@ export const getDrilldown = async (req, res) => {
         if (employmentType) query.employmentType = employmentType;
         if (isShareholder !== undefined) query.isShareholder = isShareholder === "true";
 
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        // CEO Query: "Employees earning over $X" - Mongo filter using annualEarnings snapshot
+        const minEarnings = parseFloat(req.query.minEarnings);
+        const hasMinEarnings = Number.isFinite(minEarnings) && minEarnings > 0;
 
-        const employees = await Employee.find(query)
-            .populate("departmentId")
-            .skip(skip)
-            .limit(parseInt(limit))
-            .lean();
+        if (hasMinEarnings) {
+            const snapshotCount = await Employee.countDocuments({ annualEarningsYear: earningsYear });
+            if (snapshotCount === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: `No earnings snapshot for ${earningsYear}. Run: node scripts/aggregate-dashboard.js ${earningsYear}`
+                });
+            }
 
-        const total = await Employee.countDocuments(query);
+            query.annualEarningsYear = earningsYear;
+            query.annualEarnings = { $gte: minEarnings };
+        }
+
+        const skip = (pageNum - 1) * limitNum;
+        let employeeQuery = Employee.find(query);
+        if (bulkMode) {
+            employeeQuery = employeeQuery.select("employeeId firstName lastName departmentId gender ethnicity employmentType isShareholder vacationDays annualEarnings annualEarningsYear");
+        } else {
+            employeeQuery = employeeQuery.populate("departmentId");
+        }
+
+        const [employees, total] = await Promise.all([
+            employeeQuery.skip(skip).limit(limitNum).lean(),
+            Employee.countDocuments(query)
+        ]);
+
+        let departmentMap = null;
+        if (bulkMode) {
+            const depts = await Department.find().select("_id name").lean();
+            departmentMap = new Map(depts.map(d => [d._id.toString(), d.name]));
+        }
 
         // Get payroll data for these employees (small batch, max 20)
         const employeeIds = employees.map((e) => e.employeeId || e._id.toString());
 
-        const earnings = await Earning.findAll({
-            where: { employee_id: { [Op.in]: employeeIds } },
-            attributes: ["employee_id", [fn("SUM", col("amount")), "total"]],
-            group: ["employee_id"],
-            raw: true,
-        });
+        const earningsMap = new Map();
+        const idsNeedingLookup = [];
 
-        const earningsMap = new Map(earnings.map((e) => [e.employee_id, parseFloat(e.total) || 0]));
+        for (const emp of employees) {
+            const id = emp.employeeId || emp._id.toString();
+            const isSnapshotValid = emp.annualEarningsYear === earningsYear && Number.isFinite(emp.annualEarnings);
+            if (isSnapshotValid) {
+                earningsMap.set(id, emp.annualEarnings);
+            } else {
+                idsNeedingLookup.push(id);
+            }
+        }
+
+        if (idsNeedingLookup.length > 0) {
+            const earnings = await EarningsEmployeeYear.findAll({
+                where: { year: earningsYear, employee_id: { [Op.in]: idsNeedingLookup } },
+                attributes: ["employee_id", "total"],
+                raw: true,
+            });
+            for (const row of earnings) {
+                earningsMap.set(row.employee_id, parseFloat(row.total) || 0);
+            }
+        }
 
         // Fetch Benefit info if context is relevant
         let benefitMap = new Map();
@@ -392,31 +463,40 @@ export const getDrilldown = async (req, res) => {
             }
         }
 
+        const getDepartmentName = (emp) => {
+            if (bulkMode) {
+                const deptId = emp.departmentId ? emp.departmentId.toString() : "";
+                return departmentMap?.get(deptId) || "Unassigned";
+            }
+            return emp.departmentId?.name || "Unassigned";
+        };
+
         let enrichedEmployees = employees.map((emp) => ({
             ...emp,
-            department: emp.departmentId?.name || "Unassigned",
+            department: getDepartmentName(emp),
             totalEarnings: earningsMap.get(emp.employeeId || emp._id.toString()) || 0,
             benefitCost: benefitMap.get(emp.employeeId || emp._id.toString()) || 0
         }));
 
-        // CEO Query: "Employees earning over $X" - Client-side filter after enrichment
-        // (Server-side pre-filter would require restructuring pagination; this is acceptable for demo)
-        const minEarnings = parseFloat(req.query.minEarnings);
-        if (minEarnings && !isNaN(minEarnings)) {
+        // Safety filter: ensure minEarnings constraint holds in the response
+        if (hasMinEarnings) {
             enrichedEmployees = enrichedEmployees.filter(emp => emp.totalEarnings >= minEarnings);
         }
 
         // Calculate Summary Totals for the entire filtered set (not just paginated page)
-        const hasActiveFilter = department || gender || ethnicity || employmentType || isShareholder || minEarnings;
-        const currentYear = new Date().getFullYear();
+        const hasShareholderFilter = isShareholder !== undefined && isShareholder !== '';
+        const hasActiveFilter = Boolean(department || gender || ethnicity || employmentType || hasShareholderFilter || hasMinEarnings);
         const context = req.query.context || 'earnings';
 
         let summaryTotalEarnings = 0;
         let summaryTotalBenefits = 0;
         let summaryTotalVacation = 0;
-        let summaryCount = 0;
+        let summaryCount = total;
+        let summarySource = "fast-count";
+        let summaryCalculated = false;
+        let summaryPartial = summaryMode === "fast";
 
-        if (!hasActiveFilter) {
+        if (summaryMode !== "fast" && !hasActiveFilter) {
             // =====================================================
             // FAST PATH: Use Pre-aggregated data for "All" case
             // =====================================================
@@ -447,12 +527,14 @@ export const getDrilldown = async (req, res) => {
             summaryTotalBenefits = parseFloat(benefitsTotal?.total) || 0;
             summaryTotalVacation = parseInt(vacationTotal?.current_total) || 0;
             summaryCount = parseInt(earningsTotal?.employee_count) || total;
-
-        } else {
+            summarySource = "pre-aggregated";
+            summaryCalculated = false;
+            summaryPartial = false;
+        } else if (summaryMode !== "fast") {
             // =====================================================
             // FILTERED PATH
             // =====================================================
-            const matchCount = await Employee.countDocuments(query);
+            const matchCount = total;
             summaryCount = matchCount;
 
             // Check if we can use pre-aggregated data for SINGLE dimension filter
@@ -461,11 +543,11 @@ export const getDrilldown = async (req, res) => {
                 department ? { type: 'department', value: department } : null,
                 ethnicity ? { type: 'ethnicity', value: ethnicity } : null,
                 employmentType ? { type: 'employmentType', value: employmentType } : null,
-                isShareholder ? { type: 'shareholder', value: isShareholder === 'true' ? 'shareholder' : 'nonShareholder' } : null
+                hasShareholderFilter ? { type: 'shareholder', value: isShareholder === 'true' ? 'shareholder' : 'nonShareholder' } : null
             ].filter(Boolean);
 
             // If SINGLE dimension filter, try pre-aggregated path
-            if (activeFilters.length === 1 && !minEarnings) {
+            if (activeFilters.length === 1 && !hasMinEarnings) {
                 const filter = activeFilters[0];
                 const [earningsAgg, vacationAgg] = await Promise.all([
                     EarningsSummary.findOne({
@@ -516,6 +598,7 @@ export const getDrilldown = async (req, res) => {
                         summaryTotalBenefits = benefitsTotal;
                     }
                 }
+                summarySource = "pre-aggregated";
             }
             // Multi-dimension filter or minEarnings:
             // Use batched calculation for datasets up to 1,000,000 records
@@ -542,9 +625,9 @@ export const getDrilldown = async (req, res) => {
 
                             // Earnings - Only needed for 'earnings' context or generic
                             if (context === 'earnings' || !context) {
-                                subPromises.push(Earning.findOne({
-                                    where: { employee_id: { [Op.in]: currentBatchIds } },
-                                    attributes: [[fn("SUM", col("amount")), "total"]],
+                                subPromises.push(EarningsEmployeeYear.findOne({
+                                    where: { year: earningsYear, employee_id: { [Op.in]: currentBatchIds } },
+                                    attributes: [[fn("SUM", col("total")), "total"]],
                                     raw: true
                                 }));
                             } else { subPromises.push(Promise.resolve({ total: 0 })); }
@@ -584,7 +667,7 @@ export const getDrilldown = async (req, res) => {
                     const batchPromise = (async () => {
                         const subPromises = [];
                         // Earnings - context-aware
-                        if (context === 'earnings' || !context) { subPromises.push(Earning.findOne({ where: { employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("amount")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
+                        if (context === 'earnings' || !context) { subPromises.push(EarningsEmployeeYear.findOne({ where: { year: earningsYear, employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("total")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
                         // Benefits - context-aware
                         if (context === 'benefits' || !context) { subPromises.push(EmployeeBenefit.findOne({ where: { employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("amount_paid")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
                         // Vacation - context-aware
@@ -600,37 +683,163 @@ export const getDrilldown = async (req, res) => {
                 summaryTotalEarnings = results.reduce((acc, c) => acc + c.earnings, 0);
                 summaryTotalBenefits = results.reduce((acc, c) => acc + c.benefits, 0);
                 summaryTotalVacation = results.reduce((acc, c) => acc + c.vacation, 0);
+                summarySource = "realtime-batched";
             }
             // If > 1M, we admit defeat and show count only to avoid timeout
             else {
                 // > 1M records: Just show count.
                 // This is extremely rare for filtered queries.
             }
+            if (summarySource === "fast-count") {
+                summarySource = "realtime";
+            }
+            summaryCalculated = true;
+            summaryPartial = false;
         }
 
         res.json({
             success: true,
             data: enrichedEmployees,
             meta: {
-                total: minEarnings && !isNaN(minEarnings) ? enrichedEmployees.length : total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil((minEarnings && !isNaN(minEarnings) ? enrichedEmployees.length : total) / limit),
-                minEarningsApplied: minEarnings || null
+                total: total,
+                page: pageNum,
+                limit: limitNum,
+                pages: Math.ceil(total / limitNum),
+                minEarningsApplied: hasMinEarnings ? minEarnings : null
             },
             summary: {
                 totalEarnings: summaryTotalEarnings,
                 totalBenefits: summaryTotalBenefits,
                 totalVacation: summaryTotalVacation,
                 count: summaryCount,
-                calculated: hasActiveFilter,
-                source: hasActiveFilter
-                    ? (summaryCount <= 50000 ? 'realtime' : 'realtime-batched')
-                    : 'pre-aggregated'
+                calculated: summaryCalculated,
+                source: summarySource,
+                partial: summaryPartial,
+                mode: summaryMode
             }
         });
     } catch (error) {
         console.error("getDrilldown error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * GET /api/dashboard/drilldown/export
+ * Streams CSV export for current filters (no pagination)
+ */
+export const exportDrilldownCsv = async (req, res) => {
+    try {
+        const { department, gender, ethnicity, employmentType, isShareholder } = req.query;
+        const currentYear = new Date().getFullYear();
+        const earningsYear = parseInt(req.query.year) || currentYear;
+
+        const query = {};
+
+        if (department) {
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(department);
+            if (isObjectId) {
+                query.departmentId = department;
+            } else {
+                const deptDoc = await Department.findOne({ name: department });
+                if (deptDoc) {
+                    query.departmentId = deptDoc._id;
+                } else {
+                    return res.status(404).json({ success: false, message: "Department not found." });
+                }
+            }
+        }
+
+        if (req.query.search) {
+            const searchTerm = req.query.search.trim();
+            if (searchTerm) {
+                const searchRegex = new RegExp(searchTerm, 'i');
+                query.$or = [
+                    { firstName: searchRegex },
+                    { lastName: searchRegex },
+                    { employeeId: searchRegex }
+                ];
+            }
+        }
+
+        if (gender) query.gender = gender;
+        if (ethnicity) query.ethnicity = ethnicity;
+        if (employmentType) query.employmentType = employmentType;
+        if (isShareholder !== undefined) query.isShareholder = isShareholder === "true";
+
+        const minEarnings = parseFloat(req.query.minEarnings);
+        const hasMinEarnings = Number.isFinite(minEarnings) && minEarnings > 0;
+
+        if (hasMinEarnings) {
+            const snapshotCount = await Employee.countDocuments({ annualEarningsYear: earningsYear });
+            if (snapshotCount === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: `No earnings snapshot for ${earningsYear}. Run: node scripts/aggregate-dashboard.js ${earningsYear}`
+                });
+            }
+            query.annualEarningsYear = earningsYear;
+            query.annualEarnings = { $gte: minEarnings };
+        }
+
+        const depts = await Department.find().select("_id name").lean();
+        const deptMap = new Map(depts.map(d => [d._id.toString(), d.name]));
+
+        const isVacation = req.query.context === 'vacation';
+        const fileDate = new Date().toISOString().slice(0, 10);
+
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="drilldown_export_${fileDate}.csv"`);
+
+        const headers = [
+            "EmployeeID",
+            "Name",
+            "Department",
+            "Gender",
+            "Ethnicity",
+            "Type",
+            "Shareholder",
+            isVacation ? "VacationDays" : "TotalEarnings"
+        ];
+        res.write(headers.join(",") + "\n");
+
+        const cursor = Employee.find(query)
+            .select("employeeId firstName lastName departmentId gender ethnicity employmentType isShareholder vacationDays annualEarnings annualEarningsYear")
+            .lean()
+            .cursor();
+
+        const escapeCsv = (value) => {
+            if (value === null || value === undefined) return "";
+            const str = String(value);
+            if (/[",\n]/.test(str)) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        };
+
+        for await (const emp of cursor) {
+            const deptName = deptMap.get(emp.departmentId?.toString()) || "Unassigned";
+            const isSnapshotValid = emp.annualEarningsYear === earningsYear && Number.isFinite(emp.annualEarnings);
+            const totalEarnings = isSnapshotValid ? emp.annualEarnings : 0;
+            const row = [
+                escapeCsv(emp.employeeId || ""),
+                escapeCsv(`${emp.firstName || ""} ${emp.lastName || ""}`.trim()),
+                escapeCsv(deptName),
+                escapeCsv(emp.gender || ""),
+                escapeCsv(emp.ethnicity || ""),
+                escapeCsv(emp.employmentType || ""),
+                escapeCsv(emp.isShareholder ? "Yes" : "No"),
+                escapeCsv(isVacation ? (emp.vacationDays || 0) : totalEarnings)
+            ].join(",");
+
+            if (!res.write(row + "\n")) {
+                await new Promise((resolve) => res.once("drain", resolve));
+            }
+        }
+
+        res.end();
+    } catch (error) {
+        console.error("exportDrilldownCsv error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

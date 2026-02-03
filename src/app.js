@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
+import compression from "compression";
 
 // Routes
 import indexRoutes from "./routes/index.routes.js";
@@ -18,7 +19,7 @@ const app = express();
 
 // Settings
 app.set("port", process.env.PORT || 4000);
-app.set("json spaces", 4);
+app.set("json spaces", process.env.NODE_ENV === "development" ? 2 : 0);
 app.set("etag", false); // Disable 304 responses for easier debugging
 
 // Middlewares
@@ -29,6 +30,7 @@ app.use(
   })
 );
 app.use(helmet());
+app.use(compression());
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -45,5 +47,4 @@ app.use("/api/sync", syncRoutes);
 app.use("/api/health", healthRoutes);
 
 export default app;
-
 

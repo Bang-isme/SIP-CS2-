@@ -4,6 +4,7 @@ import {
     getVacationSummary,
     getBenefitsSummary,
     getDrilldown,
+    exportDrilldownCsv,
     getDepartments,
 } from "../controllers/dashboard.controller.js";
 import { verifyToken, isAdmin, } from "../middlewares/authJwt.js";
@@ -20,6 +21,7 @@ router.get("/benefits", getBenefitsSummary);
 
 // Drill-down endpoint
 router.get("/drilldown", getDrilldown);
+router.get("/drilldown/export", exportDrilldownCsv);
 router.get("/departments", getDepartments);
 
 export default router;

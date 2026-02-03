@@ -57,8 +57,22 @@
 
 .alert-icon {
     font-size: 1rem;
-    filter: grayscale(0.5);
-    /* Mute icons for industrial look */
+    filter: none;
+}
+
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: white;
+}
+
+.priority-badge svg {
+    display: block;
 }
 
 .alert-name {
