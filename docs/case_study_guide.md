@@ -62,7 +62,8 @@
 - Pre-aggregation vào summary tables để response nhanh.
 - Drilldown query Mongo + snapshot earnings trong Mongo để đảm bảo tốc độ.
 - AlertEmployee table cho pagination lớn.
-- Hybrid Summary Totals: fast mode vẫn trả nhanh, nếu COUNT <= 10,000 sẽ chạy nền để cập nhật tổng chính xác.
+  - Hybrid Summary Totals: fast mode vẫn trả nhanh, nếu COUNT <= 10,000 sẽ chạy nền để cập nhật tổng chính xác.
+- Batch aggregation chạy hằng ngày hoặc sau khi import dữ liệu lớn (vận hành thực tế).
 
 ### Architecture & Data Flow
 - Mongo Employees + MySQL payroll -> `aggregate-dashboard.js` -> `EarningsSummary`, `VacationSummary`, `BenefitsSummary`, `AlertsSummary`, `AlertEmployee`.

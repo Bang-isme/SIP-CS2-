@@ -13,8 +13,9 @@
     background: var(--color-bg-card);
     /* Solid, no glass blur */
     border-bottom: 1px solid var(--color-border);
-    padding: 0 var(--space-8);
-    height: 72px;
+    box-shadow: var(--shadow-sm);
+    padding: 0 var(--space-6);
+    height: 64px;
     /* Fixed industrial height */
     display: flex;
     justify-content: space-between;
@@ -39,15 +40,15 @@
     align-items: center;
     gap: var(--space-3);
     margin: 0;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    letter-spacing: -0.015em;
 }
 
 .subtitle {
     font-size: var(--font-size-sm);
     color: var(--color-text-tertiary);
     font-weight: 400;
-    line-height: 1.2;
+    line-height: 1.15;
 }
 
 .subtitle.subtitle-meta {
@@ -71,7 +72,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 600;
     color: var(--color-text-secondary);
     background: var(--color-bg-subtle);
@@ -104,9 +105,9 @@
 }
 
 .refresh-btn {
-    background: white;
+    background: var(--color-bg-card);
     border: 1px solid var(--color-border);
-    color: var(--color-primary-600);
+    color: var(--color-primary-700);
 }
 
 .refresh-btn:hover {
@@ -119,16 +120,17 @@
     background: transparent;
     border: 1px solid transparent;
     /* Ghost button default */
-    color: var(--color-danger);
+    color: var(--color-text-secondary);
 }
 
 .logout-btn:hover {
-    background: var(--color-danger-bg);
+    background: var(--color-bg-subtle);
+    color: var(--color-danger);
 }
 
 /* --- Main Layout via CSS Grid (Bento) --- */
 .dashboard-content {
-    padding: var(--space-6) var(--space-8);
+    padding: var(--space-4) var(--space-6);
     max-width: 1920px;
     /* Wider for enterprise data */
     margin: 0 auto;
@@ -140,7 +142,7 @@
        - Row 2: Charts Area (1fr)
     */
     grid-template-rows: auto 1fr;
-    gap: var(--space-6);
+    gap: var(--space-4);
     flex: 1;
 }
 
@@ -148,7 +150,7 @@
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-5);
+    gap: var(--space-4);
     /* Tighter gap */
 }
 
@@ -157,22 +159,23 @@
     display: grid;
     grid-template-columns: 2fr 1fr;
     /* 66% - 33% */
-    gap: var(--space-5);
-    min-height: 400px;
+    gap: var(--space-4);
+    min-height: 340px;
+    align-items: stretch;
 }
 
 /* Row 3: Secondary Charts (Optional) */
 .charts-grid-secondary {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-5);
+    gap: var(--space-4);
 }
 
 /* Row 4: Integration Queue */
 .charts-grid-tertiary {
     display: grid;
     grid-template-columns: 1fr;
-    gap: var(--space-5);
+    gap: var(--space-4);
 }
 
 /* --- Component: The "Panel" (Card replacement) --- */
@@ -182,7 +185,7 @@
     border: 1px solid var(--color-border);
     /* No shadow default, only border */
     box-shadow: var(--shadow-card);
-    padding: var(--space-5);
+    padding: var(--space-4);
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -190,18 +193,26 @@
     overflow: hidden;
 }
 
+
 .card:hover {
     border-color: var(--color-border-hover);
 }
 
 .card-header {
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--space-4);
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding-bottom: var(--space-2);
+    padding-bottom: var(--space-1);
     border-bottom: 1px solid var(--color-bg-subtle);
     /* Very subtle internal divider */
+}
+
+.card-hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    margin-top: -8px;
+    margin-bottom: var(--space-4);
 }
 
 .card-header h2 {
@@ -210,7 +221,7 @@
     font-weight: 700;
     margin: 0;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.07em;
 }
 
 .card-subtitle {

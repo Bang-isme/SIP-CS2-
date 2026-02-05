@@ -13,41 +13,41 @@
     --color-primary-600: #475569;
     --color-primary-700: #334155;
     --color-primary-800: #1e293b;
-    --color-primary-900: #0f172a; /* Main Dark */
+    --color-primary-900: #111827; /* Main Dark */
 
     /* Accent: Precision Action (Technical Blue) */
-    --color-accent-500: #2563eb; /* Standard Blue */
-    --color-accent-600: #1d4ed8; /* Darker Blue Interaction */
-    --color-accent-hover: #1e40af;
+    --color-accent-500: #1f3a5f; /* Enterprise Navy */
+    --color-accent-600: #1b3556;
+    --color-accent-hover: #172f4d;
 
     /* Neutrals: Canvas */
-    --color-bg-body: #f5f7fb;  /* Softer canvas */
+    --color-bg-body: #f2f4f7;  /* Executive canvas */
     --color-bg-card: #ffffff;
-    --color-bg-subtle: #f9fbfd;
-    --color-bg-panel: #eef3f8; /* For sidebars/headers */
+    --color-bg-subtle: #f7f9fb;
+    --color-bg-panel: #eef2f7; /* For sidebars/headers */
 
     /* Text */
     --color-text-main: #0f172a;    /* High contrast */
-    --color-text-secondary: #4b5b70; /* Balanced */
-    --color-text-tertiary: #8a98ad;  /* Muted metadata */
+    --color-text-secondary: #425268; /* Balanced */
+    --color-text-tertiary: #7b8a9a;  /* Muted metadata */
     
     /* Borders & Separators */
-    --color-border: #e5ecf3;
-    --color-border-hover: #d7e1ec;
+    --color-border: #dfe6ee;
+    --color-border-hover: #cfd8e3;
     --color-divider: #e2e8f0;
 
     /* Semantic Status (Signal Lights - slightly desaturated) */
-    --color-success: #059669; /* Emerald-600 */
-    --color-success-bg: #ecfdf5;
+    --color-success: #0f766e; /* Teal-700 */
+    --color-success-bg: #eef7f5;
     
-    --color-warning: #d97706; /* Amber-600 */
-    --color-warning-bg: #fffbeb;
+    --color-warning: #b45309; /* Amber-700 */
+    --color-warning-bg: #fff6e9;
     
-    --color-danger: #dc2626; /* Red-600 */
-    --color-danger-bg: #fef2f2;
+    --color-danger: #b91c1c; /* Red-700 */
+    --color-danger-bg: #fff1f2;
     
-    --color-info: #2563eb;
-    --color-info-bg: #eff6ff;
+    --color-info: #1d4ed8;
+    --color-info-bg: #eef4ff;
 
     /* --- Spacing (Grid System Units) --- */
     --space-1: 4px;
@@ -78,7 +78,7 @@
     --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.08), 0 4px 6px -4px rgb(15 23 42 / 0.04);
     
     /* Bento Grid Effect: Subtle border + very light shadow */
-    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 10px 20px -16px rgb(15 23 42 / 0.18);
+    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.03), 0 8px 18px -16px rgb(15 23 42 / 0.14);
 
     /* --- Animation --- */
     --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -87,8 +87,8 @@
 
     /* --- BorderRadius (Engineered/Sharp) --- */
     --radius-sm: 4px;
-    --radius-md: 8px;  /* Standard for inputs/buttons */
-    --radius-lg: 10px;  /* Standard for Cards */
-    --radius-xl: 14px; /* Containers */
+    --radius-md: 6px;  /* Standard for inputs/buttons */
+    --radius-lg: 8px;  /* Standard for Cards */
+    --radius-xl: 12px; /* Containers */
     --radius-full: 9999px;
 }

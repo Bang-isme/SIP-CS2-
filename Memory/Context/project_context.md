@@ -75,3 +75,18 @@ d:\SIP_CS 2\SIP_CS\
 - Added CSV streaming export: `GET /api/dashboard/drilldown/export`.
 - Enabled gzip compression and disabled pretty JSON in production.
 - Frontend cancels stale drilldown requests to prevent race condition (20-row response overriding 10k).
+
+## Recent UI/UX Updates (2026-02-05)
+- Compact layout pass: reduced dashboard padding/gaps, chart heights, alert row height, and KPI card spacing.
+- Enterprise styling: updated design tokens (palette, borders, radii, shadows) for a corporate look.
+- Earnings Overview:
+  - Grouped breakdown tables (Gender/Ethnicity/Employment Type) replacing chip list.
+  - Added insights: Top Growth Dept, Biggest Decline Dept.
+  - Added Top Departments (Current) list and YoY Movers with tabs (Declines / Smallest Growth).
+  - Gap with Alerts fixed via row stretch alignment.
+- Time-off Overview:
+  - Rebalanced donut + details layout with panel styling.
+  - Added insights bar: Largest Segment + Gap vs #2 (shows <0.1% with #2 name and days).
+- Alerts panel:
+  - Enterprise styling refinements and auto-fit grid.
+  - Last card spans full-width when alert count is odd to remove empty gap.

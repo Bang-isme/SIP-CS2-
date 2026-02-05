@@ -33,13 +33,13 @@ function BenefitsChart({ data, onDrilldown }) {
       </div>
 
       <h4>Average Benefits Paid by Plan</h4>
-      <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chartData} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={true} vertical={false} />
           <XAxis
             type="number"
             tickFormatter={formatCurrency}
-            tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }}
+            tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
             axisLine={false}
             tickLine={false}
           />
@@ -47,7 +47,7 @@ function BenefitsChart({ data, onDrilldown }) {
             type="category"
             dataKey="name"
             width={120}
-            tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
+            tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
             axisLine={false}
             tickLine={false}
           />
@@ -93,38 +93,48 @@ function BenefitsChart({ data, onDrilldown }) {
       </ResponsiveContainer>
 
       <style>{`
-        .benefits-container { margin-top: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+        .benefits-container { margin-top: 0; display: flex; flex-direction: column; gap: var(--space-3); }
         .benefits-summary {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: var(--space-4);
+          gap: var(--space-3);
+          padding-bottom: var(--space-2);
+          border-bottom: 1px dashed var(--color-border);
         }
         .summary-card {
-          padding: var(--space-4);
+          padding: var(--space-3) var(--space-4);
           border-radius: var(--radius-md);
-          text-align: center;
-          background: var(--color-bg-subtle);
+          text-align: left;
+          background: var(--color-bg-card);
           border: 1px solid var(--color-border);
-          transition: all 0.2s;
+          box-shadow: var(--shadow-sm);
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-height: 76px;
         }
         .summary-card:hover {
-            border-color: var(--color-border);
-            background: var(--color-bg-body);
-            box-shadow: var(--shadow-sm);
+            border-color: var(--color-border-hover);
+        }
+        .summary-card.shareholder {
+          border-left: 3px solid var(--color-success);
+        }
+        .summary-card.non-shareholder {
+          border-left: 3px solid var(--color-primary-500);
         }
         
         .summary-label {
           display: block;
-          font-size: 0.7rem;
+          font-size: 0.72rem;
           color: var(--color-text-tertiary);
-          margin-bottom: var(--space-1);
+          margin-bottom: 2px;
           text-transform: uppercase;
           letter-spacing: 0.08em;
           font-weight: 700;
         }
         .summary-value {
           display: block;
-          font-size: var(--font-size-2xl);
+          font-size: 1.25rem;
           font-weight: 700;
         }
         .text-success { color: var(--color-success); }
@@ -132,9 +142,10 @@ function BenefitsChart({ data, onDrilldown }) {
         
         .summary-count {
           display: block;
-          font-size: 0.7rem;
+          font-size: 0.72rem;
           color: var(--color-text-tertiary);
-          margin-top: var(--space-1);
+          margin-top: 2px;
+          font-family: var(--font-family-mono);
         }
         .benefits-container h4 {
           font-size: 0.7rem;

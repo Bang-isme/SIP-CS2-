@@ -1,12 +1,18 @@
 .integration-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .integration-toolbar {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.integration-meta {
+  display: flex;
   align-items: center;
   gap: var(--space-3);
 }
@@ -20,6 +26,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .integration-select {
@@ -43,7 +51,7 @@
 
 .retry-btn {
   border: 1px solid var(--color-border);
-  background: var(--color-bg-subtle);
+  background: var(--color-bg-card);
   padding: 6px 10px;
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);
@@ -52,6 +60,18 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.toggle-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
 .integration-error {
@@ -75,11 +95,17 @@
   border-radius: var(--radius-md);
 }
 
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .integration-replay {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg-subtle);
@@ -127,7 +153,7 @@
   display: grid;
   grid-template-columns: 70px 1.2fr 0.7fr 0.8fr 0.5fr 1fr 0.6fr;
   gap: var(--space-3);
-  padding: 10px 14px;
+  padding: 8px 12px;
   align-items: center;
   border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-xs);
@@ -158,6 +184,11 @@
   font-weight: 700;
   border: 1px solid var(--color-border);
   background: var(--color-bg-card);
+}
+
+.status-badge.neutral {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-subtle);
 }
 
 .status-badge.success {
@@ -191,6 +222,14 @@
   border-radius: var(--radius-md);
   font-size: 0.7rem;
   cursor: pointer;
+}
+
+.icon-btn:disabled,
+.retry-btn:disabled,
+.toggle-btn:disabled,
+.mini-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .text-mono {

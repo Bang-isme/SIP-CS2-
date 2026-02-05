@@ -199,18 +199,48 @@ function AlertsPanel({ alerts }) {
   });
  }, [alerts]);
 
- return (
-  <div className="alerts-container">
+ const summary = useMemo(() => {
+  const totalAffected = sortedAlerts.reduce((sum, item) => sum + (item.count || 0), 0);
+  const largestQueue = [...sortedAlerts].sort((a, b) => (b.count || 0) - (a.count || 0))[0] || null;
+  const highestPriority = sortedAlerts[0] || null;
+  const byCount = [...sortedAlerts]
+   .sort((a, b) => (b.count || 0) - (a.count || 0))
+   .slice(0, 3)
+   .map((item) => {
+    const label = alertConfig[item.alert.type]?.label || item.alert.name;
+    const count = item.count || 0;
+    const share = totalAffected > 0 ? (count / totalAffected) * 100 : 0;
+    return { label, count, share };
+   });
+
+  return { totalAffected, largestQueue, highestPriority, byCount };
+ }, [sortedAlerts]);
+
+ const hasOddCount = sortedAlerts.length % 2 === 1;
+ const highestPriorityLabel = summary.highestPriority
+  ? (alertConfig[summary.highestPriority.alert.type]?.label || summary.highestPriority.alert.name)
+  : 'N/A';
+ const highestPrioritySeverity = summary.highestPriority
+  ? (alertConfig[summary.highestPriority.alert.type]?.severity || 'Low')
+  : null;
+ const largestQueueLabel = summary.largestQueue
+  ? (alertConfig[summary.largestQueue.alert.type]?.label || summary.largestQueue.alert.name)
+  : 'N/A';
+ const largestQueueCount = summary.largestQueue?.count || 0;
+
+  return (
+   <div className="alerts-container">
    <div className="alerts-grid">
-    {sortedAlerts.map((alert, index) => {
+   {sortedAlerts.map((alert, index) => {
      const config = alertConfig[alert.alert.type] || { icon: FiBell, color: '#64748b', bg: '#f8fafc', severity: 'Low', severityRank: 0, priorityIcon: FiBell, priorityColor: '#64748b' };
      const Icon = config.icon || FiBell;
      const PriorityIcon = config.priorityIcon || FiBell;
+     const spanFull = hasOddCount && index === sortedAlerts.length - 1;
 
      return (
       <div
        key={index}
-       className="alert-card"
+       className={`alert-card${spanFull ? ' span-full' : ''}`}
        style={{ '--accent-color': config.color }}
       >
        <div className="alert-header">
@@ -227,7 +257,7 @@ function AlertsPanel({ alerts }) {
         <span className="alert-badge">{alert.count}</span>
        </div>
 
-       <div className="alert-body custom-scrollbar">
+       <div className="alert-body">
         {/* Safe array access to prevent crash */}
         {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, 5).map((emp, i) => (
          <div key={i} className="employee-row">
@@ -269,8 +299,36 @@ function AlertsPanel({ alerts }) {
         </div>
        )}
       </div>
-     );
-    })}
+    );
+   })}
+   </div>
+
+   <div className="alerts-summary-dock">
+    <div className="summary-kpi summary-kpi-impact">
+     <span className="summary-label">Total Impacted</span>
+     <span className="summary-value summary-value-number">{summary.totalAffected.toLocaleString()}</span>
+    </div>
+    <div className="summary-kpi summary-kpi-priority">
+     <span className="summary-label">Highest Priority</span>
+     <span className="summary-value summary-value-text" title={highestPriorityLabel}>{highestPriorityLabel}</span>
+     {highestPrioritySeverity && <span className="summary-meta">Severity: {highestPrioritySeverity}</span>}
+    </div>
+    <div className="summary-kpi summary-kpi-queue">
+     <span className="summary-label">Largest Queue</span>
+     <span className="summary-value summary-value-text" title={largestQueueLabel}>{largestQueueLabel}</span>
+     {summary.largestQueue && <span className="summary-meta">Records: {largestQueueCount.toLocaleString()}</span>}
+    </div>
+    <div className="summary-bars">
+     {summary.byCount.map((item) => (
+      <div key={item.label} className="summary-bar-row">
+       <span className="bar-label">{item.label}</span>
+       <span className="bar-value">{item.count}</span>
+       <div className="bar-track">
+        <div className="bar-fill" style={{ width: `${Math.max(6, item.share)}%` }} />
+       </div>
+      </div>
+     ))}
+    </div>
    </div>
 
    {/* Modal with Forced API Pagination */}

@@ -38,6 +38,7 @@ function IntegrationEventsPanel() {
   const [replayEntityType, setReplayEntityType] = useState("employee");
   const [replayEntityId, setReplayEntityId] = useState("");
   const [replayDays, setReplayDays] = useState("7");
+  const [showReplay, setShowReplay] = useState(false);
 
   const fetchEvents = async (options = {}) => {
     const { silent } = options;
@@ -111,11 +112,15 @@ function IntegrationEventsPanel() {
     if (loading) return "Loading queue...";
     return `${meta.total} events`;
   }, [error, loading, meta.total]);
+  const activeStatus = statusMeta[status] || { label: status, className: "status-badge neutral" };
 
   return (
     <div className="integration-panel">
       <div className="integration-toolbar">
-        <span className="integration-subtitle">{summaryText}</span>
+        <div className="integration-meta">
+          <span className="integration-subtitle">{summaryText}</span>
+          <span className={`status-chip ${activeStatus.className}`}>{activeStatus.label}</span>
+        </div>
         <div className="integration-actions">
           <select
             value={status}
@@ -143,6 +148,14 @@ function IntegrationEventsPanel() {
             <FiRotateCw size={14} />
             Retry DEAD (All)
           </button>
+          <button
+            className="toggle-btn"
+            onClick={() => setShowReplay((prev) => !prev)}
+            aria-expanded={showReplay}
+            title="Advanced replay filters"
+          >
+            {showReplay ? "Hide Replay" : "Replay Filters"}
+          </button>
         </div>
       </div>
 
@@ -158,52 +171,54 @@ function IntegrationEventsPanel() {
           <span>{notice}</span>
         </div>
       )}
+      {showReplay && (
+        <div className="integration-replay">
+          <div className="integration-replay-title">Filtered Replay (FAILED/DEAD)</div>
+          <div className="integration-replay-controls">
+            <select
+              value={replayStatus}
+              onChange={(e) => setReplayStatus(e.target.value)}
+              className="integration-select"
+            >
+              {REPLAY_STATUS_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            <input
+              className="integration-input"
+              value={replayEntityType}
+              onChange={(e) => setReplayEntityType(e.target.value)}
+              placeholder="entity type"
+            />
+            <input
+              className="integration-input"
+              value={replayEntityId}
+              onChange={(e) => setReplayEntityId(e.target.value)}
+              placeholder="entity id (optional)"
+            />
+            <input
+              className="integration-input short"
+              type="number"
+              min="0"
+              value={replayDays}
+              onChange={(e) => setReplayDays(e.target.value)}
+              placeholder="days"
+            />
+            <button
+              className="retry-btn"
+              onClick={handleReplay}
+              disabled={refreshing}
+              title="Replay filtered FAILED/DEAD events"
+            >
+              Replay (Filtered)
+            </button>
+          </div>
+          <div className="integration-hint">
+            Retry DEAD: chỉ DEAD (bỏ qua filter). Replay: áp dụng filter FAILED/DEAD + entity/time.
+          </div>
+        </div>
+      )}
 
-      <div className="integration-replay">
-        <div className="integration-replay-title">Filtered Replay (FAILED/DEAD)</div>
-        <div className="integration-replay-controls">
-          <select
-            value={replayStatus}
-            onChange={(e) => setReplayStatus(e.target.value)}
-            className="integration-select"
-          >
-            {REPLAY_STATUS_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
-          <input
-            className="integration-input"
-            value={replayEntityType}
-            onChange={(e) => setReplayEntityType(e.target.value)}
-            placeholder="entity type"
-          />
-          <input
-            className="integration-input"
-            value={replayEntityId}
-            onChange={(e) => setReplayEntityId(e.target.value)}
-            placeholder="entity id (optional)"
-          />
-          <input
-            className="integration-input short"
-            type="number"
-            min="0"
-            value={replayDays}
-            onChange={(e) => setReplayDays(e.target.value)}
-            placeholder="days"
-          />
-          <button
-            className="retry-btn"
-            onClick={handleReplay}
-            disabled={refreshing}
-            title="Replay filtered FAILED/DEAD events"
-          >
-            Replay (Filtered)
-          </button>
-        </div>
-        <div className="integration-hint">
-          Retry DEAD: chỉ DEAD (bỏ qua filter). Replay: áp dụng filter FAILED/DEAD + entity/time.
-        </div>
-      </div>
 
       <div className="integration-table">
         <div className="integration-row integration-head">

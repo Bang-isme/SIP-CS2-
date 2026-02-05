@@ -232,26 +232,36 @@ function Dashboard({ onLogout }) {
 
   {/* Main Charts Architecture */}
   <section className="charts-grid-primary">
-   {/* Row 1: Earnings (Main Focus) & Vacation */}
+   {/* Row 1: Earnings (Main Focus) & Alerts (Manage-by-exception) */}
    <div className="card earnings-section">
    <div className="card-header">
     <h2>Earnings Overview</h2>
     <span className="card-subtitle">Distribution by Department</span>
    </div>
+   <div className="card-hint">Quick query: use Drilldown → Min Earnings &gt; $X</div>
    {loadingEarnings ? <SkeletonChart /> : (earnings && <EarningsChart data={earnings} onDrilldown={(f) => handleDrilldown({ ...f, context: 'earnings' })} />)}
    </div>
 
-   <div className="card vacation-section">
-   <div className="card-header">
-    <h2>Vacation Analysis</h2>
-    <span className="card-subtitle">Usage Trends</span>
-   </div>
-   {loadingVacation ? <SkeletonChart /> : (vacation && <VacationChart data={vacation} onDrilldown={(f) => handleDrilldown({ ...f, context: 'vacation' })} />)}
+   <div className="card alerts-section">
+    <div className="card-header">
+     <h2>Action Items & Alerts</h2>
+     <span className="badge-count">{stats.alerts.categories}</span>
+    </div>
+    <div className="card-hint">Manage-by-exception: review priority items</div>
+    {loadingAlerts ? <SkeletonList /> : (alerts && <AlertsPanel alerts={alerts} />)}
    </div>
   </section>
 
   <section className="charts-grid-secondary">
-   {/* Row 2: Benefits */}
+   {/* Row 2: Vacation + Benefits */}
+   <div className="card vacation-section">
+   <div className="card-header">
+    <h2>Time-off Overview</h2>
+    <span className="card-subtitle">Usage Trends</span>
+   </div>
+   {loadingVacation ? <SkeletonChart /> : (vacation && <VacationChart data={vacation} onDrilldown={(f) => handleDrilldown({ ...f, context: 'vacation' })} />)}
+   </div>
+
    <div className="card benefits-section">
    <div className="card-header">
     <h2>Benefits Plan Distribution</h2>
@@ -259,21 +269,12 @@ function Dashboard({ onLogout }) {
    </div>
    {loadingBenefits ? <SkeletonChart /> : (benefits && <BenefitsChart data={benefits} onDrilldown={(f) => handleDrilldown({ ...f, context: 'benefits' })} />)}
    </div>
-
-   {/* Alerts Panel */}
-   <div className="card alerts-section">
-    <div className="card-header">
-     <h2>Action Items & Alerts</h2>
-     <span className="badge-count">{stats.alerts.categories}</span>
-    </div>
-    {loadingAlerts ? <SkeletonList /> : (alerts && <AlertsPanel alerts={alerts} />)}
-   </div>
   </section>
 
   <section className="charts-grid-tertiary">
    <div className="card integration-section">
     <div className="card-header">
-     <h2>Integration Queue</h2>
+     <h2>Integration Exceptions</h2>
      <span className="badge-count">Outbox</span>
     </div>
     <IntegrationEventsPanel />
