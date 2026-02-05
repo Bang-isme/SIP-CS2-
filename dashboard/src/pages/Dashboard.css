@@ -56,7 +56,7 @@
     color: var(--color-text-tertiary);
 }
 
-.header-left .subtitle + .subtitle {
+.header-left .subtitle+.subtitle {
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
 }
@@ -162,6 +162,21 @@
     gap: var(--space-4);
     min-height: 340px;
     align-items: start;
+}
+
+.earnings-section {
+    align-self: start;
+}
+
+.alerts-section {
+    align-self: start;
+    height: auto;
+    min-height: 0;
+}
+
+.alerts-section .alerts-container {
+    height: auto;
+    min-height: 0;
 }
 
 /* Row 3: Secondary Charts (Optional) */

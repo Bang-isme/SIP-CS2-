@@ -37,14 +37,52 @@ function EarningsChart({ data, onDrilldown }) {
   }, [deltas]);
 
   const movers = useMemo(() => {
-    const gains = [...deltas].filter((item) => item.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 3);
-    const drops = [...deltas].filter((item) => item.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 3);
+    const gains = [...deltas].filter((item) => item.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 5);
+    const drops = [...deltas].filter((item) => item.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 5);
     const smallestGrowth = [...deltas]
       .filter((item) => item.diff >= 0)
       .sort((a, b) => a.diff - b.diff)
-      .slice(0, 3);
+      .slice(0, 5);
     return { gains, drops, smallestGrowth };
   }, [deltas]);
+
+  const categorySignals = useMemo(() => {
+    const toSeries = (source) =>
+      Object.entries(source || {}).map(([name, values]) => ({
+        name,
+        value: Number(values?.current || 0),
+      }));
+
+    const buildSignal = (series) => {
+      if (!series || series.length === 0) return null;
+      const sorted = [...series].sort((a, b) => b.value - a.value);
+      const lead = sorted[0];
+      const second = sorted[1];
+      const total = sorted.reduce((sum, item) => sum + item.value, 0);
+      if (!lead) return null;
+      if (!second) {
+        return {
+          lead,
+          second: null,
+          gap: lead.value,
+          gapPct: total > 0 ? (lead.value / total) * 100 : 0,
+        };
+      }
+      const gap = lead.value - second.value;
+      return {
+        lead,
+        second,
+        gap,
+        gapPct: total > 0 ? (gap / total) * 100 : 0,
+      };
+    };
+
+    return {
+      gender: buildSignal(toSeries(data.byGender)),
+      ethnicity: buildSignal(toSeries(data.byEthnicity)),
+      employment: buildSignal(toSeries(data.byEmploymentType)),
+    };
+  }, [data]);
 
   const hasDeclines = movers.drops.length > 0;
   const [moversMode, setMoversMode] = useState(hasDeclines ? 'declines' : 'smallest');
@@ -142,7 +180,7 @@ function EarningsChart({ data, onDrilldown }) {
       </div>
 
       <div className="earnings-advanced-panel">
-        <div className="dept-summary">
+        <div className="dept-summary data-surface">
           <div className="dept-title">Top Departments (Current)</div>
           <div className="dept-table">
             {topDepartments.map((dept) => (
@@ -154,40 +192,7 @@ function EarningsChart({ data, onDrilldown }) {
           </div>
         </div>
 
-        <div className="chart-breakdown">
-          <h4>By Demographics (Click to Filter)</h4>
-          <div className="breakdown-groups">
-            <div className="breakdown-group">
-              <div className="group-title">Gender</div>
-              {Object.entries(data.byGender).map(([gender, values]) => (
-                <div key={gender} className="breakdown-row" onClick={() => onDrilldown?.({ gender })}>
-                  <span className="breakdown-label">{gender}</span>
-                  <span className="breakdown-value">{formatCurrency(values.current)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="breakdown-group">
-              <div className="group-title">Ethnicity</div>
-              {Object.entries(data.byEthnicity).map(([ethnicity, values]) => (
-                <div key={ethnicity} className="breakdown-row" onClick={() => onDrilldown?.({ ethnicity })}>
-                  <span className="breakdown-label">{ethnicity}</span>
-                  <span className="breakdown-value">{formatCurrency(values.current)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="breakdown-group">
-              <div className="group-title">Employment Type</div>
-              {Object.entries(data.byEmploymentType).map(([type, values]) => (
-                <div key={type} className="breakdown-row" onClick={() => onDrilldown?.({ employmentType: type })}>
-                  <span className="breakdown-label">{type}</span>
-                  <span className="breakdown-value">{formatCurrency(values.current)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="movers-panel">
+        <div className="movers-panel data-surface">
           <div className="movers-header">
             <div className="movers-title">YoY Movers</div>
             <div className="movers-tabs">
@@ -256,6 +261,69 @@ function EarningsChart({ data, onDrilldown }) {
             </div>
           </div>
         </div>
+
+        <div className="chart-breakdown data-surface">
+          <h4>By Demographics (Click to Filter)</h4>
+          <div className="breakdown-groups">
+            <div className="breakdown-group">
+              <div className="group-title">Gender</div>
+              <div className="group-list">
+                {Object.entries(data.byGender).map(([gender, values]) => (
+                  <div key={gender} className="breakdown-row" onClick={() => onDrilldown?.({ gender })}>
+                    <span className="breakdown-label">{gender}</span>
+                    <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                  </div>
+                ))}
+              </div>
+              {categorySignals.gender && (
+                <div className="group-foot">
+                  <span className="group-foot-label">Lead gap</span>
+                  <span className="group-foot-value">
+                    {categorySignals.gender.gapPct < 0.1 ? '<0.1' : categorySignals.gender.gapPct.toFixed(1)}%
+                    {categorySignals.gender.second ? ` (${categorySignals.gender.second.name})` : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="breakdown-group">
+              <div className="group-title">Ethnicity</div>
+              <div className="group-list">
+                {Object.entries(data.byEthnicity).map(([ethnicity, values]) => (
+                  <div key={ethnicity} className="breakdown-row" onClick={() => onDrilldown?.({ ethnicity })}>
+                    <span className="breakdown-label">{ethnicity}</span>
+                    <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                  </div>
+                ))}
+              </div>
+              {categorySignals.ethnicity && (
+                <div className="group-foot">
+                  <span className="group-foot-label">Top segment</span>
+                  <span className="group-foot-value">{categorySignals.ethnicity.lead.name}</span>
+                </div>
+              )}
+            </div>
+            <div className="breakdown-group">
+              <div className="group-title">Employment Type</div>
+              <div className="group-list">
+                {Object.entries(data.byEmploymentType).map(([type, values]) => (
+                  <div key={type} className="breakdown-row" onClick={() => onDrilldown?.({ employmentType: type })}>
+                    <span className="breakdown-label">{type}</span>
+                    <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                  </div>
+                ))}
+              </div>
+              {categorySignals.employment && (
+                <div className="group-foot">
+                  <span className="group-foot-label">Lead gap</span>
+                  <span className="group-foot-value">
+                    {categorySignals.employment.gapPct < 0.1 ? '<0.1' : categorySignals.employment.gapPct.toFixed(1)}%
+                    {categorySignals.employment.second ? ` (${categorySignals.employment.second.name})` : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <style>{`
@@ -298,19 +366,47 @@ function EarningsChart({ data, onDrilldown }) {
           gap: var(--space-3);
         }
         .breakdown-group {
-          background: var(--color-bg-subtle);
+          background: var(--color-bg-card);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-md);
-          padding: var(--space-2) var(--space-3);
+          padding: var(--space-2) var(--space-2);
           display: flex;
           flex-direction: column;
           gap: var(--space-1);
           transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
+        .group-list {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-1);
+        }
+        .group-foot {
+          margin-top: auto;
+          padding: 8px 10px 0 10px;
+          border-top: 1px solid var(--color-border);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .group-foot-label {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.07em;
+          color: var(--color-text-tertiary);
+          font-weight: 700;
+        }
+        .group-foot-value {
+          font-size: 0.82rem;
+          color: var(--color-primary-800);
+          font-weight: 700;
+          font-family: var(--font-family-mono);
+          font-variant-numeric: tabular-nums;
+        }
         .breakdown-group:hover {
           border-color: var(--color-primary-300);
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.06) inset;
-          background: #f9fcff;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.04) inset;
+          background: #fcfeff;
         }
         .group-title {
           font-size: 0.72rem;
@@ -324,7 +420,7 @@ function EarningsChart({ data, onDrilldown }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 6px 8px;
+          padding: 8px 10px;
           margin: 0 -4px;
           border-radius: var(--radius-sm);
           border-bottom: 1px dashed var(--color-border);
@@ -344,12 +440,12 @@ function EarningsChart({ data, onDrilldown }) {
           background: rgba(37, 99, 235, 0.14);
         }
         .breakdown-label {
-          font-size: 0.84rem;
+          font-size: 0.86rem;
           color: inherit;
-          font-weight: 500;
+          font-weight: 600;
         }
         .breakdown-value {
-          font-size: 0.84rem;
+          font-size: 0.88rem;
           font-weight: 700;
           font-family: var(--font-family-mono);
           color: inherit;
@@ -363,9 +459,19 @@ function EarningsChart({ data, onDrilldown }) {
           margin-top: var(--space-3);
         }
         .earnings-advanced-panel {
-          display: flex;
-          flex-direction: column;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: var(--space-3);
+          align-items: start;
+        }
+        .data-surface {
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          padding: var(--space-2) var(--space-3);
+          background: var(--color-bg-subtle);
+        }
+        .chart-breakdown {
+          grid-column: 1 / -1;
         }
         .insight-card {
           border: 1px solid var(--color-border);
@@ -406,13 +512,7 @@ function EarningsChart({ data, onDrilldown }) {
         .insight-delta.pos { color: var(--color-success); }
         .insight-delta.neg { color: var(--color-danger); }
 
-        .dept-summary {
-          margin-top: var(--space-3);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: var(--space-2) var(--space-3);
-          background: var(--color-bg-subtle);
-        }
+        .dept-summary { margin-top: var(--space-3); }
         .dept-title {
           font-size: 0.72rem;
           text-transform: uppercase;
@@ -430,35 +530,32 @@ function EarningsChart({ data, onDrilldown }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 6px 0;
+          padding: 8px 8px;
           border-bottom: 1px dashed var(--color-border);
           cursor: pointer;
+          border-radius: var(--radius-sm);
         }
         .dept-row:last-child {
           border-bottom: none;
         }
         .dept-row:hover {
           color: var(--color-primary-700);
+          background: rgba(37, 99, 235, 0.08);
         }
         .dept-name {
-          font-size: 0.84rem;
+          font-size: 0.88rem;
           color: var(--color-text-main);
+          font-weight: 600;
         }
         .dept-value {
-          font-size: 0.84rem;
+          font-size: 0.9rem;
           font-weight: 700;
           font-family: var(--font-family-mono);
           color: var(--color-primary-900);
           font-variant-numeric: tabular-nums;
         }
 
-        .movers-panel {
-          margin-top: var(--space-3);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: var(--space-2) var(--space-3);
-          background: var(--color-bg-subtle);
-        }
+        .movers-panel { margin-top: var(--space-3); }
         .movers-header {
           display: flex;
           align-items: center;
@@ -516,22 +613,25 @@ function EarningsChart({ data, onDrilldown }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 4px 0;
+          padding: 8px 8px;
           border-bottom: 1px dashed var(--color-border);
           cursor: pointer;
+          border-radius: var(--radius-sm);
         }
         .mover-row:last-child {
           border-bottom: none;
         }
         .mover-row:hover {
           color: var(--color-primary-700);
+          background: rgba(37, 99, 235, 0.08);
         }
         .mover-name {
-          font-size: 0.84rem;
+          font-size: 0.88rem;
           color: var(--color-text-main);
+          font-weight: 600;
         }
         .mover-value {
-          font-size: 0.84rem;
+          font-size: 0.9rem;
           font-weight: 700;
           font-family: var(--font-family-mono);
           font-variant-numeric: tabular-nums;
@@ -553,6 +653,12 @@ function EarningsChart({ data, onDrilldown }) {
         }
 
         @media (max-width: 1200px) {
+          .earnings-advanced-panel {
+            grid-template-columns: 1fr;
+          }
+          .chart-breakdown {
+            grid-column: auto;
+          }
           .breakdown-groups {
             grid-template-columns: 1fr;
           }

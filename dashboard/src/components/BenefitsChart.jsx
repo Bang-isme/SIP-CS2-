@@ -46,7 +46,7 @@ function BenefitsChart({ data, onDrilldown }) {
           <YAxis
             type="category"
             dataKey="name"
-            width={120}
+            width={130}
             tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
             axisLine={false}
             tickLine={false}
@@ -62,13 +62,13 @@ function BenefitsChart({ data, onDrilldown }) {
             formatter={(value) => formatCurrency(value)}
             labelFormatter={(label) => chartData.find(d => d.name === label)?.fullName || label}
           />
-          <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)' }} />
+          <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)', paddingTop: 4 }} />
           <Bar
             dataKey="shareholder"
             name="Shareholders"
             fill="var(--color-success)"
             radius={[0, 4, 4, 0]}
-            barSize={20}
+            barSize={18}
             cursor="pointer"
             onClick={(data) => {
               if (onDrilldown && data && data.fullName) {
@@ -81,7 +81,7 @@ function BenefitsChart({ data, onDrilldown }) {
             name="Non-Shareholders"
             fill="var(--color-primary-500)"
             radius={[0, 4, 4, 0]}
-            barSize={20}
+            barSize={18}
             cursor="pointer"
             onClick={(data) => {
               if (onDrilldown && data && data.fullName) {
@@ -136,6 +136,8 @@ function BenefitsChart({ data, onDrilldown }) {
           display: block;
           font-size: 1.25rem;
           font-weight: 700;
+          font-family: var(--font-family-mono);
+          font-variant-numeric: tabular-nums;
         }
         .text-success { color: var(--color-success); }
         .text-primary { color: var(--color-primary-600); }

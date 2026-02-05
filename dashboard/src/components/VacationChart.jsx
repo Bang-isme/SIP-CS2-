@@ -1,9 +1,6 @@
 import { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
-// Executive Palette Colors
-const COLORS = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af']; // Blue shades for donut ring
-
 function VacationChart({ data, onDrilldown }) {
     const [view, setView] = useState('shareholder');
 
@@ -182,9 +179,9 @@ function VacationChart({ data, onDrilldown }) {
         .vacation-container { height: 100%; display: flex; flex-direction: column; }
         .vacation-content {
           display: grid;
-          grid-template-columns: 320px 1fr;
-          gap: var(--space-4);
-          align-items: center;
+          grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+          gap: var(--space-3);
+          align-items: stretch;
           height: 100%;
           min-height: 260px;
         }
@@ -192,8 +189,9 @@ function VacationChart({ data, onDrilldown }) {
         .chart-section {
             display: flex;
             flex-direction: column;
-            align-items: stretch;
+            align-items: flex-start;
             width: 100%;
+            padding-right: var(--space-2);
         }
 
         .vacation-tabs {
@@ -231,8 +229,8 @@ function VacationChart({ data, onDrilldown }) {
         /* Donut Chart */
         .donut-wrapper {
             position: relative;
-            margin-bottom: var(--space-3);
-            max-width: 280px;
+            margin-bottom: var(--space-2);
+            max-width: 260px;
             width: 100%;
         }
         .donut-label {
@@ -264,7 +262,7 @@ function VacationChart({ data, onDrilldown }) {
         .stats-section {
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             height: 100%;
             padding: var(--space-3);
             border: 1px solid var(--color-border);
@@ -286,12 +284,17 @@ function VacationChart({ data, onDrilldown }) {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: var(--space-1) var(--space-2);
+            padding: 8px 10px;
             border-radius: var(--radius-md);
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.15s ease;
+            border-bottom: 1px dashed var(--color-border);
         }
-        .stat-row:hover { background: var(--color-bg-subtle); }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row:hover {
+            background: rgba(37, 99, 235, 0.08);
+            transform: translateX(1px);
+        }
         
         .stat-info { display: flex; align-items: center; gap: var(--space-3); }
         
@@ -303,14 +306,17 @@ function VacationChart({ data, onDrilldown }) {
         }
         
         .label {
-            font-size: 0.85rem;
-            color: var(--color-text-secondary);
+            font-size: 0.88rem;
+            color: var(--color-text-main);
+            font-weight: 600;
         }
         
 .value {
             font-weight: 700;
             color: var(--color-primary-900);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            font-family: var(--font-family-mono);
+            font-variant-numeric: tabular-nums;
         }
 
         .vacation-insights {
