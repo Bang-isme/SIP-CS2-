@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { FixedSizeList as VirtualList } from 'react-window';
 import { getDrilldown, getDepartments, exportDrilldownCsv } from '../services/api';
+import { FiSearch } from 'react-icons/fi';
 
 function DrilldownModal({ filters: initialFilters, onClose }) {
  const [data, setData] = useState(null);
@@ -275,122 +276,109 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       <h2>Employee Details</h2>
       <p className="subtitle">View and filter employee records</p>
      </div>
-     <div style={{ display: 'flex', gap: '10px' }}>
+     <div className="modal-actions">
       <button
-       className="export-btn"
-       onClick={handleExport}
-       disabled={exporting}
-       style={{
-        backgroundColor: '#10b981',
-        color: 'white',
-        border: 'none',
-        padding: '8px 16px',
-        borderRadius: '6px',
-        cursor: exporting ? 'wait' : 'pointer',
-        fontSize: '14px',
-        fontWeight: 500,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px'
-       }}
+        className="export-btn"
+        onClick={handleExport}
+        disabled={exporting}
+        aria-label="Export current filtered records to CSV"
       >
-       {exporting ? 'Exporting...' : (
-        <>
-         <span>EXPORT</span> Export CSV
-        </>
-       )}
+       {exporting ? 'Exporting...' : 'Export CSV'}
       </button>
-      <button className="close-btn" onClick={onClose}>X</button>
+      <button className="close-btn" onClick={onClose} aria-label="Close drilldown">X</button>
      </div>
     </div>
 
     {/* Filter Bar */}
     <div className="filter-bar">
-     <div className="search-group">
-      <span className="search-icon">S</span>
-      <input
-       type="text"
-       placeholder="Search ID or Name..."
-       value={localSearch}
-       onChange={(e) => setLocalSearch(e.target.value)}
-       className="search-input"
-      />
-     </div>
-
-     <div className="filter-group-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-      <div className="filter-group">
-       <select
-        value={deptFilter}
-        onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
-        className={`filter-select ${deptFilter ? 'active' : ''}`}
-       >
-        <option value="">All Departments</option>
-        {departments.map(d => <option key={d} value={d}>{d}</option>)}
-       </select>
-
-       <select
-        value={typeFilter}
-        onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
-        className={`filter-select ${typeFilter ? 'active' : ''}`}
-       >
-        <option value="">All Types</option>
-        <option value="Full-time">Full-time</option>
-        <option value="Part-time">Part-time</option>
-       </select>
+     <div className="filter-row filter-row-primary">
+      <div className="search-group">
+       <span className="search-icon" aria-hidden="true"><FiSearch size={14} /></span>
+       <input
+        type="text"
+        placeholder="Search ID or Name..."
+        value={localSearch}
+        onChange={(e) => setLocalSearch(e.target.value)}
+        className="search-input"
+       />
       </div>
 
-      <div className="filter-group">
-       <select
-        value={genderFilter}
-        onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
-        className={`filter-select ${genderFilter ? 'active' : ''}`}
-       >
-        <option value="">All Genders</option>
-        <option value="Male">Male</option>
-        <option value="Female">Female</option>
-       </select>
+      <div className="filter-group-wrap">
+       <div className="filter-group">
+        <select
+         value={deptFilter}
+         onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
+         className={`filter-select ${deptFilter ? 'active' : ''}`}
+        >
+         <option value="">All Departments</option>
+         {departments.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
 
-       <select
-        value={ethnicityFilter}
-        onChange={(e) => { setEthnicityFilter(e.target.value); setPage(1); }}
-        className={`filter-select ${ethnicityFilter ? 'active' : ''}`}
-       >
-        <option value="">All Ethnicities</option>
-        <option value="Asian">Asian</option>
-        <option value="Caucasian">Caucasian</option>
-        <option value="Hispanic">Hispanic</option>
-        <option value="African American">African American</option>
-        <option value="Other">Other</option>
-       </select>
+        <select
+         value={typeFilter}
+         onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
+         className={`filter-select ${typeFilter ? 'active' : ''}`}
+        >
+         <option value="">All Types</option>
+         <option value="Full-time">Full-time</option>
+         <option value="Part-time">Part-time</option>
+        </select>
+       </div>
 
-       <select
-        value={shareholderFilter}
-        onChange={(e) => { setShareholderFilter(e.target.value); setPage(1); }}
-        className={`filter-select ${shareholderFilter ? 'active' : ''}`}
-        style={{ border: shareholderFilter === 'true' ? '1px solid #10b981' : '' }}
-       >
-        <option value="">Shareholder Status</option>
-        <option value="true">Shareholders Only</option>
-        <option value="false">Non-Shareholders</option>
-       </select>
+       <div className="filter-group">
+        <select
+         value={genderFilter}
+         onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
+         className={`filter-select ${genderFilter ? 'active' : ''}`}
+        >
+         <option value="">All Genders</option>
+         <option value="Male">Male</option>
+         <option value="Female">Female</option>
+        </select>
+
+        <select
+         value={ethnicityFilter}
+         onChange={(e) => { setEthnicityFilter(e.target.value); setPage(1); }}
+         className={`filter-select ${ethnicityFilter ? 'active' : ''}`}
+        >
+         <option value="">All Ethnicities</option>
+         <option value="Asian">Asian</option>
+         <option value="Caucasian">Caucasian</option>
+         <option value="Hispanic">Hispanic</option>
+         <option value="African American">African American</option>
+         <option value="Other">Other</option>
+        </select>
+
+        <select
+         value={shareholderFilter}
+         onChange={(e) => { setShareholderFilter(e.target.value); setPage(1); }}
+         className={`filter-select ${shareholderFilter ? 'active' : ''}`}
+        >
+         <option value="">Shareholder Status</option>
+         <option value="true">Shareholders Only</option>
+         <option value="false">Non-Shareholders</option>
+        </select>
+       </div>
       </div>
      </div>
 
      {/* CEO Query Filter: Employees earning over $X */}
-     <div className="earnings-filter-group">
-      <span className="filter-label">Min Earnings $</span>
-      <input
-       type="number"
-       placeholder="e.g. 50000"
-       className="earnings-input"
-       value={minEarnings}
-       onChange={(e) => { setMinEarnings(e.target.value); setPage(1); }}
-      />
-      <div className="quick-filters">
-       <button type="button" onClick={() => { setMinEarnings('100000'); setPage(1); }}>Over 100k</button>
-       <button type="button" onClick={() => { setMinEarnings('150000'); setPage(1); }}>Over 150k</button>
-       <button type="button" onClick={() => { setMinEarnings('200000'); setPage(1); }}>Over 200k</button>
-       <button type="button" className="ghost" onClick={() => { setMinEarnings(''); setPage(1); }}>Clear</button>
+     <div className="filter-row filter-row-secondary">
+      <div className="earnings-filter-group">
+       <span className="filter-label">Min Earnings $</span>
+       <input
+        type="number"
+        placeholder="e.g. 50000"
+        className="earnings-input"
+        value={minEarnings}
+        onChange={(e) => { setMinEarnings(e.target.value); setPage(1); }}
+       />
+       <div className="quick-filters">
+        <button type="button" onClick={() => { setMinEarnings('100000'); setPage(1); }}>Over 100k</button>
+        <button type="button" onClick={() => { setMinEarnings('150000'); setPage(1); }}>Over 150k</button>
+        <button type="button" onClick={() => { setMinEarnings('200000'); setPage(1); }}>Over 200k</button>
+        <button type="button" className="ghost" onClick={() => { setMinEarnings(''); setPage(1); }}>Clear</button>
+       </div>
       </div>
      </div>
     </div>
@@ -424,52 +412,43 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
     {/* Financial Summary Header (New) */}
     {summaryData && (
-     <div className="financial-summary-header" style={{
-      background: '#f8fafc',
-      border: '1px solid #e2e8f0',
-      borderRadius: '8px',
-      padding: '12px 16px',
-      marginBottom: '16px',
-     display: 'flex',
-     gap: '24px',
-     alignItems: 'center'
-    }}>
-      <h4 style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>SELECTION TOTALS:</h4>
+     <div className="financial-summary-header">
+      <h4 className="summary-title">Selection Totals</h4>
       {(summaryPartial || summaryLoading) && (
-       <span style={{ fontSize: '11px', color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '2px 6px', borderRadius: '999px' }}>
+       <span className="summary-mode-pill">
         FAST MODE
        </span>
       )}
 
       {/* Earnings - show for earnings context or no context */}
       {(activeFilters.context === 'earnings' || !activeFilters.context) && (
-       <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
-        <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Earnings</span>
-        <span style={{ fontSize: '16px', fontWeight: 700, color: '#059669' }}>{renderCurrency(summaryData.totalEarnings)}</span>
+       <div className="summary-metric">
+        <span className="summary-metric-label">Total Earnings</span>
+        <span className="summary-metric-value summary-earnings">{renderCurrency(summaryData.totalEarnings)}</span>
        </div>
       )}
 
       {/* Benefits - show for benefits context or no context */}
       {(activeFilters.context === 'benefits' || !activeFilters.context) && (
-       <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
-        <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Benefits Cost</span>
-        <span style={{ fontSize: '16px', fontWeight: 700, color: '#0284c7' }}>{renderCurrency(summaryData.totalBenefits)}</span>
+       <div className="summary-metric">
+        <span className="summary-metric-label">Total Benefits Cost</span>
+        <span className="summary-metric-value summary-benefits">{renderCurrency(summaryData.totalBenefits)}</span>
        </div>
       )}
 
       {/* Vacation - show for vacation context or no context */}
       {(activeFilters.context === 'vacation' || !activeFilters.context) && (
-       <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column' }}>
-        <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Total Vacation Days</span>
-        <span style={{ fontSize: '16px', fontWeight: 700, color: '#7c3aed' }}>
+       <div className="summary-metric">
+        <span className="summary-metric-label">Total Vacation Days</span>
+        <span className="summary-metric-value summary-vacation">
          {renderVacation(summaryData.totalVacation)}
         </span>
        </div>
       )}
 
-      <div className="summary-metric" style={{ display: 'flex', flexDirection: 'column', marginLeft: 'auto' }}>
-       <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Count</span>
-       <span style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{summaryData.count?.toLocaleString() || 0}</span>
+      <div className="summary-metric summary-metric-count">
+       <span className="summary-metric-label">Count</span>
+       <span className="summary-metric-value summary-count">{summaryData.count?.toLocaleString() || 0}</span>
       </div>
      </div>
     )}
@@ -726,13 +705,65 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      padding: 4px 10px;
      cursor: pointer;
     }
-    .clear-all:hover {
-     border-color: var(--danger);
-     color: var(--danger);
-    }
-    .modal-content {
-     background: var(--bg-card); border-radius: var(--radius-xl); width: 96%; max-width: 1120px;
-     height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+	    .clear-all:hover {
+	     border-color: var(--danger);
+	     color: var(--danger);
+	    }
+	    .financial-summary-header {
+	     background: #f8fafc;
+	     border: 1px solid #e2e8f0;
+	     border-radius: 10px;
+	     padding: 12px 16px;
+	     margin: 0 16px 16px;
+	     display: flex;
+	     align-items: center;
+	     gap: 22px;
+	     flex-wrap: wrap;
+	    }
+	    .summary-title {
+	     margin: 0;
+	     font-size: 0.8rem;
+	     color: #64748b;
+	     text-transform: uppercase;
+	     letter-spacing: 0.08em;
+	     font-weight: 700;
+	    }
+	    .summary-mode-pill {
+	     font-size: 0.68rem;
+	     color: #b45309;
+	     background: #fffbeb;
+	     border: 1px solid #fde68a;
+	     padding: 2px 8px;
+	     border-radius: 999px;
+	     font-weight: 700;
+	     letter-spacing: 0.04em;
+	    }
+	    .summary-metric {
+	     display: flex;
+	     flex-direction: column;
+	     gap: 2px;
+	    }
+	    .summary-metric-count {
+	     margin-left: auto;
+	    }
+	    .summary-metric-label {
+	     font-size: 0.68rem;
+	     text-transform: uppercase;
+	     color: #94a3b8;
+	     font-weight: 700;
+	     letter-spacing: 0.08em;
+	    }
+	    .summary-metric-value {
+	     font-size: 1rem;
+	     font-weight: 800;
+	    }
+	    .summary-earnings { color: #059669; }
+	    .summary-benefits { color: #0284c7; }
+	    .summary-vacation { color: #7c3aed; }
+	    .summary-count { color: #0f172a; }
+	    .modal-content {
+	     background: var(--bg-card); border-radius: var(--radius-xl); width: 96%; max-width: 1120px;
+	     height: 85vh; display: flex; flex-direction: column; overflow: hidden;
      box-shadow: var(--shadow-lg); border: 1px solid var(--border);
      animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
@@ -742,23 +773,52 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center;
      border-bottom: 1px solid var(--border); background: #ffffff;
     }
-    .modal-header h2 { font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
-    .modal-header .subtitle { font-size: 0.8rem; color: var(--text-tertiary); }
-    .close-btn { 
-     width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); 
-     background: transparent; color: var(--text-tertiary); cursor: pointer; transition: all 0.2s;
-     display: grid; place-items: center; font-size: 1.2rem; line-height: 1;
-    }
+	    .modal-header h2 { font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+	    .modal-header .subtitle { font-size: 0.8rem; color: var(--text-tertiary); }
+	    .modal-actions {
+	     display: flex;
+	     align-items: center;
+	     gap: 10px;
+	    }
+	    .export-btn {
+	     background: #10b981;
+	     color: white;
+	     border: none;
+	     padding: 8px 14px;
+	     border-radius: 8px;
+	     cursor: pointer;
+	     font-size: 0.85rem;
+	     font-weight: 700;
+	     letter-spacing: 0.02em;
+	     transition: all 0.15s ease;
+	    }
+	    .export-btn:hover:not(:disabled) { background: #059669; }
+	    .export-btn:disabled { opacity: 0.8; cursor: wait; }
+	    .close-btn { 
+	     width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); 
+	     background: transparent; color: var(--text-tertiary); cursor: pointer; transition: all 0.2s;
+	     display: grid; place-items: center; font-size: 1.2rem; line-height: 1;
+	    }
     .close-btn:hover { background: var(--bg-hover); color: var(--danger); border-color: var(--danger); }
 
     /* Filter Bar */
-    .filter-bar {
-     padding: 0.9rem 1.5rem; background: var(--bg-app); border-bottom: 1px solid var(--border);
-     display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center;
-    }
-    .search-group {
-     position: relative; flex: 1; min-width: 250px;
-    }
+	    .filter-bar {
+	     padding: 0.9rem 1.5rem; background: var(--bg-app); border-bottom: 1px solid var(--border);
+	     display: flex; gap: var(--space-2); flex-direction: column;
+	    }
+	    .filter-row {
+	     width: 100%;
+	     display: flex;
+	     align-items: center;
+	     gap: var(--space-3);
+	     flex-wrap: wrap;
+	    }
+	    .filter-row-primary {
+	     align-items: flex-start;
+	    }
+	    .search-group {
+	     position: relative; flex: 1; min-width: 280px;
+	    }
     .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); }
     .search-input {
      width: 100%; padding: 9px 12px 9px 36px; border: 1px solid var(--border); 
@@ -767,7 +827,8 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     }
     .search-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--primary-subtle); }
 
-    .filter-group { display: flex; gap: var(--space-3); align-items: center; }
+	    .filter-group { display: flex; gap: var(--space-3); align-items: center; }
+	    .filter-group-wrap { display: flex; gap: var(--space-3); flex-wrap: wrap; }
     .filter-select {
      padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius);
      background: white; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;
@@ -896,13 +957,21 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      display: flex; flex-direction: column; align-items: center; justify-content: center;
      height: 300px; color: var(--text-secondary); gap: 1rem;
     }
-    .spinner {
-     width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary);
-     border-radius: 50%; animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+	    .spinner {
+	     width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary);
+	     border-radius: 50%; animation: spin 1s linear infinite;
+	    }
+	    @media (max-width: 1100px) {
+	     .summary-metric-count {
+	      margin-left: 0;
+	     }
+	     .financial-summary-header {
+	      margin: 0 12px 12px;
+	     }
+	    }
+	    @keyframes spin { to { transform: rotate(360deg); } }
+	    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+	    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
    `}</style>
   </div >
  );

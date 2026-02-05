@@ -113,6 +113,9 @@ function EarningsChart({ data, onDrilldown }) {
           <span className="insight-label">Top Growth Dept</span>
           <span className="insight-value">{insights.topGrowth?.name || 'N/A'}</span>
           <span className={`insight-delta ${insights.topGrowth?.diff >= 0 ? 'pos' : 'neg'}`}>
+            <span className="delta-label">
+              {insights.topGrowth?.diff >= 0 ? 'Increase:' : 'Decline:'}
+            </span>{' '}
             {insights.topGrowth
               ? `${insights.topGrowth.diff >= 0 ? '+' : ''}${formatCurrency(Math.abs(insights.topGrowth.diff))}`
               : '--'}
@@ -125,6 +128,9 @@ function EarningsChart({ data, onDrilldown }) {
           <span className="insight-label">Biggest Decline Dept</span>
           <span className="insight-value">{insights.biggestDecline?.name || 'N/A'}</span>
           <span className={`insight-delta ${insights.biggestDecline?.diff >= 0 ? 'pos' : 'neg'}`}>
+            <span className="delta-label">
+              {insights.biggestDecline?.diff >= 0 ? 'Increase:' : 'Decline:'}
+            </span>{' '}
             {insights.biggestDecline
               ? `${insights.biggestDecline.diff >= 0 ? '+' : ''}${formatCurrency(Math.abs(insights.biggestDecline.diff))}`
               : '--'}
@@ -140,11 +146,11 @@ function EarningsChart({ data, onDrilldown }) {
           <div className="dept-title">Top Departments (Current)</div>
           <div className="dept-table">
             {topDepartments.map((dept) => (
-              <div key={dept.name} className="dept-row" onClick={() => handleClick({ fullName: dept.name })}>
-                <span className="dept-name">{dept.name}</span>
-                <span className="dept-value">{formatCurrency(dept.current)}</span>
-              </div>
-            ))}
+                <div key={dept.name} className="dept-row" onClick={() => handleClick({ fullName: dept.name })}>
+                  <span className="dept-name">{dept.name}</span>
+                  <span className="dept-value">{formatCurrency(dept.current)}</span>
+                </div>
+              ))}
           </div>
         </div>
 
@@ -209,7 +215,7 @@ function EarningsChart({ data, onDrilldown }) {
                   <div key={dept.name} className="mover-row" onClick={() => handleClick({ fullName: dept.name })}>
                     <span className="mover-name">{dept.name}</span>
                     <span className="mover-value pos">
-                      +{formatCurrency(Math.abs(dept.diff))}
+                      <span className="mover-prefix">+</span>{formatCurrency(Math.abs(dept.diff))}
                       {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
                     </span>
                   </div>
@@ -228,7 +234,7 @@ function EarningsChart({ data, onDrilldown }) {
                     <div key={dept.name} className="mover-row" onClick={() => handleClick({ fullName: dept.name })}>
                       <span className="mover-name">{dept.name}</span>
                       <span className="mover-value neg">
-                        -{formatCurrency(Math.abs(dept.diff))}
+                        <span className="mover-prefix">-</span>{formatCurrency(Math.abs(dept.diff))}
                         {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
                       </span>
                     </div>
@@ -241,7 +247,7 @@ function EarningsChart({ data, onDrilldown }) {
                   <div key={dept.name} className="mover-row" onClick={() => handleClick({ fullName: dept.name })}>
                     <span className="mover-name">{dept.name}</span>
                     <span className="mover-value pos">
-                      +{formatCurrency(Math.abs(dept.diff))}
+                      <span className="mover-prefix">+</span>{formatCurrency(Math.abs(dept.diff))}
                       {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
                     </span>
                   </div>
@@ -299,6 +305,12 @@ function EarningsChart({ data, onDrilldown }) {
           display: flex;
           flex-direction: column;
           gap: var(--space-1);
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .breakdown-group:hover {
+          border-color: var(--color-primary-300);
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.06) inset;
+          background: #f9fcff;
         }
         .group-title {
           font-size: 0.72rem;
@@ -312,25 +324,36 @@ function EarningsChart({ data, onDrilldown }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 4px 0;
+          padding: 6px 8px;
+          margin: 0 -4px;
+          border-radius: var(--radius-sm);
           border-bottom: 1px dashed var(--color-border);
           cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
         }
         .breakdown-row:last-child {
           border-bottom: none;
         }
         .breakdown-row:hover {
-          color: var(--color-primary-700);
+          color: var(--color-primary-800);
+          background: rgba(37, 99, 235, 0.08);
+          transform: translateX(1px);
+        }
+        .breakdown-row:active {
+          transform: translateX(0);
+          background: rgba(37, 99, 235, 0.14);
         }
         .breakdown-label {
-          font-size: var(--font-size-xs);
+          font-size: 0.84rem;
           color: inherit;
+          font-weight: 500;
         }
         .breakdown-value {
-          font-size: var(--font-size-xs);
+          font-size: 0.84rem;
           font-weight: 700;
           font-family: var(--font-family-mono);
           color: inherit;
+          font-variant-numeric: tabular-nums;
         }
 
         .insights-panel {
@@ -368,6 +391,17 @@ function EarningsChart({ data, onDrilldown }) {
         .insight-delta {
           font-size: var(--font-size-xs);
           font-family: var(--font-family-mono);
+          display: inline-flex;
+          align-items: baseline;
+          gap: 4px;
+        }
+        .delta-label {
+          color: var(--color-text-tertiary);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          font-size: 0.68rem;
+          font-family: var(--font-family-sans);
+          font-weight: 700;
         }
         .insight-delta.pos { color: var(--color-success); }
         .insight-delta.neg { color: var(--color-danger); }
@@ -396,7 +430,7 @@ function EarningsChart({ data, onDrilldown }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 4px 0;
+          padding: 6px 0;
           border-bottom: 1px dashed var(--color-border);
           cursor: pointer;
         }
@@ -407,12 +441,15 @@ function EarningsChart({ data, onDrilldown }) {
           color: var(--color-primary-700);
         }
         .dept-name {
-          font-size: var(--font-size-xs);
+          font-size: 0.84rem;
+          color: var(--color-text-main);
         }
         .dept-value {
-          font-size: var(--font-size-xs);
+          font-size: 0.84rem;
           font-weight: 700;
           font-family: var(--font-family-mono);
+          color: var(--color-primary-900);
+          font-variant-numeric: tabular-nums;
         }
 
         .movers-panel {
@@ -490,12 +527,23 @@ function EarningsChart({ data, onDrilldown }) {
           color: var(--color-primary-700);
         }
         .mover-name {
-          font-size: var(--font-size-xs);
+          font-size: 0.84rem;
+          color: var(--color-text-main);
         }
         .mover-value {
-          font-size: var(--font-size-xs);
+          font-size: 0.84rem;
           font-weight: 700;
           font-family: var(--font-family-mono);
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: baseline;
+          gap: 2px;
+        }
+        .mover-prefix {
+          font-size: 0.8em;
+          font-weight: 800;
+          opacity: 0.9;
         }
         .mover-value.pos { color: var(--color-success); }
         .mover-value.neg { color: var(--color-danger); }
