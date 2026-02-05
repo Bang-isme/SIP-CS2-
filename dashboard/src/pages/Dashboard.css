@@ -161,7 +161,7 @@
     /* 66% - 33% */
     gap: var(--space-4);
     min-height: 340px;
-    align-items: stretch;
+    align-items: start;
 }
 
 /* Row 3: Secondary Charts (Optional) */

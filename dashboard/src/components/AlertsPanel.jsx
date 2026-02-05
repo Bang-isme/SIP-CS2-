@@ -16,6 +16,7 @@ import api from '../services/api';
 import './AlertsPanel.css';
 
 function AlertsPanel({ alerts }) {
+ const PREVIEW_LIMIT = 5;
  const [selectedAlert, setSelectedAlert] = useState(null);
  const [searchTerm, setSearchTerm] = useState('');
  const [pageSize, setPageSize] = useState(50); // Default to 50 for list view
@@ -259,7 +260,7 @@ function AlertsPanel({ alerts }) {
 
        <div className="alert-body">
         {/* Safe array access to prevent crash */}
-        {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, 5).map((emp, i) => (
+        {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, PREVIEW_LIMIT).map((emp, i) => (
          <div key={i} className="employee-row">
           <div className="emp-details">
            <span className="emp-name">{emp.name}</span>
@@ -288,7 +289,7 @@ function AlertsPanel({ alerts }) {
         ))}
        </div>
 
-       {alert.count > 5 && (
+       {alert.count > PREVIEW_LIMIT && (
         <div className="alert-footer">
          <button
           className="view-more-btn"
