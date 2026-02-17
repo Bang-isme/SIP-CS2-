@@ -1,7 +1,7 @@
 import React from 'react';
 import './StatCard.css';
 
-const StatCard = ({ title, value, subtext, icon, trend, loading }) => {
+const StatCard = ({ title, value, subtext, icon, trend, loading, error, onRetry }) => {
     if (loading) {
         return (
             <div className="stat-card skeleton-stat">
@@ -10,6 +10,27 @@ const StatCard = ({ title, value, subtext, icon, trend, loading }) => {
                     <div className="skeleton-line sm"></div>
                     <div className="skeleton-line lg"></div>
                 </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="stat-card stat-card-error">
+                <div className="stat-header-row">
+                    <span className="stat-title">{title}</span>
+                    <div className="stat-icon-wrapper">
+                        {icon}
+                    </div>
+                </div>
+
+                <div className="stat-error-title">Unavailable</div>
+                <div className="stat-error-message">{error}</div>
+                {onRetry && (
+                    <button className="stat-retry-btn" onClick={onRetry}>
+                        Retry
+                    </button>
+                )}
             </div>
         );
     }

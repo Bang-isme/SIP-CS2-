@@ -67,12 +67,11 @@
 }
 
 .summary-value-text {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: block;
+    overflow: visible;
     font-size: 1.05rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
 }
 
 .summary-meta {
@@ -93,7 +92,7 @@
 
 .summary-bar-row {
     display: grid;
-    grid-template-columns: auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
     align-items: center;
     gap: 2px 8px;
@@ -104,9 +103,11 @@
     grid-row: 1;
     font-size: 0.75rem;
     color: var(--color-text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    line-height: 1.2;
 }
 
 .bar-value {
@@ -144,7 +145,7 @@
     overflow: hidden;
     position: relative;
     transition: border-color var(--duration-fast);
-    min-height: 210px;
+    min-height: 170px;
 }
 
 .alert-card:hover {
@@ -318,6 +319,14 @@
 .view-more-btn:hover {
     border-color: var(--color-primary-400);
     color: var(--color-primary-800);
+}
+
+.view-more-btn:focus-visible,
+.modal-close:focus-visible,
+.page-btn:focus-visible,
+.clear-search:focus-visible {
+    outline: 2px solid var(--color-primary-600);
+    outline-offset: 2px;
 }
 
 /* Modal Overrides for Alerts */

@@ -68,7 +68,7 @@ Hệ thống sử dụng **kiến trúc hybrid database**:
 #### Phương án B: Functional Integration (Near Real-time Sync)
 - **Ý tưởng**: Dữ liệu nhập 1 lần, sync gần real-time qua middleware
 - **Triển khai**: Case Study 3 + 4
-- **File chính**: `src/services/syncService.js`, `src/registry/ServiceRegistry.js`
+- **File chính**: `src/services/syncService.js`, `src/registry/serviceRegistry.js`
 
 ### 2.3 Artifacts
 - Proposal doc: `docs/case_study_1_proposal.md`
@@ -228,7 +228,7 @@ node scripts/aggregate-dashboard.js [year]
 - Dùng `Promise.allSettled` để sync song song đến nhiều targets
 - Aggregate results từ tất cả adapters
 
-#### 4.2.3 ServiceRegistry (`src/registry/ServiceRegistry.js`)
+#### 4.2.3 ServiceRegistry (`src/registry/serviceRegistry.js`)
 
 **Vai trò**: Centralized Integration Management
 

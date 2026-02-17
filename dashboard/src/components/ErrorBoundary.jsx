@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import './ErrorBoundary.css';
 
 /**
  * Error Boundary Component
@@ -18,7 +19,7 @@ class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     // Log error to console in development
-    if (process.env.NODE_ENV !== 'production') {
+    if (import.meta.env.DEV) {
       console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
     // In production, you would send this to an error tracking service
@@ -42,46 +43,6 @@ class ErrorBoundary extends Component {
               Try Again
             </button>
           </div>
-
-          <style>{`
-            .error-boundary {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              min-height: 300px;
-              padding: var(--space-8);
-            }
-            .error-content {
-              text-align: center;
-              max-width: 400px;
-            }
-            .error-icon {
-              font-size: 3rem;
-              display: block;
-              margin-bottom: var(--space-4);
-            }
-            .error-content h2 {
-              margin: 0 0 var(--space-2) 0;
-              color: var(--color-danger);
-            }
-            .error-content p {
-              color: var(--color-text-secondary);
-              margin: 0 0 var(--space-4) 0;
-            }
-            .retry-btn {
-              background: var(--color-primary-600);
-              color: white;
-              border: none;
-              padding: var(--space-2) var(--space-4);
-              border-radius: var(--radius-md);
-              cursor: pointer;
-              font-weight: 500;
-              transition: background 0.2s;
-            }
-            .retry-btn:hover {
-              background: var(--color-primary-700);
-            }
-          `}</style>
         </div>
       );
     }
@@ -91,3 +52,4 @@ class ErrorBoundary extends Component {
 }
 
 export default ErrorBoundary;
+

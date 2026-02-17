@@ -1,6 +1,10 @@
-﻿# Case Study Guide - SIP_CS (CEO Memo + Case Study 1-5)
+# Case Study Guide - SIP_CS (CEO Memo + Case Study 1-5)
 
-> Last Updated: 2026-02-03
+> Last Updated: 2026-02-07
+
+Audit chi tiet moi nhat:
+- `docs/codebase_ceo_memo_case_audit.md`
+- `docs/demo_pass_checklist.md` (demo pass 1-page checklist)
 
 ## 0) Tình trạng codebase hiện tại (snapshot)
 - Case Study 2 (Dashboard): Hoàn thành. Dashboard, alerts, drilldown, pre-aggregation và UI đã ổn định.
@@ -10,6 +14,7 @@
 - Case Study 5 (Network Integration): Tài liệu mạng/DR/security đã mở rộng, có template cấu hình + availability strategy (docs), chưa triển khai hạ tầng.
   - Có script rehearsal an toàn: `scripts/dr-rehearsal-safe.js` (ghi report vào Memory/DR).
   - Rehearsal gần nhất: `Memory/DR/dr_rehearsal_safe_2026-02-03.json`.
+- Có checklist vận hành theo CEO Memo: `docs/operations_checklist_ceo_memo.md`.
 
 ## 1) Đối chiếu CEO Memo
 | Yêu cầu CEO Memo | Trạng thái | Bằng chứng (code) |
@@ -37,7 +42,7 @@
 ### Key Components / Scripts
 - `SIP_CS/scripts/aggregate-dashboard.js`
 - `SIP_CS/src/services/syncService.js`
-- `SIP_CS/src/registry/ServiceRegistry.js`
+- `SIP_CS/src/registry/serviceRegistry.js`
 - `SIP_CS/src/config/integrations.js`
 
 ### APIs
@@ -100,6 +105,7 @@
 - Requirements: `SIP_CS/docs/case_study_2_requirements.md`
 - Design: `SIP_CS/docs/case_study_2_design.md`
 - User Guide: `SIP_CS/docs/case_study_2_user_guide.md`
+- Operations Checklist: `SIP_CS/docs/operations_checklist_ceo_memo.md`
 
 ### Status & Gaps
 - Functional UI/UX hoàn thiện. Cần hình ảnh mockup nếu yêu cầu nộp kèm.
@@ -164,7 +170,7 @@
 - `integrations.js` -> `ServiceRegistry` -> adapters -> `syncService`.
 
 ### Key Components / Scripts
-- `SIP_CS/src/registry/ServiceRegistry.js`
+- `SIP_CS/src/registry/serviceRegistry.js`
 - `SIP_CS/src/config/integrations.js`
 - `SIP_CS/src/services/integrationEventService.js`
 - `SIP_CS/src/workers/integrationEventWorker.js`
@@ -217,3 +223,13 @@
 | Test plan, verification & validation |  | Y | Y | Y | Y (backup testing) | PARTIAL (advanced tests only) |
 | Network / Backup / Recovery / Security |  |  |  |  | Y | DOCS + rehearsal (no infra) |
 | Availability / HA strategy |  |  |  |  | Y | DOCS ONLY |
+
+## Update 2026-02-07 (Case 4)
+- Integration Queue now has metrics-based severity in UI (`Healthy/Warning/Critical`).
+- Severity is derived from `backlog`, `actionable`, and `oldestPendingAgeMinutes`.
+- This closes the visibility gap for middleware exceptions in live demo mode.
+
+## Update 2026-02-07 (Case 4 Demo Ops)
+- Added deterministic queue scenario script for live demo: healthy/warning/critical/cleanup.
+- Added runbook: `docs/integration_queue_demo_runbook.md` to execute the 60-90s demo flow.
+- Acceptance matrix added: `docs/ceo_memo_acceptance_matrix.md`.

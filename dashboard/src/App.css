@@ -1,1 +1,42 @@
 /* App-level styles - kept minimal, main styles in pages */
+
+.app-loading-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-body);
+}
+
+.app-loading-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    color: var(--color-text-secondary);
+    box-shadow: var(--shadow-card);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.app-loading-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary-600);
+    border-radius: 50%;
+    animation: app-spin 0.9s linear infinite;
+}
+
+@keyframes app-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

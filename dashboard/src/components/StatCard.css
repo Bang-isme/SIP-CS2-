@@ -25,6 +25,11 @@
     /* No movement triggers */
 }
 
+.stat-card-error {
+    border-color: #fecaca;
+    background: var(--color-danger-bg);
+}
+
 /* Header Row: Label + Icon */
 .stat-header-row {
     display: flex;
@@ -96,6 +101,37 @@
 
 .stat-subtext.text-muted {
     color: var(--color-text-tertiary);
+}
+
+.stat-error-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-danger);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.stat-error-message {
+    font-size: var(--font-size-xs);
+    color: #991b1b;
+    min-height: 30px;
+}
+
+.stat-retry-btn {
+    border: 1px solid #fecaca;
+    background: #fff;
+    color: #b91c1c;
+    border-radius: var(--radius-md);
+    padding: 4px 8px;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    cursor: pointer;
+    align-self: flex-start;
+}
+
+.stat-retry-btn:hover {
+    border-color: #fca5a5;
+    background: #fff5f5;
 }
 
 /* Skeletons */

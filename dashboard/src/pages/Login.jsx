@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { login } from '../services/api';
 import './Login.css';
 
-function Login({ onLogin, onSwitchToRegister }) {
-  const [email, setEmail] = useState('admin@localhost');
-  const [password, setPassword] = useState('admin');
+const DEMO_ADMIN_EMAIL = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'admin@localhost';
+const DEMO_ADMIN_PASSWORD = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'admin_dev';
+
+function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
+  const [email, setEmail] = useState(DEMO_ADMIN_EMAIL);
+  const [password, setPassword] = useState(DEMO_ADMIN_PASSWORD);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -63,8 +66,9 @@ function Login({ onLogin, onSwitchToRegister }) {
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Email Address</label>
+                <label htmlFor="login-email">Email Address</label>
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -75,8 +79,9 @@ function Login({ onLogin, onSwitchToRegister }) {
               </div>
 
               <div className="form-group">
-                <label>Password</label>
+                <label htmlFor="login-password">Password</label>
                 <input
+                  id="login-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -87,14 +92,26 @@ function Login({ onLogin, onSwitchToRegister }) {
               </div>
 
               <div className="form-actions">
-                <label className="remember-me">
-                  <input type="checkbox" /> Remember me
+                <label className="remember-me" htmlFor="remember-me">
+                  <input id="remember-me" type="checkbox" /> Remember me
                 </label>
-                <a href="#" className="forgot-password">Forgot password?</a>
+                <button
+                  type="button"
+                  className="forgot-password-btn"
+                  onClick={() => setError('Password reset is not available in demo mode.')}
+                >
+                  Forgot password?
+                </button>
               </div>
 
+              {sessionNotice && (
+                <div className="notice-message" role="status" aria-live="polite">
+                  <span>INFO</span> {sessionNotice}
+                </div>
+              )}
+
               {error && (
-                <div className="error-message">
+                <div className="error-message" role="alert">
                   <span>WARN</span> {error}
                 </div>
               )}
@@ -105,9 +122,12 @@ function Login({ onLogin, onSwitchToRegister }) {
             </form>
 
             <div className="login-footer">
-              <p>Don't have an account? <a href="#" onClick={(e) => { e.preventDefault(); onSwitchToRegister(); }}>Sign Up</a></p>
+              <p>
+                Don&apos;t have an account?
+                <button type="button" className="login-link-btn" onClick={onSwitchToRegister}>Sign Up</button>
+              </p>
               <div className="demo-credentials">
-                Demo: <code>admin@localhost</code> / <code>admin</code>
+                Demo: <code>{DEMO_ADMIN_EMAIL}</code> / <code>{DEMO_ADMIN_PASSWORD}</code>
               </div>
             </div>
           </div>

@@ -91,4 +91,31 @@
     --radius-lg: 8px;  /* Standard for Cards */
     --radius-xl: 12px; /* Containers */
     --radius-full: 9999px;
+
+    /* --- Legacy Token Aliases (for existing component styles) --- */
+    --primary: var(--color-info);
+    --primary-hover: #1e40af;
+    --primary-subtle: #eff4ff;
+
+    --text-main: var(--color-text-main);
+    --text-secondary: var(--color-text-secondary);
+    --text-tertiary: var(--color-text-tertiary);
+
+    --bg-app: var(--color-bg-body);
+    --bg-card: var(--color-bg-card);
+    --bg-hover: var(--color-bg-panel);
+    --bg-subtle: var(--color-bg-subtle);
+
+    --border: var(--color-border);
+    --border-focus: var(--color-info);
+
+    --success: var(--color-success);
+    --success-bg: var(--color-success-bg);
+    --warning: var(--color-warning);
+    --warning-bg: var(--color-warning-bg);
+    --danger: var(--color-danger);
+    --danger-bg: var(--color-danger-bg);
+
+    --shadow: var(--shadow-md);
+    --radius: var(--radius-md);
 }

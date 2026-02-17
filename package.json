@@ -7,7 +7,15 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "test": "jest"
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js --runInBand",
+    "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config tests/jest.config.js tests/integration/dashboard.test.js --runInBand",
+    "test:advanced": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config tests/jest.config.js tests/advanced/quality.test.js --runInBand",
+    "demo:queue:healthy": "node scripts/demo-integration-queue-scenario.js healthy",
+    "demo:queue:warning": "node scripts/demo-integration-queue-scenario.js warning",
+    "demo:queue:critical": "node scripts/demo-integration-queue-scenario.js critical",
+    "demo:queue:cleanup": "node scripts/demo-integration-queue-scenario.js cleanup",
+    "demo:queue:flow": "node scripts/demo-integration-queue-flow.js"
   },
   "repository": {
     "type": "git",

@@ -1,8 +1,8 @@
 # Case Study Progress
 
-> Last Updated: 2026-02-03T23:59:00+07:00
+> Last Updated: 2026-02-07T19:21:45+07:00
 
-## Current Stage: Case Study 2 - COMPLETE
+## Current Stage: Case Study 4 - PARTIAL IMPLEMENTATION
 
 ---
 
@@ -27,6 +27,20 @@ See: Memory/Context/case_study_requirements_summary.md
 - Case Study 4 UI: Integration Queue panel added to Dashboard.
 - Demo script updated: keep FAILED visible (next_run_at in future) and clear old demo rows.
 - Case Study 4 replay: added admin replay filters (FAILED/DEAD) for DLQ recovery.
+
+## Recent Fixes (2026-02-07)
+- Re-audited codebase against CEO Memo + Case Study 1-5 using code evidence (controllers/services/routes/scripts/docs).
+- Added formal audit report: `docs/codebase_ceo_memo_case_audit.md` (stakeholder needs, CEO Memo mapping, Case 1-5 status, prioritized gaps).
+- Fixed broken backend test runtime for ESM (`npm test` now executes and passes).
+- Corrected test expectations to match current auth behavior (`200/401/403`).
+- Added Outbox worker variables to `.env.example` for reproducible setup.
+- Rewrote `docs/case_study_2_design.md` to remove encoding corruption and clarify batch operation rules.
+- Added `docs/operations_checklist_ceo_memo.md` for daily runbook + post-import verification.
+- Added deterministic queue scenario script: `scripts/demo-integration-queue-scenario.js` (`healthy/warning/critical/cleanup`).
+- Added queue demo runbook: `docs/integration_queue_demo_runbook.md`.
+- Added queue severity UI based on metrics thresholds (Healthy/Warning/Critical).
+- Dashboard layout stability: fixed Earnings/Alerts stretch gap by making primary-row cards auto-height.
+- Re-validated quality gates (`npm test`, queue flow rehearsal, frontend build, data audit) for demo readiness.
 
 ## Case Study 2: The Dashboard
 
@@ -97,15 +111,16 @@ See: Memory/Context/case_study_requirements_summary.md
 
 ## Case Study 4: Fully Integrated System
 
-### Status: Design completed / Implementation pending
+### Status: PARTIAL IMPLEMENTATION (Outbox + Worker + Admin Monitor completed)
 
 ### Focus Areas
 - [x] Outbox integration events
 - [x] Worker + retry/backoff
 - [x] DLQ replay (admin replay filters + UI)
-- [ ] Scalable architecture design
-- [ ] Extensibility for new systems
-- [ ] Middleware-centric design
+- [x] Scalable architecture design (documented)
+- [x] Extensibility for new systems (ServiceRegistry + adapters)
+- [x] Middleware-centric design (Outbox/Worker + integration routes)
+- [ ] Enterprise broker implementation (Kafka/RabbitMQ) - design only
 
 ---
 

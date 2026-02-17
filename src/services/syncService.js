@@ -7,7 +7,7 @@
  * BACKWARDS COMPATIBLE: Keeps the old export name `syncEmployeeToPayroll` for existing callers.
  */
 
-import serviceRegistry from '../registry/ServiceRegistry.js';
+import serviceRegistry from '../registry/serviceRegistry.js';
 import { SyncLog } from "../models/sql/index.js";
 import logger from "../utils/logger.js";
 

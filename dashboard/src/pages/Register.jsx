@@ -68,8 +68,9 @@ function Register({ onSwitchToLogin }) {
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Username</label>
+                <label htmlFor="register-username">Username</label>
                 <input
+                  id="register-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -80,8 +81,9 @@ function Register({ onSwitchToLogin }) {
               </div>
 
               <div className="form-group">
-                <label>Email Address</label>
+                <label htmlFor="register-email">Email Address</label>
                 <input
+                  id="register-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -92,8 +94,9 @@ function Register({ onSwitchToLogin }) {
               </div>
 
               <div className="form-group">
-                <label>Password</label>
+                <label htmlFor="register-password">Password</label>
                 <input
+                  id="register-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -104,13 +107,13 @@ function Register({ onSwitchToLogin }) {
               </div>
 
               {error && (
-                <div className="error-message">
+                <div className="error-message" role="alert">
                   <span>WARN</span> {error}
                 </div>
               )}
 
               {success && (
-                <div className="success-message" style={{ color: 'green', marginBottom: '1rem', padding: '10px', background: '#e6fffa', borderRadius: '4px' }}>
+                <div className="success-message" role="status" aria-live="polite">
                   <span>OK</span> {success}
                 </div>
               )}
@@ -121,7 +124,10 @@ function Register({ onSwitchToLogin }) {
             </form>
 
             <div className="login-footer">
-              <p>Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); onSwitchToLogin(); }}>Sign In</a></p>
+              <p>
+                Already have an account?
+                <button type="button" className="login-link-btn" onClick={onSwitchToLogin}>Sign In</button>
+              </p>
             </div>
           </div>
         </div>

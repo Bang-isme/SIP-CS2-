@@ -1,49 +1,48 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import './VacationChart.css';
 
 function VacationChart({ data, onDrilldown }) {
     const [view, setView] = useState('shareholder');
 
     // 1. Prepare Donut Data (Shareholders)
-    const viewConfig = useMemo(() => {
-        const shareholder = [
-            { name: 'Non-Shareholders', value: data.byShareholder.nonShareholder.current, fill: '#3b82f6' },
-            { name: 'Shareholders', value: data.byShareholder.shareholder.current, fill: '#1e293b' },
-        ];
+    const shareholder = [
+        { name: 'Non-Shareholders', value: data.byShareholder.nonShareholder.current, fill: '#3b82f6' },
+        { name: 'Shareholders', value: data.byShareholder.shareholder.current, fill: '#1e293b' },
+    ];
 
-        const genderPalette = ['#10b981', '#f59e0b', '#94a3b8'];
-        const gender = Object.entries(data.byGender).map(([name, values], index) => ({
-            name,
-            value: values.current,
-            fill: genderPalette[index % genderPalette.length],
-        }));
+    const genderPalette = ['#10b981', '#f59e0b', '#94a3b8'];
+    const gender = Object.entries(data.byGender).map(([name, values], index) => ({
+        name,
+        value: values.current,
+        fill: genderPalette[index % genderPalette.length],
+    }));
 
-        const employmentPalette = ['#ef4444', '#64748b'];
-        const employment = Object.entries(data.byEmploymentType).map(([name, values], index) => ({
-            name,
-            value: values.current,
-            fill: employmentPalette[index % employmentPalette.length],
-        }));
+    const employmentPalette = ['#ef4444', '#64748b'];
+    const employment = Object.entries(data.byEmploymentType).map(([name, values], index) => ({
+        name,
+        value: values.current,
+        fill: employmentPalette[index % employmentPalette.length],
+    }));
 
-        const ethnicityPalette = ['#94a3b8', '#64748b', '#cbd5f5', '#a5b4fc', '#94a3b8', '#64748b'];
-        const ethnicity = Object.entries(data.byEthnicity).map(([name, values], index) => ({
-            name,
-            value: values.current,
-            fill: ethnicityPalette[index % ethnicityPalette.length],
-        }));
+    const ethnicityPalette = ['#94a3b8', '#64748b', '#cbd5f5', '#a5b4fc', '#94a3b8', '#64748b'];
+    const ethnicity = Object.entries(data.byEthnicity).map(([name, values], index) => ({
+        name,
+        value: values.current,
+        fill: ethnicityPalette[index % ethnicityPalette.length],
+    }));
 
-        return {
-            shareholder: { title: 'BY SHAREHOLDER STATUS', data: shareholder },
-            gender: { title: 'BY GENDER', data: gender },
-            ethnicity: { title: 'BY ETHNICITY', data: ethnicity },
-            type: { title: 'BY EMPLOYMENT TYPE', data: employment },
-        };
-    }, [data]);
+    const viewConfig = {
+        shareholder: { title: 'BY SHAREHOLDER STATUS', data: shareholder },
+        gender: { title: 'BY GENDER', data: gender },
+        ethnicity: { title: 'BY ETHNICITY', data: ethnicity },
+        type: { title: 'BY EMPLOYMENT TYPE', data: employment },
+    };
 
     const activeView = viewConfig[view];
     const donutData = activeView?.data || [];
     const totalValue = donutData.reduce((acc, curr) => acc + (curr.value || 0), 0);
-    const rankedSegments = useMemo(() => [...donutData].sort((a, b) => b.value - a.value), [donutData]);
+    const rankedSegments = [...donutData].sort((a, b) => b.value - a.value);
     const topSegment = rankedSegments[0];
     const secondSegment = rankedSegments[1];
     const topPercent = totalValue > 0 && topSegment ? (topSegment.value / totalValue) * 100 : null;
@@ -143,13 +142,19 @@ function VacationChart({ data, onDrilldown }) {
                         <h4 className="section-title">DETAILS</h4>
                         <div className="stat-list">
                             {donutData.map((item) => (
-                                <div key={item.name} className="stat-row" onClick={() => handleDrilldown(item.name)}>
+                                <button
+                                  type="button"
+                                  key={item.name}
+                                  className="stat-row"
+                                  onClick={() => handleDrilldown(item.name)}
+                                  aria-label={`Open drilldown for ${item.name}`}
+                                >
                                     <div className="stat-info">
                                         <span className="dot" style={{ background: item.fill }}></span>
                                         <span className="label">{item.name}</span>
                                     </div>
                                     <span className="value">{formatNum(item.value)} days</span>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     </div>
@@ -174,186 +179,11 @@ function VacationChart({ data, onDrilldown }) {
                     </span>
                 </div>
             </div>
-
-            <style>{`
-        .vacation-container { height: 100%; display: flex; flex-direction: column; }
-        .vacation-content {
-          display: grid;
-          grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
-          gap: var(--space-3);
-          align-items: stretch;
-          height: 100%;
-          min-height: 260px;
-        }
-
-        .chart-section {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            width: 100%;
-            padding-right: var(--space-2);
-        }
-
-        .vacation-tabs {
-            display: flex;
-            gap: var(--space-2);
-            margin-bottom: var(--space-3);
-            flex-wrap: wrap;
-        }
-        .vacation-tab {
-            border: 1px solid var(--color-border);
-            background: var(--color-bg-card);
-            padding: 4px 10px;
-            border-radius: var(--radius-full);
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: var(--color-text-secondary);
-            cursor: pointer;
-        }
-        .vacation-tab.active {
-            background: var(--color-primary-700);
-            color: white;
-            border-color: var(--color-primary-700);
-        }
-        
-        /* Section Titles */
-        .section-title {
-            font-size: 0.7rem;
-            color: var(--color-text-tertiary);
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            margin-bottom: var(--space-4);
-            text-transform: uppercase;
-        }
-
-        /* Donut Chart */
-        .donut-wrapper {
-            position: relative;
-            margin-bottom: var(--space-2);
-            max-width: 260px;
-            width: 100%;
-        }
-        .donut-label {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            pointer-events: none;
-        }
-        .total-days {
-            display: block;
-            font-size: 1.65rem;
-            font-weight: 700;
-            color: var(--color-primary-800);
-            line-height: 1;
-        }
-        .unit {
-            font-size: 0.8rem;
-            color: var(--color-text-tertiary);
-        }
-
-        /* Stats List */
-        .stat-group { margin-bottom: var(--space-6); }
-        .stat-group:last-child { margin-bottom: 0; }
-        
-        .stat-list { display: flex; flex-direction: column; gap: var(--space-2); }
-
-        .stats-section {
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            height: 100%;
-            padding: var(--space-3);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            background: var(--color-bg-subtle);
-            min-height: 220px;
-        }
-
-        .stat-group {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .stats-section .section-title {
-            margin-bottom: var(--space-3);
-        }
-        .stat-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 10px;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: background 0.2s, transform 0.15s ease;
-            border-bottom: 1px dashed var(--color-border);
-        }
-        .stat-row:last-child { border-bottom: none; }
-        .stat-row:hover {
-            background: rgba(37, 99, 235, 0.08);
-            transform: translateX(1px);
-        }
-        
-        .stat-info { display: flex; align-items: center; gap: var(--space-3); }
-        
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: block;
-        }
-        
-        .label {
-            font-size: 0.88rem;
-            color: var(--color-text-main);
-            font-weight: 600;
-        }
-        
-.value {
-            font-weight: 700;
-            color: var(--color-primary-900);
-            font-size: 0.95rem;
-            font-family: var(--font-family-mono);
-            font-variant-numeric: tabular-nums;
-        }
-
-        .vacation-insights {
-            margin-top: var(--space-3);
-            padding-top: var(--space-3);
-            border-top: 1px solid var(--color-border);
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: var(--space-3);
-        }
-        .insight-item {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .insight-label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--color-text-tertiary);
-            font-weight: 700;
-        }
-        .insight-value {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--color-primary-900);
-        }
-
-        @media (max-width: 1200px) {
-            .vacation-content { grid-template-columns: 1fr; }
-            .donut-wrapper { max-width: 300px; margin: 0 auto; }
-            .vacation-insights { grid-template-columns: 1fr; }
-        }
-      `}</style>
         </div>
     );
 }
 
 export default VacationChart;
+
+
 

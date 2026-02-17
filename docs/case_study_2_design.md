@@ -1,97 +1,130 @@
 # Case Study 2 - Design (Dashboard)
 
-> Last Updated: 2026-02-03
+> Last Updated: 2026-02-07
 
-## 1) Ki?n tr?c t?ng quan
-H? th?ng Dashboard ???c x?y theo m? h?nh presentation-style integration, l?y d? li?u t? MongoDB (HR) v? MySQL (Payroll), sau ?? t?ng h?p v?o c?c b?ng summary ?? tr? k?t qu? nhanh cho l?nh ??o.
+## 1) Kiến trúc tổng quan
+Dashboard được xây theo mô hình `presentation-style integration`: không thay hệ thống legacy, chỉ tích hợp dữ liệu HR + Payroll để hiển thị cho điều hành.
 
-## 2) Ngu?n d? li?u & b?ng li?n quan
-MongoDB (HR):
-- Employees, Departments, Alerts, Users.
-- D? li?u d?ng cho drilldown, filter, demographics, v? hi?n th? danh s?ch chi ti?t.
+Luồng chính:
+- MongoDB (HR) lưu hồ sơ nhân sự, phòng ban, cảnh báo.
+- MySQL (Payroll) lưu earnings, vacation, benefits.
+- Script tổng hợp chạy batch ghi về các bảng summary.
+- API dashboard đọc từ summary để trả nhanh.
+- FE hiển thị KPI, chart, alerts, drilldown.
 
-MySQL (Payroll):
-- Earning, VacationRecord, EmployeeBenefit, BenefitPlan, PayRate.
-- D? li?u d?ng ?? t?nh earnings/vacation/benefits theo n?m hi?n t?i v? n?m tr??c.
+## 2) Mô hình dữ liệu sử dụng
+MongoDB:
+- `Employee`, `Department`, `Alert`, `User`.
 
-Summary tables (MySQL):
-- EarningsSummary, VacationSummary, BenefitsSummary, AlertsSummary, AlertEmployee.
-- EarningsEmployeeYear (b?ng snapshot theo n?m, h? tr? drilldown nhanh).
+MySQL nghiệp vụ:
+- `earnings`, `vacation_records`, `employee_benefits`, `benefits_plans`, `pay_rates`.
 
-Derived fields (Mongo):
-- Employee.annualEarnings, Employee.annualEarningsYear ?? l?c minEarnings nhanh.
+MySQL tổng hợp:
+- `earnings_summary`
+- `vacation_summary`
+- `benefits_summary`
+- `alerts_summary`
+- `alert_employees`
+- `earnings_employee_year` (snapshot hỗ trợ filter `minEarnings`)
 
-## 3) Batch Aggregation (scripts/aggregate-dashboard.js)
-M?c ti?u: t?ng h?p d? li?u v? b?ng summary ?? API tr? nhanh.
+Trường dẫn xuất trong Mongo để tăng tốc drilldown:
+- `Employee.annualEarnings`
+- `Employee.annualEarningsYear`
 
-Khi ch?y batch:
-- Theo l?ch h?ng ng?y (cron) ho?c sau khi import d? li?u l?n.
-- Ph? h?p cho demo ho?c khi d? li?u payroll c?p nh?t theo l?.
+## 3) Batch aggregation (điểm cốt lõi hiệu năng)
+Script:
+- `node scripts/aggregate-dashboard.js`
+- `node scripts/aggregate-dashboard.js 2026`
 
-C?c b??c ch?nh c?a batch:
-1. L?y d? li?u raw t? MySQL (earnings, vacation, benefits) theo current year + previous year.
-2. T?nh to?n t?ng theo: department, shareholder, gender, ethnicity, employmentType.
-3. Ghi v?o EarningsSummary, VacationSummary, BenefitsSummary.
-4. T?o AlertsSummary v? AlertEmployee (anniversary, vacation threshold, benefits change, birthday).
-5. C?p nh?t snapshot sang Mongo: annualEarnings + annualEarningsYear.
-6. Ghi b?ng EarningsEmployeeYear ?? h? tr? drilldown nhanh.
+Khi nào chạy:
+- Chạy định kỳ hằng ngày (khuyến nghị: sau giờ nghiệp vụ).
+- Chạy ngay sau khi import dữ liệu lớn hoặc backfill payroll.
+- Chạy lại khi thay đổi logic aggregate/alert.
 
-L?u ? v?n h?nh:
-- Batch c? th? ch?y l?i nhi?u l?n (idempotent theo d? li?u ngu?n).
-- Sau khi import d? li?u l?n, c?n ch?y batch ?? s? li?u tr?n dashboard ch?nh x?c.
+Kết quả batch:
+1. Tính tổng earnings/vacation theo các chiều CEO yêu cầu.
+2. Tính benefits theo plan + shareholder status.
+3. Sinh dữ liệu alert summary + danh sách nhân viên cảnh báo.
+4. Cập nhật snapshot annual earnings vào Mongo để hỗ trợ `minEarnings`.
 
-## 4) API Layer
-C?c endpoint ch?nh:
+## 4) Thiết kế API
+Summary endpoints:
 - `GET /api/dashboard/earnings`
 - `GET /api/dashboard/vacation`
 - `GET /api/dashboard/benefits`
+
+Drilldown:
 - `GET /api/dashboard/drilldown`
 - `GET /api/dashboard/drilldown/export`
 - `GET /api/dashboard/departments`
+
+Alerts:
 - `GET /api/alerts/triggered`
 - `GET /api/alerts/:type/employees`
 
-Lu?ng x? l?:
-- Summary API ??c t? b?ng summary ?? tr? nhanh.
-- Drilldown ??c t? Mongo + snapshot earnings trong Mongo/MySQL ?? filter hi?u qu?.
-- N?u thi?u summary tables, API tr? 404 k?m h??ng d?n ch?y batch.
+Hành vi khi thiếu dữ liệu tổng hợp:
+- API trả thông báo cần chạy lại `aggregate-dashboard.js`.
 
-## 5) Drilldown & Performance Strategy
-C? ch? t?i ?u t?c ??:
-- Bulk mode khi `limit >= 1000` ho?c `bulk=1` ?? gi?m chi ph? join l?n.
-- Fast summary khi `summary=fast` ?? tr? count nhanh.
-- Hybrid summary totals: n?u fast mode v? COUNT <= 10,000 th? ch?y n?n `summary=full` ?? c?p nh?t total ch?nh x?c.
-- CSV export tr? stream ?? tr?nh payload qu? l?n.
+## 5) Drilldown performance strategy
+Chiến lược để giữ tốc độ:
+- `bulk mode` khi `limit >= 1000` hoặc `bulk=1`.
+- `summary=fast` để trả count nhanh trước.
+- Hybrid totals: nếu count nhỏ (`<= 10,000`) thì chạy nền `summary=full` để cập nhật tổng chính xác.
+- CSV export dùng streaming để tránh payload lớn.
 
-Gi?i th?ch minEarnings:
-- S? d?ng snapshot annualEarnings trong Mongo ?? tr?nh join cross-DB kh?ng l?.
-- N?u filter qu? r?ng (v? d? minEarnings r?t nh?), s? l??ng l?n s? ch?m ? v? ph?i l?c danh s?ch ID l?n.
+Lưu ý nghiệp vụ:
+- `total earnings` trong drilldown là tổng toàn bộ tập đã lọc, không phải chỉ 1 trang.
+- Khi tập lọc rất lớn, UI có thể hiển thị `--` cho tổng để ưu tiên tốc độ.
 
-## 6) Alerts
-- AlertEmployee table l?u danh s?ch chi ti?t ?? pagination nhanh.
-- AlertsSummary tr? t?ng s? theo lo?i.
-- 4 lo?i alert: Anniversary, High Vacation, Benefits Change, Birthday.
+## 6) Alerts design (manage-by-exception)
+4 loại cảnh báo:
+- Anniversary
+- High vacation balance
+- Benefits change impact payroll
+- Birthday trong tháng hiện tại
 
-## 7) UI Layout
-- Header: ti?u ?? + status + refresh.
-- KPI cards: 4 ch? s? ch?nh.
-- Charts: Earnings by Department, Vacation, Benefits.
-- Alerts panel: preview 4 alert types.
-- Drilldown modal: filters + table + export.
+Thiết kế hiển thị:
+- Alert card hiển thị preview (5 dòng đầu).
+- Modal hiển thị phân trang chi tiết.
+- Định dạng ngày:
+  - Anniversary: `X day(s)`
+  - Birthday: hiển thị ngày (`Mon DD`) thay vì số âm.
 
-## 8) Operational Guide (th?c t? s? d?ng)
-- Ch?y batch h?ng ng?y (cron) ho?c sau khi import d? li?u l?n.
-- N?u s? li?u tr?n UI kh?ng c?p nh?t, ki?m tra job batch v? summary tables.
-- V?i fast mode, t?ng s? c? th? hi?n `--` n?u COUNT l?n, ??y l? thi?t k? gi? t?c ??.
+## 7) UI modules
+Các thành phần chính:
+- `Dashboard.jsx` (layout điều hành)
+- `EarningsChart.jsx`
+- `VacationChart.jsx`
+- `BenefitsChart.jsx`
+- `AlertsPanel.jsx`
+- `DrilldownModal.jsx`
 
-## 9) Error Handling
-- Summary tables thi?u -> tr? 404 + h??ng d?n ch?y batch.
-- Drilldown export d?ng stream ?? tr?nh qu? t?i.
-- UI c? loading/skeleton khi ch? data.
+Nguyên tắc:
+- KPI và cảnh báo phải nhìn thấy ngay.
+- Drilldown từ summary xuống record chi tiết.
+- Giữ độ nhất quán về spacing, typography, trạng thái loading.
 
-## 10) Validation Checklist
-- Batch ch?y xong c? d? li?u trong summary tables.
-- Dashboard summary tr? nhanh (<2s v?i summary tables).
-- Drilldown limit l?n v?n gi? <10s v?i bulk mode.
-- Alerts hi?n th? ?? 4 lo?i v? drilldown m? ??ng.
-- CSV export ho?t ??ng v? kh?ng crash.
+## 8) Vận hành chuẩn (production-like cho môn học)
+Checklist mỗi ngày:
+1. Chạy batch aggregate.
+2. Kiểm tra health API.
+3. Kiểm tra dữ liệu summary cập nhật.
+4. Kiểm tra alert count có hợp lý.
+5. Kiểm tra drilldown query mẫu của CEO (`minEarnings > X`).
+
+Checklist sau import dữ liệu lớn:
+1. Chạy lại aggregate ngay.
+2. Đối chiếu count giữa summary và nguồn.
+3. Spot-check 5-10 records qua drilldown.
+4. Xuất CSV mẫu để xác nhận pipeline.
+
+## 9) Validation checklist
+- Dashboard summary trả nhanh với dữ liệu pre-aggregated.
+- Drilldown limit lớn giữ trong ngưỡng chấp nhận (<10s cho bulk mode).
+- Alerts đủ 4 loại và mở chi tiết đúng.
+- Export CSV không timeout với tập dữ liệu lớn.
+- Batch rerun không làm sai lệch số liệu (idempotent theo nguồn).
+
+## 10) Status
+- Case Study 2 ở mức `COMPLETE` theo phạm vi môn học.
+- Gaps còn lại nằm ở Case 4/5 mở rộng hạ tầng thật (broker/network infra).

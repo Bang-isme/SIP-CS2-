@@ -2,6 +2,7 @@ import { Router } from "express";
 import { verifyToken, isAdmin } from "../middlewares/authJwt.js";
 import {
     listIntegrationEvents,
+    getIntegrationMetrics,
     retryIntegrationEvent,
     retryDeadIntegrationEvents,
     replayIntegrationEvents,
@@ -17,6 +18,12 @@ router.use(verifyToken);
  * Query: status, limit, page
  */
 router.get("/events", isAdmin, listIntegrationEvents);
+
+/**
+ * GET /api/integrations/events/metrics
+ * Admin only
+ */
+router.get("/events/metrics", isAdmin, getIntegrationMetrics);
 
 /**
  * POST /api/integrations/events/retry/:id

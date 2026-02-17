@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import './EarningsChart.css';
 
 function EarningsChart({ data, onDrilldown }) {
   // Transform data for bar chart
   const chartData = Object.entries(data.byDepartment).map(([name, values]) => ({
-    name: name.length > 12 ? name.substring(0, 12) + '...' : name,
-    fullName: name,
+    name,
     current: Math.round(values.current),
     previous: Math.round(values.previous),
   }));
@@ -97,7 +97,7 @@ function EarningsChart({ data, onDrilldown }) {
   const handleClick = (data) => {
     if (data && onDrilldown) {
       // Drill down by department
-      onDrilldown({ department: data.fullName });
+      onDrilldown({ department: data.fullName || data.name });
     }
   };
 
@@ -138,7 +138,7 @@ function EarningsChart({ data, onDrilldown }) {
               boxShadow: 'var(--shadow-lg)'
             }}
             formatter={(value) => formatCurrency(value)}
-            labelFormatter={(label) => chartData.find(d => d.name === label)?.fullName || label}
+            labelFormatter={(label) => label}
           />
           <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)' }} />
           <Bar dataKey="current" name="Current Year" fill="var(--color-primary-600)" radius={[4, 4, 0, 0]} maxBarSize={50} cursor="pointer" />
@@ -184,10 +184,16 @@ function EarningsChart({ data, onDrilldown }) {
           <div className="dept-title">Top Departments (Current)</div>
           <div className="dept-table">
             {topDepartments.map((dept) => (
-                <div key={dept.name} className="dept-row" onClick={() => handleClick({ fullName: dept.name })}>
+                <button
+                  type="button"
+                  key={dept.name}
+                  className="dept-row"
+                  onClick={() => handleClick({ fullName: dept.name })}
+                  aria-label={`Open drilldown for ${dept.name}`}
+                >
                   <span className="dept-name">{dept.name}</span>
                   <span className="dept-value">{formatCurrency(dept.current)}</span>
-                </div>
+                </button>
               ))}
           </div>
         </div>
@@ -217,13 +223,19 @@ function EarningsChart({ data, onDrilldown }) {
                 <div className="movers-empty">No increases</div>
               ) : (
                 movers.gains.map((dept) => (
-                  <div key={dept.name} className="mover-row" onClick={() => handleClick({ fullName: dept.name })}>
+                  <button
+                    type="button"
+                    key={dept.name}
+                    className="mover-row"
+                    onClick={() => handleClick({ fullName: dept.name })}
+                    aria-label={`Open drilldown for ${dept.name}`}
+                  >
                     <span className="mover-name">{dept.name}</span>
                     <span className="mover-value pos">
                       <span className="mover-prefix">+</span>{formatCurrency(Math.abs(dept.diff))}
                       {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
                     </span>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -236,26 +248,38 @@ function EarningsChart({ data, onDrilldown }) {
                   <div className="movers-empty">No declines in current period</div>
                 ) : (
                   movers.drops.map((dept) => (
-                    <div key={dept.name} className="mover-row" onClick={() => handleClick({ fullName: dept.name })}>
+                    <button
+                      type="button"
+                      key={dept.name}
+                      className="mover-row"
+                      onClick={() => handleClick({ fullName: dept.name })}
+                      aria-label={`Open drilldown for ${dept.name}`}
+                    >
                       <span className="mover-name">{dept.name}</span>
                       <span className="mover-value neg">
                         <span className="mover-prefix">-</span>{formatCurrency(Math.abs(dept.diff))}
                         {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
                       </span>
-                    </div>
+                    </button>
                   ))
                 )
               ) : movers.smallestGrowth.length === 0 ? (
                 <div className="movers-empty">No data</div>
               ) : (
                 movers.smallestGrowth.map((dept) => (
-                  <div key={dept.name} className="mover-row" onClick={() => handleClick({ fullName: dept.name })}>
+                  <button
+                    type="button"
+                    key={dept.name}
+                    className="mover-row"
+                    onClick={() => handleClick({ fullName: dept.name })}
+                    aria-label={`Open drilldown for ${dept.name}`}
+                  >
                     <span className="mover-name">{dept.name}</span>
                     <span className="mover-value pos">
                       <span className="mover-prefix">+</span>{formatCurrency(Math.abs(dept.diff))}
                       {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
                     </span>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -269,10 +293,16 @@ function EarningsChart({ data, onDrilldown }) {
               <div className="group-title">Gender</div>
               <div className="group-list">
                 {Object.entries(data.byGender).map(([gender, values]) => (
-                  <div key={gender} className="breakdown-row" onClick={() => onDrilldown?.({ gender })}>
+                  <button
+                    type="button"
+                    key={gender}
+                    className="breakdown-row"
+                    onClick={() => onDrilldown?.({ gender })}
+                    aria-label={`Filter by gender ${gender}`}
+                  >
                     <span className="breakdown-label">{gender}</span>
                     <span className="breakdown-value">{formatCurrency(values.current)}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
               {categorySignals.gender && (
@@ -289,10 +319,16 @@ function EarningsChart({ data, onDrilldown }) {
               <div className="group-title">Ethnicity</div>
               <div className="group-list">
                 {Object.entries(data.byEthnicity).map(([ethnicity, values]) => (
-                  <div key={ethnicity} className="breakdown-row" onClick={() => onDrilldown?.({ ethnicity })}>
+                  <button
+                    type="button"
+                    key={ethnicity}
+                    className="breakdown-row"
+                    onClick={() => onDrilldown?.({ ethnicity })}
+                    aria-label={`Filter by ethnicity ${ethnicity}`}
+                  >
                     <span className="breakdown-label">{ethnicity}</span>
                     <span className="breakdown-value">{formatCurrency(values.current)}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
               {categorySignals.ethnicity && (
@@ -306,10 +342,16 @@ function EarningsChart({ data, onDrilldown }) {
               <div className="group-title">Employment Type</div>
               <div className="group-list">
                 {Object.entries(data.byEmploymentType).map(([type, values]) => (
-                  <div key={type} className="breakdown-row" onClick={() => onDrilldown?.({ employmentType: type })}>
+                  <button
+                    type="button"
+                    key={type}
+                    className="breakdown-row"
+                    onClick={() => onDrilldown?.({ employmentType: type })}
+                    aria-label={`Filter by employment type ${type}`}
+                  >
                     <span className="breakdown-label">{type}</span>
                     <span className="breakdown-value">{formatCurrency(values.current)}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
               {categorySignals.employment && (
@@ -325,354 +367,11 @@ function EarningsChart({ data, onDrilldown }) {
           </div>
         </div>
       </div>
-
-      <style>{`
-        .chart-container { margin-top: 0; }
-        .chart-stats {
-          display: flex;
-          gap: var(--space-6);
-          margin-bottom: var(--space-3);
-          padding-bottom: var(--space-3);
-          border-bottom: 1px solid var(--color-border);
-        }
-        .stat {
-          display: flex;
-          flex-direction: column;
-        }
-        .stat-label {
-          font-size: 0.7rem;
-          color: var(--color-text-tertiary);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-weight: 700;
-        }
-        .stat-value {
-          font-size: var(--font-size-lg);
-          font-weight: 700;
-          color: var(--color-primary-800);
-        }
-        .chart-breakdown { margin-top: var(--space-3); }
-        .chart-breakdown h4 {
-          font-size: 0.7rem;
-          color: var(--color-text-tertiary);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          margin-bottom: var(--space-2);
-          font-weight: 700;
-        }
-        .breakdown-groups {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: var(--space-3);
-        }
-        .breakdown-group {
-          background: var(--color-bg-card);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: var(--space-2) var(--space-2);
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
-          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-        }
-        .group-list {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
-        }
-        .group-foot {
-          margin-top: auto;
-          padding: 8px 10px 0 10px;
-          border-top: 1px solid var(--color-border);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-        }
-        .group-foot-label {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.07em;
-          color: var(--color-text-tertiary);
-          font-weight: 700;
-        }
-        .group-foot-value {
-          font-size: 0.82rem;
-          color: var(--color-primary-800);
-          font-weight: 700;
-          font-family: var(--font-family-mono);
-          font-variant-numeric: tabular-nums;
-        }
-        .breakdown-group:hover {
-          border-color: var(--color-primary-300);
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.04) inset;
-          background: #fcfeff;
-        }
-        .group-title {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          color: var(--color-text-tertiary);
-          letter-spacing: 0.08em;
-          font-weight: 700;
-          margin-bottom: 2px;
-        }
-        .breakdown-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 10px;
-          margin: 0 -4px;
-          border-radius: var(--radius-sm);
-          border-bottom: 1px dashed var(--color-border);
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
-        }
-        .breakdown-row:last-child {
-          border-bottom: none;
-        }
-        .breakdown-row:hover {
-          color: var(--color-primary-800);
-          background: rgba(37, 99, 235, 0.08);
-          transform: translateX(1px);
-        }
-        .breakdown-row:active {
-          transform: translateX(0);
-          background: rgba(37, 99, 235, 0.14);
-        }
-        .breakdown-label {
-          font-size: 0.86rem;
-          color: inherit;
-          font-weight: 600;
-        }
-        .breakdown-value {
-          font-size: 0.88rem;
-          font-weight: 700;
-          font-family: var(--font-family-mono);
-          color: inherit;
-          font-variant-numeric: tabular-nums;
-        }
-
-        .insights-panel {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: var(--space-3);
-          margin-top: var(--space-3);
-        }
-        .earnings-advanced-panel {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: var(--space-3);
-          align-items: start;
-        }
-        .data-surface {
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: var(--space-2) var(--space-3);
-          background: var(--color-bg-subtle);
-        }
-        .chart-breakdown {
-          grid-column: 1 / -1;
-        }
-        .insight-card {
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-md);
-          padding: var(--space-2) var(--space-3);
-          background: var(--color-bg-subtle);
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        .insight-label {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--color-text-tertiary);
-          font-weight: 700;
-        }
-        .insight-value {
-          font-size: var(--font-size-sm);
-          font-weight: 700;
-          color: var(--color-primary-900);
-        }
-        .insight-delta {
-          font-size: var(--font-size-xs);
-          font-family: var(--font-family-mono);
-          display: inline-flex;
-          align-items: baseline;
-          gap: 4px;
-        }
-        .delta-label {
-          color: var(--color-text-tertiary);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          font-size: 0.68rem;
-          font-family: var(--font-family-sans);
-          font-weight: 700;
-        }
-        .insight-delta.pos { color: var(--color-success); }
-        .insight-delta.neg { color: var(--color-danger); }
-
-        .dept-summary { margin-top: var(--space-3); }
-        .dept-title {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--color-text-tertiary);
-          font-weight: 700;
-          margin-bottom: var(--space-2);
-        }
-        .dept-table {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        .dept-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 8px;
-          border-bottom: 1px dashed var(--color-border);
-          cursor: pointer;
-          border-radius: var(--radius-sm);
-        }
-        .dept-row:last-child {
-          border-bottom: none;
-        }
-        .dept-row:hover {
-          color: var(--color-primary-700);
-          background: rgba(37, 99, 235, 0.08);
-        }
-        .dept-name {
-          font-size: 0.88rem;
-          color: var(--color-text-main);
-          font-weight: 600;
-        }
-        .dept-value {
-          font-size: 0.9rem;
-          font-weight: 700;
-          font-family: var(--font-family-mono);
-          color: var(--color-primary-900);
-          font-variant-numeric: tabular-nums;
-        }
-
-        .movers-panel { margin-top: var(--space-3); }
-        .movers-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-3);
-          margin-bottom: var(--space-2);
-        }
-        .movers-title {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--color-text-tertiary);
-          font-weight: 700;
-          margin: 0;
-        }
-        .movers-tabs {
-          display: flex;
-          gap: var(--space-2);
-        }
-        .movers-tab {
-          border: 1px solid var(--color-border);
-          background: var(--color-bg-card);
-          padding: 2px 8px;
-          border-radius: var(--radius-full);
-          font-size: 0.72rem;
-          font-weight: 700;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          color: var(--color-text-secondary);
-          cursor: pointer;
-        }
-        .movers-tab.active {
-          background: var(--color-primary-700);
-          color: white;
-          border-color: var(--color-primary-700);
-        }
-        .movers-tab:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .movers-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: var(--space-3);
-        }
-        .movers-subtitle {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          color: var(--color-text-tertiary);
-          font-weight: 700;
-          margin-bottom: 4px;
-        }
-        .mover-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 8px;
-          border-bottom: 1px dashed var(--color-border);
-          cursor: pointer;
-          border-radius: var(--radius-sm);
-        }
-        .mover-row:last-child {
-          border-bottom: none;
-        }
-        .mover-row:hover {
-          color: var(--color-primary-700);
-          background: rgba(37, 99, 235, 0.08);
-        }
-        .mover-name {
-          font-size: 0.88rem;
-          color: var(--color-text-main);
-          font-weight: 600;
-        }
-        .mover-value {
-          font-size: 0.9rem;
-          font-weight: 700;
-          font-family: var(--font-family-mono);
-          font-variant-numeric: tabular-nums;
-          white-space: nowrap;
-          display: inline-flex;
-          align-items: baseline;
-          gap: 2px;
-        }
-        .mover-prefix {
-          font-size: 0.8em;
-          font-weight: 800;
-          opacity: 0.9;
-        }
-        .mover-value.pos { color: var(--color-success); }
-        .mover-value.neg { color: var(--color-danger); }
-        .movers-empty {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-tertiary);
-        }
-
-        @media (max-width: 1200px) {
-          .earnings-advanced-panel {
-            grid-template-columns: 1fr;
-          }
-          .chart-breakdown {
-            grid-column: auto;
-          }
-          .breakdown-groups {
-            grid-template-columns: 1fr;
-          }
-          .insights-panel {
-            grid-template-columns: 1fr;
-          }
-          .movers-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
     </div>
   );
 }
 
 export default EarningsChart;
+
+
 

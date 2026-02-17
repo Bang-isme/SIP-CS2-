@@ -4,5 +4,6 @@ export default {
     verbose: true,
     testMatch: [
         "**/tests/**/*.test.js"
-    ]
+    ],
+    setupFilesAfterEnv: ['../src/__tests__/setup.js'],
 };

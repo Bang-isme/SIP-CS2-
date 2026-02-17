@@ -1,56 +1,36 @@
 /**
- * Dashboard API Tests
- * Tests for dashboard summary endpoints
+ * Dashboard/Auth Guard Tests
+ * Validate protected endpoints reject anonymous requests.
  */
 
-import request from 'supertest';
-import app from '../app.js';
+import request from "supertest";
+import app from "../app.js";
 
-describe('Dashboard Endpoints', () => {
-    describe('GET /api/dashboard/earnings', () => {
-        it('should return earnings summary', async () => {
-            const res = await request(app)
-                .get('/api/dashboard/earnings?year=2025')
-                .expect('Content-Type', /json/);
+describe("Dashboard Endpoints - Auth Guard", () => {
+  const endpoints = [
+    "/api/dashboard/earnings?year=2025",
+    "/api/dashboard/vacation?year=2025",
+    "/api/dashboard/benefits",
+    "/api/dashboard/drilldown?page=1&limit=5",
+    "/api/dashboard/departments",
+  ];
 
-            // Should return success or auth error
-            expect([200, 401]).toContain(res.status);
+  it.each(endpoints)("should reject anonymous request: %s", async (endpoint) => {
+    const res = await request(app).get(endpoint).expect("Content-Type", /json/);
 
-            if (res.status === 200) {
-                expect(res.body).toHaveProperty('success');
-            }
-        });
-    });
-
-    describe('GET /api/dashboard/vacation', () => {
-        it('should return vacation summary', async () => {
-            const res = await request(app)
-                .get('/api/dashboard/vacation?year=2025')
-                .expect('Content-Type', /json/);
-
-            expect([200, 401]).toContain(res.status);
-        });
-    });
-
-    describe('GET /api/dashboard/benefits', () => {
-        it('should return benefits summary', async () => {
-            const res = await request(app)
-                .get('/api/dashboard/benefits')
-                .expect('Content-Type', /json/);
-
-            expect([200, 401]).toContain(res.status);
-        });
-    });
+    expect(res.status).toBe(403);
+    expect(res.body).toHaveProperty("message", "No token provided");
+  });
 });
 
-describe('Alerts Endpoints', () => {
-    describe('GET /api/alerts/triggered', () => {
-        it('should return triggered alerts', async () => {
-            const res = await request(app)
-                .get('/api/alerts/triggered')
-                .expect('Content-Type', /json/);
+describe("Alerts Endpoints - Auth Guard", () => {
+  it("should reject anonymous request for triggered alerts", async () => {
+    const res = await request(app)
+      .get("/api/alerts/triggered")
+      .expect("Content-Type", /json/);
 
-            expect([200, 401]).toContain(res.status);
-        });
-    });
+    expect(res.status).toBe(403);
+    expect(res.body).toHaveProperty("message", "No token provided");
+  });
 });
+

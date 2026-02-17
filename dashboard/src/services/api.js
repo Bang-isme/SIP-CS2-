@@ -1,158 +1,158 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.DEV ? 'http://localhost:4000/api' : '/api');
+let unauthorizedHandler = null;
 
-// Create axios instance with auth token
+const isAuthRoute = (url = '') => {
+  return url.includes('/auth/signin') || url.includes('/auth/signup');
+};
+
 const api = axios.create({
-    baseURL: API_BASE,
-    headers: {
-        'Content-Type': 'application/json',
-    },
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Add token to requests
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(
+  (config) => {
     const token = localStorage.getItem('token');
-
-    // Debug logging for development
-    if (process.env.NODE_ENV !== 'production' && !token) {
-        console.warn('[API] No token found in localStorage');
-    }
-
     if (token) {
-        config.headers['x-access-token'] = token;
+      config.headers['x-access-token'] = token;
     }
     return config;
-}, (error) => {
-    return Promise.reject(error);
-});
+  },
+  (error) => Promise.reject(error),
+);
 
-// Response interceptor for debugging
 api.interceptors.response.use(
-    response => response,
-    error => {
-        if (error.response?.status === 401 || error.response?.status === 403) {
-            console.error('[API] Auth Error:', error.response.data?.message);
-            // Optional: Auto-logout on 401
-            // localStorage.removeItem('token');
-            // window.location.href = '/login';
-        }
-        return Promise.reject(error);
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const requestUrl = error?.config?.url || '';
+
+    if (status === 401 && !isAuthRoute(requestUrl)) {
+      logout();
+      if (typeof unauthorizedHandler === 'function') {
+        unauthorizedHandler(error);
+      }
     }
+
+    return Promise.reject(error);
+  },
 );
 
 // Auth
 export const login = async (email, password) => {
-    try {
-        const response = await api.post('/auth/signin', { email, password });
-        console.log('[API] Login response:', response.data);
+  const response = await api.post('/auth/signin', { email, password });
+  const token = response.data?.token || response.data?.data?.token;
 
-        // Backend returns { success, data, token } or just { token, ... }
-        // Handle both possible structures
-        const token = response.data?.token || response.data?.data?.token;
+  if (!token) {
+    throw new Error('Missing auth token in sign-in response');
+  }
 
-        if (token) {
-            console.log('[API] Token saved to localStorage');
-            localStorage.setItem('token', token);
-        } else {
-            console.error('[API] No token in response!', response.data);
-        }
-
-        return response.data;
-    } catch (error) {
-        console.error('[API] Login failed:', error);
-        throw error;
-    }
+  localStorage.setItem('token', token);
+  return response.data;
 };
 
 export const register = async (username, email, password) => {
-    try {
-        const response = await api.post('/auth/signup', { username, email, password });
-        return response.data;
-    } catch (error) {
-        console.error('[API] Registration failed:', error);
-        throw error;
-    }
+  const response = await api.post('/auth/signup', { username, email, password });
+  return response.data;
+};
+
+export const getMe = async () => {
+  const response = await api.get('/auth/me');
+  return response.data;
 };
 
 export const logout = () => {
-    localStorage.removeItem('token');
+  localStorage.removeItem('token');
+};
+
+export const setUnauthorizedHandler = (handler) => {
+  unauthorizedHandler = typeof handler === 'function' ? handler : null;
 };
 
 export const isAuthenticated = () => {
-    return !!localStorage.getItem('token');
+  return Boolean(localStorage.getItem('token'));
 };
 
-// Dashboard APIs (SELECT only)
+// Dashboard APIs
 export const getEarningsSummary = async (year) => {
-    const response = await api.get('/dashboard/earnings', { params: { year } });
-    return response.data;
+  const response = await api.get('/dashboard/earnings', { params: { year } });
+  return response.data;
 };
 
 export const getVacationSummary = async (year) => {
-    const response = await api.get('/dashboard/vacation', { params: { year } });
-    return response.data;
+  const response = await api.get('/dashboard/vacation', { params: { year } });
+  return response.data;
 };
 
 export const getBenefitsSummary = async () => {
-    const response = await api.get('/dashboard/benefits');
-    return response.data;
+  const response = await api.get('/dashboard/benefits');
+  return response.data;
 };
 
 export const getDrilldown = async (filters, config = {}) => {
-    const response = await api.get('/dashboard/drilldown', { params: filters, ...config });
-    return response.data;
+  const response = await api.get('/dashboard/drilldown', { params: filters, ...config });
+  return response.data;
 };
 
 export const exportDrilldownCsv = async (filters) => {
-    const response = await api.get('/dashboard/drilldown/export', {
-        params: filters,
-        responseType: 'blob'
-    });
-    return response.data;
+  const response = await api.get('/dashboard/drilldown/export', {
+    params: filters,
+    responseType: 'blob',
+  });
+  return response.data;
 };
 
 export const getDepartments = async () => {
-    const response = await api.get('/dashboard/departments');
-    return response.data?.data || [];
+  const response = await api.get('/dashboard/departments');
+  return response.data?.data || [];
 };
 
-// Alerts APIs (SELECT only for Case Study 1)
+// Alerts APIs
 export const getTriggeredAlerts = async () => {
-    const response = await api.get('/alerts/triggered');
-    return response.data;
+  const response = await api.get('/alerts/triggered');
+  return response.data;
 };
 
 export const getAlerts = async () => {
-    const response = await api.get('/alerts');
-    return response.data;
+  const response = await api.get('/alerts');
+  return response.data;
 };
 
 // Integrations (Outbox Monitor)
 export const getIntegrationEvents = async ({ status, page = 1, limit = 10 } = {}) => {
-    const response = await api.get('/integrations/events', {
-        params: {
-            ...(status && status !== 'ALL' ? { status } : {}),
-            page,
-            limit,
-        },
-    });
-    return response.data;
+  const response = await api.get('/integrations/events', {
+    params: {
+      ...(status && status !== 'ALL' ? { status } : {}),
+      page,
+      limit,
+    },
+  });
+  return response.data;
+};
+
+export const getIntegrationMetrics = async () => {
+  const response = await api.get('/integrations/events/metrics');
+  return response.data;
 };
 
 export const retryIntegrationEvent = async (id) => {
-    const response = await api.post(`/integrations/events/retry/${id}`);
-    return response.data;
+  const response = await api.post(`/integrations/events/retry/${id}`);
+  return response.data;
 };
 
 export const retryDeadIntegrationEvents = async () => {
-    const response = await api.post('/integrations/events/retry-dead');
-    return response.data;
+  const response = await api.post('/integrations/events/retry-dead');
+  return response.data;
 };
 
 export const replayIntegrationEvents = async (payload = {}) => {
-    const response = await api.post('/integrations/events/replay', payload);
-    return response.data;
+  const response = await api.post('/integrations/events/replay', payload);
+  return response.data;
 };
 
 export default api;

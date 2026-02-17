@@ -106,7 +106,7 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 | Employee created in Mongo nhưng chưa có trong MySQL | Sync delay hoặc failure | **SyncService broadcast** - Gọi tất cả adapters khi CRUD | `syncService.js` |
 | Adapter failure không được track | Mất data nếu không log | **SyncLog table** - Log mọi sync operation với status | `SyncLog.js`, `payroll.adapter.js` |
 | Retry failed syncs | Cần mechanism tự động retry | **retryFailedSyncs()** - Query FAILED logs, retry với fresh data | `syncService.js` lines 77-167 |
-| Không biết service nào đang active | Hard-code adapter list không flexible | **ServiceRegistry** - Dynamic load adapters từ config | `ServiceRegistry.js` |
+| Không biết service nào đang active | Hard-code adapter list không flexible | **ServiceRegistry** - Dynamic load adapters từ config | `serviceRegistry.js` |
 | Thêm integration mới phải sửa nhiều file | Coupling cao | **Adapter pattern + Config-driven** - Chỉ cần thêm 1 adapter file + 1 dòng config | `integrations.js` |
 
 ---

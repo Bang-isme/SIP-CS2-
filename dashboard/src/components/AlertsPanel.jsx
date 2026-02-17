@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
  FiAlertTriangle,
  FiBell,
@@ -15,6 +15,49 @@ import {
 import api from '../services/api';
 import './AlertsPanel.css';
 
+const ALERT_CONFIG = {
+ anniversary: {
+  icon: FiCalendar,
+  color: '#f59e0b',
+  bg: '#fffbeb',
+  label: 'Anniversaries',
+  severity: 'Low',
+  severityRank: 1,
+  priorityIcon: FiBell,
+  priorityColor: '#64748b',
+ },
+ vacation: {
+  icon: FiAlertTriangle,
+  color: '#ef4444',
+  bg: '#fef2f2',
+  label: 'High Vacation Balance',
+  severity: 'High',
+  severityRank: 3,
+  priorityIcon: FiAlertTriangle,
+  priorityColor: '#ef4444',
+ },
+ benefits_change: {
+  icon: FiClipboard,
+  color: '#10b981',
+  bg: '#ecfdf5',
+  label: 'Benefits Update',
+  severity: 'Medium',
+  severityRank: 2,
+  priorityIcon: FiAlertTriangle,
+  priorityColor: '#f59e0b',
+ },
+ birthday: {
+  icon: FiGift,
+  color: '#ec4899',
+  bg: '#fdf2f8',
+  label: 'Birthday Alert',
+  severity: 'Low',
+  severityRank: 1,
+  priorityIcon: FiBell,
+  priorityColor: '#64748b',
+ },
+};
+
 function AlertsPanel({ alerts }) {
  const PREVIEW_LIMIT = 5;
  const [selectedAlert, setSelectedAlert] = useState(null);
@@ -29,54 +72,11 @@ function AlertsPanel({ alerts }) {
  const [isLoading, setIsLoading] = useState(false);
  const [apiError, setApiError] = useState(null);
 
- // Always use API pagination to ensure full data access
- const [useApiPagination, setUseApiPagination] = useState(true);
-
  // Debounced search
  const [debouncedSearch, setDebouncedSearch] = useState('');
-
- const alertConfig = {
-  anniversary: {
-   icon: FiCalendar,
-   color: '#f59e0b',
-   bg: '#fffbeb',
-   label: 'Anniversaries',
-   severity: 'Low',
-   severityRank: 1,
-   priorityIcon: FiBell,
-   priorityColor: '#64748b',
-  },
-  vacation: {
-   icon: FiAlertTriangle,
-   color: '#ef4444',
-   bg: '#fef2f2',
-   label: 'High Vacation Balance',
-   severity: 'High',
-   severityRank: 3,
-   priorityIcon: FiAlertTriangle,
-   priorityColor: '#ef4444',
-  },
-  benefits_change: {
-   icon: FiClipboard,
-   color: '#10b981',
-   bg: '#ecfdf5',
-   label: 'Benefits Update',
-   severity: 'Medium',
-   severityRank: 2,
-   priorityIcon: FiAlertTriangle,
-   priorityColor: '#f59e0b',
-  },
-  birthday: {
-   icon: FiGift,
-   color: '#ec4899',
-   bg: '#fdf2f8',
-   label: 'Birthday Alert',
-   severity: 'Low',
-   severityRank: 1,
-   priorityIcon: FiBell,
-   priorityColor: '#64748b',
-  },
- };
+ const modalRef = useRef(null);
+ const modalCloseRef = useRef(null);
+ const modalTriggerRef = useRef(null);
 
  const formatDayLabel = (daysUntil) => {
   const value = Number(daysUntil);
@@ -140,7 +140,6 @@ function AlertsPanel({ alerts }) {
     setApiError(data.message || 'Failed to fetch employees');
    }
   } catch (error) {
-   console.error('Error fetching alert employees:', error);
    // Fallback for types that might not have endpoints (safety net)
    setApiError(error.response?.data?.message || "Could not retrieve full list from server.");
   } finally {
@@ -153,7 +152,8 @@ function AlertsPanel({ alerts }) {
   fetchEmployees();
  }, [fetchEmployees]);
 
- const handleViewMore = (alert) => {
+ const handleViewMore = (alert, triggerElement) => {
+  modalTriggerRef.current = triggerElement || document.activeElement;
   setSelectedAlert(alert);
   setSearchTerm('');
   setDebouncedSearch('');
@@ -161,7 +161,6 @@ function AlertsPanel({ alerts }) {
   setApiEmployees([]);
   setApiTotal(0);
   setApiError(null);
-  setUseApiPagination(true); // Force API mode
  };
 
  const closeModal = () => {
@@ -174,25 +173,52 @@ function AlertsPanel({ alerts }) {
   setApiError(null);
  };
 
+ useEffect(() => {
+  if (selectedAlert) {
+   modalCloseRef.current?.focus();
+   return;
+  }
+
+  if (modalTriggerRef.current && typeof modalTriggerRef.current.focus === 'function') {
+   modalTriggerRef.current.focus();
+  }
+ }, [selectedAlert]);
+
+ const handleModalKeyDown = (event) => {
+  if (event.key === 'Escape') {
+   event.preventDefault();
+   closeModal();
+   return;
+  }
+
+  if (event.key !== 'Tab' || !modalRef.current) return;
+  const focusable = modalRef.current.querySelectorAll(
+   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  if (focusable.length === 0) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  if (event.shiftKey && document.activeElement === first) {
+   event.preventDefault();
+   last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+   event.preventDefault();
+   first.focus();
+  }
+ };
+
  const handlePageSizeChange = (e) => {
   setPageSize(Number(e.target.value));
   setCurrentPage(1);
  };
 
- if (!alerts || alerts.length === 0) {
-  return (
-   <div className="no-alerts">
-    <div className="empty-state-icon"><FiBell size={24} /></div>
-    <p>System Clear. No action items.</p>
-   </div>
-  );
- }
-
  const sortedAlerts = useMemo(() => {
   if (!alerts) return [];
   return [...alerts].sort((a, b) => {
-   const aConfig = alertConfig[a.alert.type] || {};
-   const bConfig = alertConfig[b.alert.type] || {};
+   const aConfig = ALERT_CONFIG[a.alert.type] || {};
+   const bConfig = ALERT_CONFIG[b.alert.type] || {};
    const aRank = aConfig.severityRank || 0;
    const bRank = bConfig.severityRank || 0;
    if (bRank !== aRank) return bRank - aRank;
@@ -208,7 +234,7 @@ function AlertsPanel({ alerts }) {
    .sort((a, b) => (b.count || 0) - (a.count || 0))
    .slice(0, 3)
    .map((item) => {
-    const label = alertConfig[item.alert.type]?.label || item.alert.name;
+    const label = ALERT_CONFIG[item.alert.type]?.label || item.alert.name;
     const count = item.count || 0;
     const share = totalAffected > 0 ? (count / totalAffected) * 100 : 0;
     return { label, count, share };
@@ -219,21 +245,30 @@ function AlertsPanel({ alerts }) {
 
  const hasOddCount = sortedAlerts.length % 2 === 1;
  const highestPriorityLabel = summary.highestPriority
-  ? (alertConfig[summary.highestPriority.alert.type]?.label || summary.highestPriority.alert.name)
+  ? (ALERT_CONFIG[summary.highestPriority.alert.type]?.label || summary.highestPriority.alert.name)
   : 'N/A';
  const highestPrioritySeverity = summary.highestPriority
-  ? (alertConfig[summary.highestPriority.alert.type]?.severity || 'Low')
+  ? (ALERT_CONFIG[summary.highestPriority.alert.type]?.severity || 'Low')
   : null;
  const largestQueueLabel = summary.largestQueue
-  ? (alertConfig[summary.largestQueue.alert.type]?.label || summary.largestQueue.alert.name)
+  ? (ALERT_CONFIG[summary.largestQueue.alert.type]?.label || summary.largestQueue.alert.name)
   : 'N/A';
  const largestQueueCount = summary.largestQueue?.count || 0;
+
+ if (sortedAlerts.length === 0) {
+  return (
+   <div className="no-alerts">
+    <div className="empty-state-icon"><FiBell size={24} /></div>
+    <p>System Clear. No action items.</p>
+   </div>
+  );
+ }
 
   return (
    <div className="alerts-container">
    <div className="alerts-grid">
    {sortedAlerts.map((alert, index) => {
-     const config = alertConfig[alert.alert.type] || { icon: FiBell, color: '#64748b', bg: '#f8fafc', severity: 'Low', severityRank: 0, priorityIcon: FiBell, priorityColor: '#64748b' };
+     const config = ALERT_CONFIG[alert.alert.type] || { icon: FiBell, color: '#64748b', bg: '#f8fafc', severity: 'Low', severityRank: 0, priorityIcon: FiBell, priorityColor: '#64748b' };
      const Icon = config.icon || FiBell;
      const PriorityIcon = config.priorityIcon || FiBell;
      const spanFull = hasOddCount && index === sortedAlerts.length - 1;
@@ -292,8 +327,9 @@ function AlertsPanel({ alerts }) {
        {alert.count > PREVIEW_LIMIT && (
         <div className="alert-footer">
          <button
+          type="button"
           className="view-more-btn"
-          onClick={() => handleViewMore(alert)}
+          onClick={(event) => handleViewMore(alert, event.currentTarget)}
          >
           View Record ({alert.count})
          </button>
@@ -334,40 +370,51 @@ function AlertsPanel({ alerts }) {
 
    {/* Modal with Forced API Pagination */}
    {selectedAlert && (
-    <div className="alert-modal-overlay" onClick={closeModal}>
-     <div className="alert-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="alert-modal-overlay">
+     <div
+      className="alert-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="alert-modal-title"
+      ref={modalRef}
+      onKeyDown={handleModalKeyDown}
+     >
       <div className="modal-header">
        <div className="modal-title">
         <span className="alert-icon">
          {(() => {
-          const ModalIcon = alertConfig[selectedAlert.alert.type]?.icon || FiBell;
+          const ModalIcon = ALERT_CONFIG[selectedAlert.alert.type]?.icon || FiBell;
           return <ModalIcon size={16} />;
          })()}
         </span>
-        <h3>{alertConfig[selectedAlert.alert.type]?.label || selectedAlert.alert.name}</h3>
+        <h3 id="alert-modal-title">{ALERT_CONFIG[selectedAlert.alert.type]?.label || selectedAlert.alert.name}</h3>
        </div>
        <span className="modal-count">
         {apiTotal} records
        </span>
-       <button className="modal-close" onClick={closeModal}><FiX /></button>
+       <button type="button" className="modal-close" onClick={closeModal} aria-label="Close alert details" ref={modalCloseRef}><FiX /></button>
       </div>
 
       {/* Controls */}
       <div className="modal-controls">
        <div className="search-box">
+        <label className="sr-only" htmlFor="alerts-modal-search">Search employees</label>
         <span className="search-icon"><FiSearch size={14} /></span>
         <input
+          id="alerts-modal-search"
          type="text"
          placeholder="ID or Name..."
          value={searchTerm}
-         onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          aria-label="Search employees by id or name"
         />
         {searchTerm && (
-         <button className="clear-search" onClick={() => setSearchTerm('')}><FiX size={12} /></button>
+         <button type="button" className="clear-search" onClick={() => setSearchTerm('')} aria-label="Clear search"><FiX size={12} /></button>
         )}
        </div>
        <div className="page-size-control">
-        <select value={pageSize} onChange={handlePageSizeChange}>
+        <label className="sr-only" htmlFor="alerts-modal-page-size">Rows per page</label>
+        <select id="alerts-modal-page-size" value={pageSize} onChange={handlePageSizeChange} aria-label="Rows per page">
          <option value={10}>10</option>
          <option value={50}>50</option>
          <option value={100}>100</option>
@@ -440,6 +487,7 @@ function AlertsPanel({ alerts }) {
        </div>
        <div className="pagination-buttons">
         <button
+         type="button"
          disabled={currentPage === 1 || isLoading}
          onClick={() => setCurrentPage(1)}
          className="page-btn"
@@ -447,6 +495,7 @@ function AlertsPanel({ alerts }) {
          <FiChevronsLeft />
         </button>
         <button
+         type="button"
          disabled={currentPage === 1 || isLoading}
          onClick={() => setCurrentPage(p => p - 1)}
          className="page-btn"
@@ -457,7 +506,9 @@ function AlertsPanel({ alerts }) {
         {/* Jump to Page Input */}
         <div className="page-jump">
          <span>Page</span>
+         <label className="sr-only" htmlFor="alerts-modal-page-jump">Jump to page</label>
          <input
+          id="alerts-modal-page-jump"
           type="number"
           min="1"
           max={apiTotalPages || 1}
@@ -478,11 +529,13 @@ function AlertsPanel({ alerts }) {
           }}
           className="page-input"
           disabled={isLoading}
+          aria-label="Jump to page"
          />
          <span>/ {apiTotalPages || 1}</span>
         </div>
 
         <button
+         type="button"
          disabled={currentPage >= apiTotalPages || isLoading}
          onClick={() => setCurrentPage(p => p + 1)}
          className="page-btn"
@@ -490,6 +543,7 @@ function AlertsPanel({ alerts }) {
          <FiChevronRight />
         </button>
         <button
+         type="button"
          disabled={currentPage >= apiTotalPages || isLoading}
          onClick={() => setCurrentPage(apiTotalPages)}
          className="page-btn"

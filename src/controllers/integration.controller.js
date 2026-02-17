@@ -44,6 +44,66 @@ export const listIntegrationEvents = async (req, res) => {
     }
 };
 
+export const getIntegrationMetrics = async (_req, res) => {
+    try {
+        const grouped = await IntegrationEvent.findAll({
+            attributes: [
+                "status",
+                [IntegrationEvent.sequelize.fn("COUNT", IntegrationEvent.sequelize.col("id")), "count"],
+            ],
+            group: ["status"],
+            raw: true,
+        });
+
+        const counts = {
+            PENDING: 0,
+            PROCESSING: 0,
+            SUCCESS: 0,
+            FAILED: 0,
+            DEAD: 0,
+        };
+
+        for (const row of grouped) {
+            const status = row.status;
+            const count = parseInt(row.count, 10) || 0;
+            if (Object.prototype.hasOwnProperty.call(counts, status)) {
+                counts[status] = count;
+            }
+        }
+
+        const total = Object.values(counts).reduce((acc, curr) => acc + curr, 0);
+        const backlog = counts.PENDING + counts.PROCESSING + counts.FAILED;
+        const actionable = counts.FAILED + counts.DEAD;
+
+        const oldestPending = await IntegrationEvent.findOne({
+            where: { status: { [Op.in]: ["PENDING", "PROCESSING", "FAILED"] } },
+            attributes: ["createdAt"],
+            order: [["createdAt", "ASC"]],
+            raw: true,
+        });
+
+        const now = Date.now();
+        const oldestPendingAt = oldestPending?.createdAt || null;
+        const oldestPendingAgeMinutes = oldestPendingAt
+            ? Math.max(0, Math.floor((now - new Date(oldestPendingAt).getTime()) / 60000))
+            : 0;
+
+        res.json({
+            success: true,
+            data: {
+                total,
+                counts,
+                backlog,
+                actionable,
+                oldestPendingAt,
+                oldestPendingAgeMinutes,
+            },
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 export const retryIntegrationEvent = async (req, res) => {
     try {
         const { id } = req.params;

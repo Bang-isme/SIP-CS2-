@@ -73,3 +73,18 @@ Client -> API -> Outbox -> Broker -> Consumer -> SyncLog -> Target Systems
 - Replay UI + monitoring dashboard triển khai thật.
 - SLA/SLO monitoring ở production.
 - Hiện tại chỉ có outbox worker (middleware-lite), chưa có broker chính thức.
+
+## 8) Queue Observability (Implemented)
+- Added admin metrics endpoint: `GET /api/integrations/events/metrics`.
+- Metrics returned: `backlog`, `actionable`, `oldestPendingAt`, `oldestPendingAgeMinutes`, and per-status counts.
+- Dashboard queue monitor now computes severity levels (`Healthy`, `Warning`, `Critical`) from these metrics.
+- Goal: make middleware risk visible during demo without adding external broker infrastructure.
+
+## 9) Live Demo Workflow (Implemented)
+- Added scenario script: `scripts/demo-integration-queue-scenario.js`.
+- NPM commands:
+  - `npm run demo:queue:healthy`
+  - `npm run demo:queue:warning`
+  - `npm run demo:queue:critical`
+  - `npm run demo:queue:cleanup`
+- Full operator flow documented at: `docs/integration_queue_demo_runbook.md`.

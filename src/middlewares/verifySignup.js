@@ -18,8 +18,12 @@ export const checkExistingUser = async (req, res, next) => {
 };
 
 export const checkExistingRole = (req, res, next) => {
-  // req.body.roles.find();
-  if (!req.body.roles) return res.status(400).json({ message: "No roles" });
+  // Roles are optional on signup; default "user" role is assigned in controller
+  if (!req.body.roles) return next();
+
+  if (!Array.isArray(req.body.roles)) {
+    return res.status(400).json({ message: "Roles must be an array" });
+  }
 
   for (let i = 0; i < req.body.roles.length; i++) {
     if (!ROLES.includes(req.body.roles[i])) {

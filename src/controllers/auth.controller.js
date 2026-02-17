@@ -3,15 +3,42 @@ import User from "../models/User.js";
 import Role from "../models/Role.js";
 import { SECRET } from "../config.js";
 
+const normalizeRoles = (roles = []) => {
+  return roles
+    .map((role) => {
+      if (!role) return null;
+      if (typeof role === "string") return role;
+      if (typeof role === "object" && role.name) return role.name;
+      if (typeof role === "object" && role._id) return String(role._id);
+      return null;
+    })
+    .filter(Boolean);
+};
+
+const sanitizeAuthUser = (userDoc) => {
+  const source = userDoc && typeof userDoc.toObject === "function"
+    ? userDoc.toObject()
+    : userDoc || {};
+
+  return {
+    _id: source._id,
+    username: source.username,
+    email: source.email,
+    roles: normalizeRoles(source.roles),
+    createdAt: source.createdAt,
+    updatedAt: source.updatedAt,
+  };
+};
+
 export const signupHandler = async (req, res) => {
   try {
     const { username, email, password, roles } = req.body;
-    console.log(req.body);
+
     // Creating a new User Object
     const newUser = new User({
       username,
       email,
-      password
+      password,
     });
 
     // checking for roles
@@ -21,23 +48,26 @@ export const signupHandler = async (req, res) => {
     } else {
       const role = await Role.findOne({ name: "user" });
       newUser.roles = [role._id];
-    }    
+    }
 
     const savedUser = await newUser.save();
-    console.log(savedUser)    
+
     // Create a token
     const token = jwt.sign({ id: savedUser._id }, SECRET, {
       expiresIn: 86400, // 24 hours
     });
-    
-    newUser.tokens = [{ token, signedAt: Date.now().toString() }]
-    await newUser.save();
-    // Saving the User Object in Mongodb
 
+    await User.findByIdAndUpdate(savedUser._id, {
+      tokens: [{ token, signedAt: Date.now().toString() }],
+    });
 
-    return res.status(200).json({success: true, data: savedUser });
+    const createdUser = await User.findById(savedUser._id).populate("roles", "name -_id");
+    return res.status(200).json({
+      success: true,
+      data: sanitizeAuthUser(createdUser),
+    });
   } catch (error) {
-    return res.status(500).json({success: false, msg: error.message});
+    return res.status(500).json({ success: false, msg: error.message });
   }
 };
 
@@ -66,50 +96,45 @@ export const signinHandler = async (req, res) => {
       expiresIn: 86400, // 24 hours
     });
 
-    let oldTokens = userFound.tokens || [];
-    if (oldTokens.length) {
-      oldTokens = oldTokens.filter(t => {
-        const timeDiff = (Date.now() - parseInt(t.signedAt)) / 1000;
-        if (timeDiff < 86400) {
-          return t;
-        }
-      });
-    }
-  
     await User.findByIdAndUpdate(userFound._id, {
-      // tokens: [...oldTokens, { token, signedAt: Date.now().toString() }],
-      tokens: [ { token, signedAt: Date.now().toString() }]
+      tokens: [{ token, signedAt: Date.now().toString() }],
     });
 
-    res.json({ success: true, data: userFound, token });
+    return res.json({ success: true, data: sanitizeAuthUser(userFound), token });
   } catch (error) {
-    console.log(error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
-export const logoutHandler = async (req, res) => {
-  if (req.headers && req.headers["x-access-token"]) {
-    const token = req.headers["x-access-token"];
-    if (!token) {
-      return res
-        .status(401)
-        .json({ success: false, message: 'Authorization fail!' });
-    }
 
-    // const tokens = req.user.tokens;
-    // const newTokens = tokens.filter(t => t.token !== token);    
-    // await User.findByIdAndUpdate(req.user._id, { tokens: newTokens });
-    // res.json({ success: true, message: 'Sign out successfully!' });
-    try {
-      const decoded = jwt.verify(token, SECRET);
-      req.userId = decoded.id;
-  
-      const user = await User.findById(decoded.id, { password: 0 });
-      if (!user) return res.status(404).json({ message: "No user found" });
-      await User.findByIdAndUpdate(decoded.id, { tokens: [] });
-      res.json({ success: true, message: 'Sign out successfully!' });
-    } catch (error) {
-      return res.status(401).json({ message: "Unauthorized!" });
-    }
+export const logoutHandler = async (req, res) => {
+  const token = req.headers?.["x-access-token"];
+  if (!token) {
+    return res.status(401).json({ success: false, message: "Authorization fail!" });
   }
 
+  try {
+    const decoded = jwt.verify(token, SECRET);
+    const user = await User.findById(decoded.id, { password: 0 });
+    if (!user) return res.status(404).json({ message: "No user found" });
+    await User.findByIdAndUpdate(decoded.id, { tokens: [] });
+    return res.json({ success: true, message: "Sign out successfully!" });
+  } catch (error) {
+    return res.status(401).json({ message: "Unauthorized!" });
+  }
+};
+
+export const meHandler = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).populate("roles", "name -_id");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "No user found" });
+    }
+
+    return res.json({
+      success: true,
+      data: sanitizeAuthUser(user),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
 };

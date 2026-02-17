@@ -2,11 +2,15 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { FixedSizeList as VirtualList } from 'react-window';
 import { getDrilldown, getDepartments, exportDrilldownCsv } from '../services/api';
 import { FiSearch } from 'react-icons/fi';
+import './DrilldownModal.css';
 
 function DrilldownModal({ filters: initialFilters, onClose }) {
  const [data, setData] = useState(null);
  const [summaryState, setSummaryState] = useState({ data: null, loading: false, key: '' });
  const [loading, setLoading] = useState(true);
+ const [loadError, setLoadError] = useState('');
+ const [departmentsError, setDepartmentsError] = useState('');
+ const [exportError, setExportError] = useState('');
  const [page, setPage] = useState(1);
  const [pageSize, setPageSize] = useState(20);
  const [localSearch, setLocalSearch] = useState('');
@@ -17,19 +21,36 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const summaryRequestIdRef = useRef(0);
  const summaryAbortRef = useRef(null);
  const containerRef = useRef(null);
+ const modalRef = useRef(null);
+ const closeButtonRef = useRef(null);
+ const lastFocusedElementRef = useRef(null);
  const [containerHeight, setContainerHeight] = useState(420);
+
+ const loadDepartments = async () => {
+  setDepartmentsError('');
+  try {
+   const depts = await getDepartments();
+   setDepartments(depts);
+  } catch (err) {
+   setDepartments([]);
+   setDepartmentsError(err?.response?.data?.message || 'Unable to load department filters');
+  }
+ };
 
  // Fetch departments on mount
  useEffect(() => {
-  const fetchDepts = async () => {
-   try {
-    const depts = await getDepartments();
-    setDepartments(depts);
-   } catch (err) {
-    console.error("Failed to load departments", err);
+  void loadDepartments();
+ }, []);
+
+ useEffect(() => {
+  lastFocusedElementRef.current = document.activeElement;
+  closeButtonRef.current?.focus();
+
+  return () => {
+   if (lastFocusedElementRef.current && typeof lastFocusedElementRef.current.focus === 'function') {
+    lastFocusedElementRef.current.focus();
    }
   };
-  fetchDepts();
  }, []);
 
  // Debounce search input
@@ -79,6 +100,8 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
  useEffect(() => {
   loadData();
+  // loadData depends on evolving filters/pagination and is intentionally invoked from this effect.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [activeFilters, page, pageSize, debouncedSearch]);
 
  useEffect(() => {
@@ -101,6 +124,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   const controller = new AbortController();
   abortRef.current = controller;
   setLoading(true);
+  setLoadError('');
   try {
    const isBulk = pageSize >= 1000;
    const response = await getDrilldown({
@@ -140,20 +164,19 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
        summary: 'full'
       }, { signal: summaryController.signal });
       if (summaryRequestId !== summaryRequestIdRef.current) return;
-      setSummaryState({
+     setSummaryState({
        data: fullResponse?.summary || incomingSummary,
        loading: false,
        key: summaryKey
       });
      } catch (err) {
       if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
-      console.error(err);
       setSummaryState(prev => ({ ...prev, loading: false }));
      }
     }
   } catch (err) {
    if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
-   console.error(err);
+   setLoadError(err?.response?.data?.message || 'Unable to load drilldown data');
   } finally {
    if (requestId === requestIdRef.current) {
     setLoading(false);
@@ -188,6 +211,31 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   if (debouncedSearch) chips.push({ key: 'search', label: `Search: ${debouncedSearch}`, onClear: () => setLocalSearch('') });
   return chips;
  }, [deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings, debouncedSearch]);
+
+ const handleModalKeyDown = (event) => {
+  if (event.key === 'Escape') {
+   event.preventDefault();
+   onClose();
+   return;
+  }
+
+  if (event.key !== 'Tab' || !modalRef.current) return;
+  const focusable = modalRef.current.querySelectorAll(
+   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  if (focusable.length === 0) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  if (event.shiftKey && document.activeElement === first) {
+   event.preventDefault();
+   last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+   event.preventDefault();
+   first.focus();
+  }
+ };
 
  const VirtualRow = ({ index, style }) => {
   const emp = displayData[index];
@@ -243,6 +291,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
  const handleExport = async () => {
   setExporting(true);
+  setExportError('');
   try {
    const csvBlob = await exportDrilldownCsv({
     ...activeFilters,
@@ -260,24 +309,31 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
    URL.revokeObjectURL(url);
 
   } catch (err) {
-   console.error("Export failed", err);
-   alert("Failed to export data");
+   setExportError(err?.response?.data?.message || 'Failed to export data');
   } finally {
    setExporting(false);
   }
  };
 
  return (
-  <div className="modal-overlay" onClick={onClose}>
-   <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+  <div className="modal-overlay">
+   <div
+    className="modal-content"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="drilldown-modal-title"
+    ref={modalRef}
+    onKeyDown={handleModalKeyDown}
+   >
     {/* Header */}
     <div className="modal-header">
      <div>
-      <h2>Employee Details</h2>
+      <h2 id="drilldown-modal-title">Employee Details</h2>
       <p className="subtitle">View and filter employee records</p>
      </div>
      <div className="modal-actions">
       <button
+        type="button"
         className="export-btn"
         onClick={handleExport}
         disabled={exporting}
@@ -285,27 +341,32 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       >
        {exporting ? 'Exporting...' : 'Export CSV'}
       </button>
-      <button className="close-btn" onClick={onClose} aria-label="Close drilldown">X</button>
+      <button type="button" className="close-btn" onClick={onClose} aria-label="Close drilldown" ref={closeButtonRef}>X</button>
      </div>
     </div>
 
     {/* Filter Bar */}
     <div className="filter-bar">
      <div className="filter-row filter-row-primary">
-      <div className="search-group">
+     <div className="search-group">
+       <label className="sr-only" htmlFor="drilldown-search">Search employees</label>
        <span className="search-icon" aria-hidden="true"><FiSearch size={14} /></span>
        <input
+        id="drilldown-search"
         type="text"
         placeholder="Search ID or Name..."
         value={localSearch}
         onChange={(e) => setLocalSearch(e.target.value)}
         className="search-input"
+        aria-label="Search employees by id or name"
        />
       </div>
 
       <div className="filter-group-wrap">
        <div className="filter-group">
+        <label className="sr-only" htmlFor="drilldown-department">Department filter</label>
         <select
+         id="drilldown-department"
          value={deptFilter}
          onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
          className={`filter-select ${deptFilter ? 'active' : ''}`}
@@ -314,7 +375,9 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
          {departments.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
 
+        <label className="sr-only" htmlFor="drilldown-employment-type">Employment type filter</label>
         <select
+         id="drilldown-employment-type"
          value={typeFilter}
          onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
          className={`filter-select ${typeFilter ? 'active' : ''}`}
@@ -326,7 +389,9 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
        </div>
 
        <div className="filter-group">
+        <label className="sr-only" htmlFor="drilldown-gender">Gender filter</label>
         <select
+         id="drilldown-gender"
          value={genderFilter}
          onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
          className={`filter-select ${genderFilter ? 'active' : ''}`}
@@ -336,7 +401,9 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
          <option value="Female">Female</option>
         </select>
 
+        <label className="sr-only" htmlFor="drilldown-ethnicity">Ethnicity filter</label>
         <select
+         id="drilldown-ethnicity"
          value={ethnicityFilter}
          onChange={(e) => { setEthnicityFilter(e.target.value); setPage(1); }}
          className={`filter-select ${ethnicityFilter ? 'active' : ''}`}
@@ -349,7 +416,9 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
          <option value="Other">Other</option>
         </select>
 
+        <label className="sr-only" htmlFor="drilldown-shareholder">Shareholder status filter</label>
         <select
+         id="drilldown-shareholder"
          value={shareholderFilter}
          onChange={(e) => { setShareholderFilter(e.target.value); setPage(1); }}
          className={`filter-select ${shareholderFilter ? 'active' : ''}`}
@@ -366,12 +435,15 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      <div className="filter-row filter-row-secondary">
       <div className="earnings-filter-group">
        <span className="filter-label">Min Earnings $</span>
+       <label className="sr-only" htmlFor="drilldown-min-earnings">Minimum earnings filter</label>
        <input
+        id="drilldown-min-earnings"
         type="number"
         placeholder="e.g. 50000"
         className="earnings-input"
         value={minEarnings}
         onChange={(e) => { setMinEarnings(e.target.value); setPage(1); }}
+        aria-label="Minimum earnings"
        />
        <div className="quick-filters">
         <button type="button" onClick={() => { setMinEarnings('100000'); setPage(1); }}>Over 100k</button>
@@ -382,6 +454,26 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       </div>
      </div>
     </div>
+
+    {(departmentsError || exportError) && (
+     <div className="inline-error-banner" role="alert">
+      <span>{departmentsError || exportError}</span>
+      <button
+       type="button"
+       className="inline-error-action"
+       onClick={() => {
+        if (departmentsError) {
+         void loadDepartments();
+        } else {
+         void handleExport();
+        }
+       }}
+       disabled={exporting}
+      >
+       Retry
+      </button>
+     </div>
+    )}
 
     {activeFilterChips.length > 0 && (
      <div className="active-filters">
@@ -455,6 +547,14 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
     {/* Data Area */}
     <div className="table-container" ref={containerRef}>
+     {loadError && !loading && (
+      <div className="inline-error-banner inline-error-banner-table" role="alert">
+       <span>{loadError}</span>
+       <button type="button" className="inline-error-action" onClick={() => { void loadData(); }}>
+        Retry
+       </button>
+      </div>
+     )}
      {loading ? (
       <div className="loading-state">
        <div className="spinner"></div>
@@ -561,8 +661,9 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     {/* Footer / Pagination */}
     <div className="modal-footer">
      <div className="page-size">
-      <span>Show</span>
-      <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+     <span>Show</span>
+      <label className="sr-only" htmlFor="drilldown-page-size">Rows per page</label>
+      <select id="drilldown-page-size" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} aria-label="Rows per page">
        <option value={10}>10</option>
        <option value={20}>20</option>
        <option value={50}>50</option>
@@ -577,7 +678,9 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      <div className="pagination-controls">
       <span className="page-info">
        Page
+       <label className="sr-only" htmlFor="drilldown-current-page">Current page</label>
        <input
+        id="drilldown-current-page"
         type="number"
         min="1"
         max={totalPages}
@@ -587,6 +690,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
          if (val >= 1 && val <= totalPages) setPage(val);
         }}
         className="page-input-field"
+        aria-label="Current page"
        />
        of {totalPages} <span className="text-muted">({totalRecords.toLocaleString()} items)</span>
       </span>
@@ -596,385 +700,12 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       </div>
      </div>
     </div>
-   </div>
-
-   <style>{`
-    .modal-overlay {
-     position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
-     display: flex; align-items: center; justify-content: center; z-index: 1000;
-     animation: fadeIn 0.2s ease-out;
-    }
-    /* Earnings Filter (CEO Query) */
-    .earnings-filter-group {
-     display: flex;
-     align-items: center;
-     gap: 8px;
-     background: var(--bg-subtle);
-     padding: 6px 12px;
-     border-radius: var(--radius);
-     border: 1px solid var(--border);
-    }
-    .filter-label {
-     font-size: 0.75rem;
-     font-weight: 600;
-     color: var(--text-secondary);
-     white-space: nowrap;
-    }
-    .earnings-input {
-     width: 100px;
-     padding: 6px 10px;
-     border: 1px solid var(--border);
-     border-radius: var(--radius);
-     outline: none;
-     font-size: 0.85rem;
-     background: var(--bg-card);
-    }
-    .earnings-input:focus {
-     border-color: var(--primary);
-     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
-    }
-    .quick-filters {
-     display: flex;
-     gap: 6px;
-     flex-wrap: wrap;
-     margin-left: 8px;
-    }
-    .quick-filters button {
-     padding: 4px 8px;
-     border-radius: 999px;
-     border: 1px solid var(--border);
-     background: white;
-     font-size: 0.75rem;
-     color: var(--text-secondary);
-     font-weight: 600;
-     cursor: pointer;
-    }
-    .quick-filters button:hover {
-     border-color: var(--primary);
-     color: var(--primary);
-    }
-    .quick-filters .ghost {
-     border-style: dashed;
-     color: var(--text-tertiary);
-    }
-    .active-filters {
-     display: flex;
-     align-items: center;
-     gap: 12px;
-     padding: 8px 16px;
-     border-bottom: 1px solid var(--border);
-     background: var(--bg-app);
-     flex-wrap: wrap;
-    }
-    .active-label {
-     font-size: 0.75rem;
-     color: var(--text-secondary);
-     font-weight: 600;
-    }
-    .chip-row {
-     display: flex;
-     gap: 6px;
-     flex-wrap: wrap;
-    }
-    .filter-chip {
-     display: inline-flex;
-     align-items: center;
-     gap: 6px;
-     border: 1px solid var(--border);
-     border-radius: 999px;
-     padding: 4px 8px;
-     font-size: 0.75rem;
-     color: var(--text-main);
-     background: var(--bg-card);
-     cursor: pointer;
-    }
-    .filter-chip:hover {
-     border-color: var(--primary);
-     color: var(--primary);
-    }
-    .chip-close {
-     font-size: 0.7rem;
-     color: var(--text-tertiary);
-    }
-    .clear-all {
-     margin-left: auto;
-     font-size: 0.75rem;
-     border: 1px solid var(--border);
-     background: white;
-     border-radius: 999px;
-     padding: 4px 10px;
-     cursor: pointer;
-    }
-	    .clear-all:hover {
-	     border-color: var(--danger);
-	     color: var(--danger);
-	    }
-	    .financial-summary-header {
-	     background: #f8fafc;
-	     border: 1px solid #e2e8f0;
-	     border-radius: 10px;
-	     padding: 12px 16px;
-	     margin: 0 16px 16px;
-	     display: flex;
-	     align-items: center;
-	     gap: 22px;
-	     flex-wrap: wrap;
-	    }
-	    .summary-title {
-	     margin: 0;
-	     font-size: 0.8rem;
-	     color: #64748b;
-	     text-transform: uppercase;
-	     letter-spacing: 0.08em;
-	     font-weight: 700;
-	    }
-	    .summary-mode-pill {
-	     font-size: 0.68rem;
-	     color: #b45309;
-	     background: #fffbeb;
-	     border: 1px solid #fde68a;
-	     padding: 2px 8px;
-	     border-radius: 999px;
-	     font-weight: 700;
-	     letter-spacing: 0.04em;
-	    }
-	    .summary-metric {
-	     display: flex;
-	     flex-direction: column;
-	     gap: 2px;
-	    }
-	    .summary-metric-count {
-	     margin-left: auto;
-	    }
-	    .summary-metric-label {
-	     font-size: 0.68rem;
-	     text-transform: uppercase;
-	     color: #94a3b8;
-	     font-weight: 700;
-	     letter-spacing: 0.08em;
-	    }
-	    .summary-metric-value {
-	     font-size: 1rem;
-	     font-weight: 800;
-	    }
-	    .summary-earnings { color: #059669; }
-	    .summary-benefits { color: #0284c7; }
-	    .summary-vacation { color: #7c3aed; }
-	    .summary-count { color: #0f172a; }
-	    .modal-content {
-	     background: var(--bg-card); border-radius: var(--radius-xl); width: 96%; max-width: 1120px;
-	     height: 85vh; display: flex; flex-direction: column; overflow: hidden;
-     box-shadow: var(--shadow-lg); border: 1px solid var(--border);
-     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    
-    /* Header */
-    .modal-header {
-     padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center;
-     border-bottom: 1px solid var(--border); background: #ffffff;
-    }
-	    .modal-header h2 { font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
-	    .modal-header .subtitle { font-size: 0.8rem; color: var(--text-tertiary); }
-	    .modal-actions {
-	     display: flex;
-	     align-items: center;
-	     gap: 10px;
-	    }
-	    .export-btn {
-	     background: #10b981;
-	     color: white;
-	     border: none;
-	     padding: 8px 14px;
-	     border-radius: 8px;
-	     cursor: pointer;
-	     font-size: 0.85rem;
-	     font-weight: 700;
-	     letter-spacing: 0.02em;
-	     transition: all 0.15s ease;
-	    }
-	    .export-btn:hover:not(:disabled) { background: #059669; }
-	    .export-btn:disabled { opacity: 0.8; cursor: wait; }
-	    .close-btn { 
-	     width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); 
-	     background: transparent; color: var(--text-tertiary); cursor: pointer; transition: all 0.2s;
-	     display: grid; place-items: center; font-size: 1.2rem; line-height: 1;
-	    }
-    .close-btn:hover { background: var(--bg-hover); color: var(--danger); border-color: var(--danger); }
-
-    /* Filter Bar */
-	    .filter-bar {
-	     padding: 0.9rem 1.5rem; background: var(--bg-app); border-bottom: 1px solid var(--border);
-	     display: flex; gap: var(--space-2); flex-direction: column;
-	    }
-	    .filter-row {
-	     width: 100%;
-	     display: flex;
-	     align-items: center;
-	     gap: var(--space-3);
-	     flex-wrap: wrap;
-	    }
-	    .filter-row-primary {
-	     align-items: flex-start;
-	    }
-	    .search-group {
-	     position: relative; flex: 1; min-width: 280px;
-	    }
-    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); }
-    .search-input {
-     width: 100%; padding: 9px 12px 9px 36px; border: 1px solid var(--border); 
-     border-radius: var(--radius); outline: none; transition: all 0.2s; font-size: 0.85rem;
-     background: var(--bg-card);
-    }
-    .search-input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--primary-subtle); }
-
-	    .filter-group { display: flex; gap: var(--space-3); align-items: center; }
-	    .filter-group-wrap { display: flex; gap: var(--space-3); flex-wrap: wrap; }
-    .filter-select {
-     padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius);
-     background: white; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;
-    }
-    .filter-select.active { border-color: var(--primary); color: var(--primary); background: var(--primary-subtle); }
-
-    .toggle-group {
-     display: flex; background: white; border: 1px solid var(--border);
-     border-radius: var(--radius); padding: 2px;
-    }
-    .toggle-btn {
-     padding: 6px 12px; font-size: 0.85rem; border: none; background: transparent;
-     color: var(--text-secondary); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s;
-    }
-    .toggle-btn:hover { color: var(--text-main); }
-    .toggle-btn.active { background: var(--primary-subtle); color: var(--primary); font-weight: 500; }
-
-    /* Table */
-    .table-container { flex: 1; overflow: auto; position: relative; background: var(--bg-card); }
-    .drilldown-table { width: 100%; border-collapse: collapse; }
-    .drilldown-table th {
-     position: sticky; top: 0; background: var(--bg-app); color: var(--text-secondary);
-     font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
-     padding: 12px 1.5rem; text-align: left; border-bottom: 1px solid var(--border);
-    }
-    .drilldown-table td {
-     padding: 12px 1.5rem; border-bottom: 1px solid var(--border); color: var(--text-main); font-size: 0.88rem;
-     vertical-align: middle;
-    }
-
-    .virtual-table {
-     display: flex;
-     flex-direction: column;
-     height: 100%;
-    }
-    .virtual-header {
-     display: grid;
-     grid-template-columns: 60px 1.6fr 1fr 1.2fr 1fr 140px;
-     gap: 0;
-     position: sticky;
-     top: 0;
-     background: var(--bg-app);
-     color: var(--text-secondary);
-     font-weight: 700;
-     font-size: 0.7rem;
-     text-transform: uppercase;
-     letter-spacing: 0.08em;
-     padding: 12px 1.5rem;
-     border-bottom: 1px solid var(--border);
-     z-index: 2;
-    }
-    .virtual-row {
-     display: grid;
-     grid-template-columns: 60px 1.6fr 1fr 1.2fr 1fr 140px;
-     padding: 10px 1.5rem;
-     border-bottom: 1px solid var(--border);
-     color: var(--text-main);
-     font-size: 0.88rem;
-     align-items: center;
-    }
-    .virtual-row.even { background: white; }
-    .virtual-row.odd { background: #fbfdff; }
-    .virtual-cell { display: flex; align-items: center; }
-    .virtual-cell.earnings { justify-content: flex-end; font-family: var(--font-family-mono); }
-    .virtual-cell.index { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-    .drilldown-table tr:hover td { background: var(--bg-hover); }
-
-    /* Cell Styles */
-    .emp-cell { display: flex; align-items: center; gap: 12px; }
-    .emp-avatar {
-     width: 34px; height: 34px; background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%);
-     color: var(--primary); border-radius: 50%; display: grid; place-items: center;
-     font-weight: 600; font-size: 0.8rem;
-    }
-    .emp-name { font-weight: 500; }
-    .emp-id { font-size: 0.75rem; color: var(--text-tertiary); font-family: monospace; }
-    
-    .dept-tag { 
-     padding: 4px 10px; border-radius: 999px; background: var(--bg-subtle); 
-     color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; border: 1px solid var(--border);
-    }
-    
-    .meta-cell { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 0.85rem; }
-    .dot { font-size: 0.6rem; color: var(--border); }
-
-    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-    .status-badge.success { background: var(--success-bg); color: var(--success); }
-    .status-badge.warning { background: var(--warning-bg); color: var(--warning); }
-    
-    .shareholder-tag { 
-     margin-left: 8px; font-size: 0.75rem; 
-     color: var(--primary); background: var(--primary-subtle); 
-     padding: 2px 6px; border-radius: 4px; border: 1px solid var(--primary-subtle);
-     font-weight: 500;
-    }
-
-    .text-right { text-align: right; }
-    .font-mono { font-family: 'SF Mono', 'Roboto Mono', monospace; font-weight: 500; }
-    .earnings-val { color: var(--success); }
-    .vacation-days { color: var(--primary); }
-
-    /* Footer */
-    .modal-footer {
-     padding: 1rem 1.5rem; border-top: 1px solid var(--border);
-     display: flex; justify-content: space-between; align-items: center;
-     background: #ffffff;
-    }
-    .page-size { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); }
-    .page-size select { border: 1px solid var(--border); border-radius: 4px; padding: 4px; }
-    
-    .pagination-controls { display: flex; align-items: center; gap: 16px; }
-    .page-info { font-size: 0.85rem; color: var(--text-main); }
-    .btn-group { display: flex; gap: 8px; }
-    .btn-group button {
-     padding: 6px 12px; border: 1px solid var(--border); background: white;
-     border-radius: var(--radius); cursor: pointer; font-size: 0.85rem; transition: all 0.15s;
-    }
-    .btn-group button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
-    .page-input-field {
-     width: 50px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 4px;
-     text-align: center; margin: 0 6px; font-size: 0.85rem; font-family: inherit;
-    }
-
-    /* States */
-    .loading-state, .empty-state {
-     display: flex; flex-direction: column; align-items: center; justify-content: center;
-     height: 300px; color: var(--text-secondary); gap: 1rem;
-    }
-	    .spinner {
-	     width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary);
-	     border-radius: 50%; animation: spin 1s linear infinite;
-	    }
-	    @media (max-width: 1100px) {
-	     .summary-metric-count {
-	      margin-left: 0;
-	     }
-	     .financial-summary-header {
-	      margin: 0 12px 12px;
-	     }
-	    }
-	    @keyframes spin { to { transform: rotate(360deg); } }
-	    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-	    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-   `}</style>
+   </div>
   </div >
  );
 }
 
 export default DrilldownModal;
+
+
+
