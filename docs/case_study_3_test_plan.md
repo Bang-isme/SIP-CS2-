@@ -12,7 +12,7 @@
 2. Update Employee -> SyncLog SUCCESS.
 3. Delete Employee -> SyncLog SUCCESS.
 4. Force MySQL down -> SyncLog FAILED.
-5. Retry sau khi MySQL up -> SyncLog RESOLVED/SUCCESS.
+5. Retry sau khi MySQL up -> SyncLog SUCCESS.
 6. Duplicate retry không tạo dữ liệu trùng.
 7. Health endpoints trả trạng thái đúng.
 

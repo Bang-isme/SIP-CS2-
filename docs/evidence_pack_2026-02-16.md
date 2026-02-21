@@ -1,79 +1,76 @@
-# Evidence Pack - 2026-02-16
+# Evidence Pack - 2026-02-21 (File name kept for continuity)
 
 ## 1) Scope
 
-Audit + upgrade implementation for CEO memo case flow (Case 1-5):
-- Security hardening for `/api/users`
-- Dashboard resilience and decision clarity refactor
-- Frontend bundle split and lazy-load improvements
-- Test/operability cleanup
+Audit + hardening for CEO memo flow and Case Study 1-5 defense:
+- Security/correctness blockers
+- FE reliability + A11y regression fixes
+- DB readiness discipline for production profile
+- Test hardening (remove false-pass conditions)
 
 ## 2) Code Evidence
 
 Backend:
-- `src/routes/user.routes.js`
-- `src/controllers/user.controller.js`
-- `src/routes/auth.routes.js`
-- `src/controllers/auth.controller.js`
-- `src/__tests__/users.security.test.js`
-- `src/__tests__/auth.profile.test.js`
-- `src/__tests__/auth.signin.security.test.js`
-- `tests/jest.config.js`
+- `src/libs/initialSetup.js`
+- `src/routes/employee.routes.js`
+- `src/services/syncService.js`
+- `src/models/sql/PayRate.js`
+- `src/adapters/payroll.adapter.js`
+- `src/mysqlDatabase.js`
+- `src/index.js`
+- `scripts/migrate-mysql.js`
+- `scripts/lint-backend.js`
+- `src/__tests__/employee.routes.authz.test.js`
+- `src/__tests__/sync.retry.status.test.js`
+- `src/__tests__/payrate.contract.test.js`
+- `tests/advanced/quality.test.js`
 
 Frontend:
-- `dashboard/src/App.jsx`
-- `dashboard/src/App.css`
+- `dashboard/src/components/IntegrationEventsPanel.css`
+- `dashboard/src/components/AlertsPanel.jsx`
+- `dashboard/src/components/AlertsPanel.css`
+- `dashboard/src/components/StatCard.jsx`
 - `dashboard/src/pages/Dashboard.jsx`
 - `dashboard/src/pages/Dashboard.css`
-- `dashboard/src/components/StatCard.jsx`
-- `dashboard/src/components/StatCard.css`
-- `dashboard/src/components/IntegrationEventsPanel.jsx`
-- `dashboard/vite.config.js`
+- `dashboard/src/pages/Dashboard.test.jsx`
+- `dashboard/src/components/AdminUsersModal.jsx`
 
 Docs:
 - `docs/ceo_memo_acceptance_matrix.md`
-- `docs/demo_pass_checklist.md`
-- `docs/operations_checklist_ceo_memo.md`
+- `docs/solutions_overview.md`
+- `docs/case_study_3_test_plan.md`
+- `docs/known_gaps_2026-02-21.md`
 
 ## 3) Commands Run and Results
 
-1. Backend tests
-   - Command: `npm test`
-   - Result: PASS
-   - Notes:
-     - Unit suites: dashboard guard, health, users security, auth profile, auth signin security
-     - Integration suite: dashboard endpoints/search checks pass
+Backend:
+1. `npm run lint` -> PASS  
+2. `npm test` -> PASS  
+3. `npm run test:advanced` -> PASS  
+4. `npm audit --omit=dev --json` -> PASS security threshold (0 critical, 0 high, 1 moderate)
 
-2. Frontend lint
-   - Command: `cd dashboard && npm run lint`
-   - Result: PASS
+Frontend (`dashboard/`):
+1. `npm run lint` -> PASS  
+2. `npm test` -> PASS  
+3. `npm run build` -> PASS  
+4. `npm audit --omit=dev --json` -> PASS (0 vulnerabilities)
 
-3. Frontend build
-   - Command: `cd dashboard && npm run build`
-   - Result: PASS
-   - Chunk snapshot (gzip):
-     - `assets/index-*.js`: ~73.44 kB
-     - `assets/vendor-charts-*.js`: ~112.49 kB
-     - `assets/vendor-utils-*.js`: ~17.77 kB
-   - Warning status: no >500 kB chunk warning
+Quality-gate scripts:
+1. `run_gate.py` -> gate_passed=true
+2. `security_scan.py` -> 0 critical, warnings only
+3. `accessibility_check.py --level AA` -> 0 issue (score 100)
+4. `ux_audit.py` -> advisory issues remain (non-blocking)
 
-4. Security scan (advisory)
-   - Command: `python "%USERPROFILE%\\.codex\\skills\\codex-execution-quality-gate\\scripts\\security_scan.py" --project-root "d:\\SIP_CS 2\\SIP_CS"`
-   - Result: PASS (0 critical)
-   - Notes: remaining warnings are mostly legacy debug logs / HTTP local endpoints outside this refactor scope
+## 4) Contract and Policy Verifications
 
-## 4) UI Evidence Checklist (capture during demo)
+- Signup role escalation blocked: request `roles=["admin"]` still persisted as `["user"]`.
+- Employee write endpoints require admin/super-admin role.
+- Sync retry no longer writes out-of-enum status (`RESOLVED` removed from runtime path).
+- Integration queue access for `super_admin` is preserved in FE tests.
+- User management summary counts privileged accounts (`admin` + `super_admin`).
 
-- [ ] Dashboard header shows freshness badge + updated timestamp
-- [ ] Summary card error state with retry (simulate API failure)
-- [ ] Alerts error/empty/success states
-- [ ] Drilldown open from panel CTA + export CSV
-- [ ] Integration queue warning/critical + retry/replay + recovery
-- [ ] Non-admin account cannot access Integration Queue controls (UI restricted state)
+## 5) Known Residual Risks (Truthful)
 
-## 5) Security Acceptance Checklist
-
-- [x] Anonymous `GET /api/users` -> rejected
-- [x] Non-admin `GET /api/users` -> `403 Require Admin Role!`
-- [x] Admin `GET /api/users` -> success + redacted payload (no `password`, no `tokens`)
-- [x] `GET /api/auth/me` -> redacted profile + normalized roles
+- `sequelize` currently pulls `lodash@4.17.21` (moderate advisory); no critical/high remaining.
+- DB migration strategy is bootstrap-level, not yet a full incremental migration pipeline.
+- UX static audit still reports advisory warnings; not blocking current course demo acceptance.

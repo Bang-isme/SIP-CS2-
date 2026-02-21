@@ -6,7 +6,6 @@ import {
   meHandler,
 } from "../controllers/auth.controller.js";
 import {
-  checkExistingRole,
   checkExistingUser,
 } from "../middlewares/verifySignup.js";
 import { verifyToken } from "../middlewares/authJwt.js";
@@ -21,7 +20,7 @@ router.use((req, res, next) => {
   next();
 });
 
-router.post("/signup", [checkExistingUser, checkExistingRole], signupHandler);
+router.post("/signup", [checkExistingUser], signupHandler);
 router.post("/signin", signinHandler);
 router.get("/logout", logoutHandler);
 router.get("/me", [verifyToken], meHandler);

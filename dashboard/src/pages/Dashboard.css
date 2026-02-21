@@ -52,6 +52,7 @@
     align-items: center;
     gap: var(--space-2);
     font-size: var(--font-size-xs);
+    margin: 0;
 }
 
 .header-right {
@@ -82,6 +83,7 @@
 }
 
 .refresh-btn,
+.manage-users-btn,
 .logout-btn {
     height: 34px;
     padding: 0 var(--space-4);
@@ -102,13 +104,26 @@
     color: var(--color-primary-700);
 }
 
+.manage-users-btn {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+}
+
 .refresh-btn:hover:not(:disabled) {
     background: var(--color-bg-subtle);
     border-color: var(--color-border-hover);
     color: var(--color-primary-900);
 }
 
+.manage-users-btn:hover:not(:disabled) {
+    background: #e0e7ff;
+    border-color: #a5b4fc;
+    color: #312e81;
+}
+
 .refresh-btn:focus-visible,
+.manage-users-btn:focus-visible,
 .logout-btn:focus-visible,
 .panel-link:focus-visible,
 .panel-action:focus-visible {

@@ -554,6 +554,427 @@
                     "response": []
                 }
             ]
+        },
+        {
+            "name": "7. User Role Promotion Demo (Security)",
+            "item": [
+                {
+                    "name": "1) Signup target user (roles admin is ignored)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const runId = Date.now().toString();",
+                                    "pm.collectionVariables.set('runId', runId);",
+                                    "pm.collectionVariables.set('targetUsername', `target_user_${runId}`);",
+                                    "pm.collectionVariables.set('targetEmail', `target_${runId}@example.com`);",
+                                    "pm.collectionVariables.set('targetPassword', 'Passw0rd!123');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "const body = pm.response.json();",
+                                    "",
+                                    "pm.test('Signup success = true', function () {",
+                                    "  pm.expect(body.success).to.eql(true);",
+                                    "});",
+                                    "",
+                                    "pm.test('Server enforces user role only', function () {",
+                                    "  pm.expect(body.data.roles).to.include('user');",
+                                    "  pm.expect(body.data.roles).to.not.include('admin');",
+                                    "});",
+                                    "",
+                                    "pm.collectionVariables.set('targetUserId', body.data._id);",
+                                    "pm.collectionVariables.set('targetEmail', body.data.email);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"username\": \"{{targetUsername}}\",\n  \"email\": \"{{targetEmail}}\",\n  \"password\": \"{{targetPassword}}\",\n  \"roles\": [\"admin\"]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/signup",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "signup"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "2) Signup non-admin user for negative test",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const runId = pm.collectionVariables.get('runId') || Date.now().toString();",
+                                    "pm.collectionVariables.set('nonAdminUsername', `plain_user_${runId}`);",
+                                    "pm.collectionVariables.set('nonAdminEmail', `plain_${runId}@example.com`);",
+                                    "pm.collectionVariables.set('nonAdminPassword', 'Passw0rd!123');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "const body = pm.response.json();",
+                                    "",
+                                    "pm.test('Signup remains user role', function () {",
+                                    "  pm.expect(body.data.roles).to.eql(['user']);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"username\": \"{{nonAdminUsername}}\",\n  \"email\": \"{{nonAdminEmail}}\",\n  \"password\": \"{{nonAdminPassword}}\",\n  \"roles\": [\"admin\"]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/signup",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "signup"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "3) Sign in admin (save adminToken)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "const body = pm.response.json();",
+                                    "",
+                                    "pm.test('Admin token exists', function () {",
+                                    "  pm.expect(body.token).to.be.a('string');",
+                                    "  pm.expect(body.token.length).to.be.greaterThan(20);",
+                                    "});",
+                                    "",
+                                    "pm.collectionVariables.set('adminToken', body.token);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/signin",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "signin"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "4) Sign in non-admin user (save nonAdminToken)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "const body = pm.response.json();",
+                                    "",
+                                    "pm.collectionVariables.set('nonAdminToken', body.token);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"{{nonAdminEmail}}\",\n  \"password\": \"{{nonAdminPassword}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/signin",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "signin"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "5) Negative: promote with NON-admin token -> 403",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 403', function () {",
+                                    "  pm.response.to.have.status(403);",
+                                    "});",
+                                    "",
+                                    "const body = pm.response.json();",
+                                    "",
+                                    "pm.test('Message is Require Admin Role!', function () {",
+                                    "  pm.expect(body.message).to.eql('Require Admin Role!');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "x-access-token",
+                                "value": "{{nonAdminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/{{targetUserId}}/promote-admin",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{targetUserId}}",
+                                "promote-admin"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "6) Promote target user with ADMIN token -> 200",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "const body = pm.response.json();",
+                                    "",
+                                    "pm.test('Promotion success', function () {",
+                                    "  pm.expect(body.success).to.eql(true);",
+                                    "});",
+                                    "",
+                                    "pm.test('Target user has admin role', function () {",
+                                    "  pm.expect(body.data.roles).to.include('admin');",
+                                    "  pm.expect(body.data.roles).to.include('user');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "x-access-token",
+                                "value": "{{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/{{targetUserId}}/promote-admin",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{targetUserId}}",
+                                "promote-admin"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "7) Negative: promote with NO token -> 403",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 403', function () {",
+                                    "  pm.response.to.have.status(403);",
+                                    "});",
+                                    "",
+                                    "const body = pm.response.json();",
+                                    "",
+                                    "pm.test('Message is No token provided', function () {",
+                                    "  pm.expect(body.message).to.eql('No token provided');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/{{targetUserId}}/promote-admin",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "users",
+                                "{{targetUserId}}",
+                                "promote-admin"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "8) Verify promoted target can access admin endpoint",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status is 200', function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "const body = pm.response.json();",
+                                    "",
+                                    "pm.test('Users payload exists', function () {",
+                                    "  pm.expect(body.success).to.eql(true);",
+                                    "  pm.expect(Array.isArray(body.data)).to.eql(true);",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-access-token",
+                                "value": "{{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/users",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "users"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
         }
     ],
     "variable": [
@@ -563,6 +984,54 @@
         },
         {
             "key": "token",
+            "value": ""
+        },
+        {
+            "key": "adminEmail",
+            "value": "admin@localhost"
+        },
+        {
+            "key": "adminPassword",
+            "value": "admin_dev"
+        },
+        {
+            "key": "runId",
+            "value": ""
+        },
+        {
+            "key": "targetUsername",
+            "value": ""
+        },
+        {
+            "key": "targetEmail",
+            "value": ""
+        },
+        {
+            "key": "targetPassword",
+            "value": ""
+        },
+        {
+            "key": "targetUserId",
+            "value": ""
+        },
+        {
+            "key": "nonAdminUsername",
+            "value": ""
+        },
+        {
+            "key": "nonAdminEmail",
+            "value": ""
+        },
+        {
+            "key": "nonAdminPassword",
+            "value": ""
+        },
+        {
+            "key": "adminToken",
+            "value": ""
+        },
+        {
+            "key": "nonAdminToken",
             "value": ""
         }
     ]

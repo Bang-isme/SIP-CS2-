@@ -4,13 +4,13 @@ import { isAdmin, verifyToken } from "../middlewares/authJwt.js";
 
 const router = Router();
 
-// Public endpoints (for testing - in production, add auth)
-router.get("/", getEmployees);
-router.get("/:employeeId", getEmployee);
+// Read endpoints require authentication
+router.get("/", [verifyToken], getEmployees);
+router.get("/:employeeId", [verifyToken], getEmployee);
 
-// Protected endpoints (require auth)
-router.post("/", [verifyToken], createEmployee);
-router.put("/:id", [verifyToken], updateEmployee);
+// Mutation endpoints are admin-only
+router.post("/", [verifyToken, isAdmin], createEmployee);
+router.put("/:id", [verifyToken, isAdmin], updateEmployee);
 router.delete("/:id", [verifyToken, isAdmin], deleteEmployee);
 
 export default router;

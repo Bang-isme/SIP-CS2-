@@ -282,7 +282,7 @@ class BaseAdapter {
 | `entity_type` | Loại entity (employee) |
 | `entity_id` | ID của entity |
 | `action` | CREATE/UPDATE/DELETE |
-| `status` | PENDING/SUCCESS/FAILED/RESOLVED |
+| `status` | PENDING/SUCCESS/FAILED |
 | `error_message` | Lỗi nếu có |
 | `retry_count` | Số lần đã retry |
 
@@ -293,7 +293,7 @@ class BaseAdapter {
 2. Group by entity_id để tránh xử lý duplicate
 3. Với mỗi entity, fetch fresh data từ MongoDB
 4. Gọi `syncEmployeeToAll` với action = UPDATE
-5. Nếu success → update status = RESOLVED
+5. Nếu success → update status = SUCCESS
 6. Nếu fail → increment retry_count
 
 **APIs**:
@@ -663,3 +663,4 @@ SIP_CS/
 ---
 
 > **Tài liệu này tổng hợp tất cả giải pháp đã triển khai từ Case Study 1-5. Đọc kết hợp với các file chi tiết trong `docs/` để hiểu sâu hơn từng phần.**
+

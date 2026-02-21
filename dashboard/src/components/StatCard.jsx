@@ -18,13 +18,13 @@ const StatCard = ({ title, value, subtext, icon, trend, loading, error, onRetry 
         return (
             <div className="stat-card stat-card-error">
                 <div className="stat-header-row">
-                    <span className="stat-title">{title}</span>
+                    <h3 className="stat-title">{title}</h3>
                     <div className="stat-icon-wrapper">
                         {icon}
                     </div>
                 </div>
 
-                <div className="stat-error-title">Unavailable</div>
+                <h4 className="stat-error-title">Unavailable</h4>
                 <div className="stat-error-message">{error}</div>
                 {onRetry && (
                     <button className="stat-retry-btn" onClick={onRetry}>
@@ -44,7 +44,7 @@ const StatCard = ({ title, value, subtext, icon, trend, loading, error, onRetry 
         <div className="stat-card">
             {/* 1. Header Row: Title & Icon */}
             <div className="stat-header-row">
-                <span className="stat-title">{title}</span>
+                <h3 className="stat-title">{title}</h3>
                 <div className="stat-icon-wrapper">
                     {icon}
                 </div>

@@ -59,14 +59,6 @@ const benefitPlans = [
     { name: "Life Insurance", type: "life", monthly_cost: 25 },
 ];
 
-const payRates = [
-    { name: "L1 Junior", value: 25, tax_percentage: 0.15, type: "hourly" },
-    { name: "L2 Mid", value: 45, tax_percentage: 0.22, type: "hourly" },
-    { name: "L3 Senior", value: 75, tax_percentage: 0.28, type: "hourly" },
-    { name: "M1 Manager", value: 85000, tax_percentage: 0.32, type: "salary" },
-    { name: "D1 Director", value: 120000, tax_percentage: 0.35, type: "salary" },
-];
-
 // Helper functions (Optimized)
 const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -105,7 +97,7 @@ async function setupReferenceData() {
     }
 
     // Re-create
-    await PayRate.bulkCreate(payRates);
+    // pay_rates is employee-level data and will be populated by integration sync flows.
     const createdPlans = await BenefitPlan.bulkCreate(benefitPlans);
     return createdPlans;
 }

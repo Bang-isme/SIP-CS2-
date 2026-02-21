@@ -18,6 +18,12 @@ jest.unstable_mockModule("../middlewares/authJwt.js", () => ({
     }
     return res.status(403).json({ message: "Require Admin Role!" });
   },
+  isSuperAdmin: (req, res, next) => {
+    if (req.headers["x-user-role"] === "super_admin") {
+      return next();
+    }
+    return res.status(403).json({ message: "Require Super Admin Role!" });
+  },
   isModerator: (req, res, next) => next(),
 }));
 
@@ -30,7 +36,7 @@ jest.unstable_mockModule("../models/User.js", () => ({
 }));
 
 jest.unstable_mockModule("../models/Role.js", () => ({
-  ROLES: ["user", "admin", "moderator"],
+  ROLES: ["user", "admin", "moderator", "super_admin"],
   default: {
     find: jest.fn(async () => []),
   },

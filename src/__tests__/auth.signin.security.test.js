@@ -14,7 +14,7 @@ jest.unstable_mockModule("../models/User.js", () => ({
 }));
 
 jest.unstable_mockModule("../models/Role.js", () => ({
-  ROLES: ["user", "admin", "moderator"],
+  ROLES: ["user", "admin", "moderator", "super_admin"],
   default: {
     find: jest.fn(async () => []),
     findOne: jest.fn(async () => ({ _id: "role-user-id" })),

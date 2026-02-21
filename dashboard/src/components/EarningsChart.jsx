@@ -181,7 +181,7 @@ function EarningsChart({ data, onDrilldown }) {
 
       <div className="earnings-advanced-panel">
         <div className="dept-summary data-surface">
-          <div className="dept-title">Top Departments (Current)</div>
+          <h3 className="dept-title">Top Departments (Current)</h3>
           <div className="dept-table">
             {topDepartments.map((dept) => (
                 <button
@@ -200,7 +200,7 @@ function EarningsChart({ data, onDrilldown }) {
 
         <div className="movers-panel data-surface">
           <div className="movers-header">
-            <div className="movers-title">YoY Movers</div>
+            <h3 className="movers-title">YoY Movers</h3>
             <div className="movers-tabs">
               <button
                 className={`movers-tab ${moversMode === 'declines' ? 'active' : ''}`}
@@ -218,7 +218,7 @@ function EarningsChart({ data, onDrilldown }) {
           </div>
           <div className="movers-grid">
             <div className="movers-col">
-              <div className="movers-subtitle">Top Increases</div>
+              <h4 className="movers-subtitle">Top Increases</h4>
               {movers.gains.length === 0 ? (
                 <div className="movers-empty">No increases</div>
               ) : (
@@ -240,9 +240,9 @@ function EarningsChart({ data, onDrilldown }) {
               )}
             </div>
             <div className="movers-col">
-              <div className="movers-subtitle">
+              <h4 className="movers-subtitle">
                 {moversMode === 'declines' ? 'Top Declines' : 'Smallest Growth'}
-              </div>
+              </h4>
               {moversMode === 'declines' ? (
                 movers.drops.length === 0 ? (
                   <div className="movers-empty">No declines in current period</div>
@@ -290,7 +290,7 @@ function EarningsChart({ data, onDrilldown }) {
           <h4>By Demographics (Click to Filter)</h4>
           <div className="breakdown-groups">
             <div className="breakdown-group">
-              <div className="group-title">Gender</div>
+              <h4 className="group-title">Gender</h4>
               <div className="group-list">
                 {Object.entries(data.byGender).map(([gender, values]) => (
                   <button
@@ -316,7 +316,7 @@ function EarningsChart({ data, onDrilldown }) {
               )}
             </div>
             <div className="breakdown-group">
-              <div className="group-title">Ethnicity</div>
+              <h4 className="group-title">Ethnicity</h4>
               <div className="group-list">
                 {Object.entries(data.byEthnicity).map(([ethnicity, values]) => (
                   <button
@@ -339,7 +339,7 @@ function EarningsChart({ data, onDrilldown }) {
               )}
             </div>
             <div className="breakdown-group">
-              <div className="group-title">Employment Type</div>
+              <h4 className="group-title">Employment Type</h4>
               <div className="group-list">
                 {Object.entries(data.byEmploymentType).map(([type, values]) => (
                   <button

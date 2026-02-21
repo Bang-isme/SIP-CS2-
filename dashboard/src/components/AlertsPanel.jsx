@@ -280,15 +280,15 @@ function AlertsPanel({ alerts }) {
        style={{ '--accent-color': config.color }}
       >
        <div className="alert-header">
-        <div className="alert-title-wrap">
-         <span className="alert-icon" style={{ color: config.color }}>
+        <div className="alert-header-main">
+         <span className="alert-icon" style={{ color: config.color }} aria-hidden="true">
           <Icon size={16} />
          </span>
-         <span className="alert-name">{config.label || alert.alert.name}</span>
-         <span className="priority-badge" title={`Severity: ${config.severity}`} style={{ color: config.priorityColor }}>
+         <h3 className="alert-name">{config.label || alert.alert.name}</h3>
+        <span className="priority-badge" title={`Severity: ${config.severity}`} style={{ color: config.priorityColor }}>
           <PriorityIcon size={12} />
           <span className="priority-text">{config.severity}</span>
-         </span>
+        </span>
         </div>
         <span className="alert-badge">{alert.count}</span>
        </div>
@@ -380,15 +380,15 @@ function AlertsPanel({ alerts }) {
       onKeyDown={handleModalKeyDown}
      >
       <div className="modal-header">
-       <div className="modal-title">
-        <span className="alert-icon">
+       <h3 className="modal-title" id="alert-modal-title">
+        <span className="alert-icon" aria-hidden="true">
          {(() => {
           const ModalIcon = ALERT_CONFIG[selectedAlert.alert.type]?.icon || FiBell;
           return <ModalIcon size={16} />;
          })()}
         </span>
-        <h3 id="alert-modal-title">{ALERT_CONFIG[selectedAlert.alert.type]?.label || selectedAlert.alert.name}</h3>
-       </div>
+        <span>{ALERT_CONFIG[selectedAlert.alert.type]?.label || selectedAlert.alert.name}</span>
+       </h3>
        <span className="modal-count">
         {apiTotal} records
        </span>
@@ -425,7 +425,7 @@ function AlertsPanel({ alerts }) {
 
       {/* Error Notice */}
       {apiError && !isLoading && (
-       <div className="api-notice">
+       <div className="api-notice" role="status" aria-live="polite">
         <span>{apiError}</span>
        </div>
       )}

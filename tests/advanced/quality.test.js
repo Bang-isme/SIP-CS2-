@@ -12,6 +12,7 @@ import { jest } from '@jest/globals';
 jest.unstable_mockModule('../../src/middlewares/authJwt.js', () => ({
     verifyToken: (req, res, next) => { req.userId = 'test-user'; next(); },
     isAdmin: (req, res, next) => next(),
+    isSuperAdmin: (req, res, next) => next(),
     isModerator: (req, res, next) => next(),
 }));
 
@@ -25,17 +26,17 @@ const { default: app } = await import('../../src/app.js');
 const { default: mongoose } = await import('mongoose');
 const { sequelize, SyncLog } = await import('../../src/models/sql/index.js');
 
+beforeAll(async () => {
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/apicompany');
+    }
+});
+
+afterAll(async () => {
+    await mongoose.disconnect();
+});
+
 describe('🔒 AVAILABILITY TESTS', () => {
-    beforeAll(async () => {
-        if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/apicompany');
-        }
-    });
-
-    afterAll(async () => {
-        await mongoose.disconnect();
-    });
-
     test('A1: Health endpoint responds under 100ms', async () => {
         const start = Date.now();
         const res = await request(app).get('/api');
@@ -210,11 +211,10 @@ describe('🛠️ MAINTAINABILITY TESTS', () => {
         for (const endpoint of endpoints) {
             const res = await request(app).get(endpoint);
 
+            expect(res.status).toBe(200);
             expect(res.body).toHaveProperty('success');
-
-            if (res.body.success) {
-                expect(res.body).toHaveProperty('data');
-            }
+            expect(res.body.success).toBe(true);
+            expect(res.body).toHaveProperty('data');
         }
     });
 
@@ -223,10 +223,10 @@ describe('🛠️ MAINTAINABILITY TESTS', () => {
             .post('/api/employee')
             .send({});
 
-        if (!res.body.success) {
-            expect(res.body).toHaveProperty('message');
-            expect(typeof res.body.message).toBe('string');
-        }
+        expect(res.status).toBeGreaterThanOrEqual(400);
+        expect(res.body).toHaveProperty('success', false);
+        expect(res.body).toHaveProperty('message');
+        expect(typeof res.body.message).toBe('string');
     });
 
     test('M3: Models have proper timestamps', async () => {
@@ -303,10 +303,13 @@ describe('📊 DATA INTEGRITY TESTS', () => {
         const res1 = await request(app).get('/api/dashboard/departments');
         const res2 = await request(app).get('/api/dashboard/departments');
 
+        expect(res1.status).toBe(200);
+        expect(res2.status).toBe(200);
         expect(res1.body.success).toBe(res2.body.success);
-        if (res1.body.data && res2.body.data) {
-            expect(res1.body.data.length).toBe(res2.body.data.length);
-        }
+        expect(res1.body.success).toBe(true);
+        expect(Array.isArray(res1.body.data)).toBe(true);
+        expect(Array.isArray(res2.body.data)).toBe(true);
+        expect(res1.body.data.length).toBe(res2.body.data.length);
     });
 
     test('D2: Drilldown API supports pagination', async () => {
@@ -314,11 +317,12 @@ describe('📊 DATA INTEGRITY TESTS', () => {
             .get('/api/dashboard/drilldown')
             .query({ page: 1, limit: 5 });
 
+        expect(res.status).toBe(200);
         expect(res.body).toHaveProperty('success');
-        if (res.body.success && res.body.meta) {
-            expect(res.body.meta).toHaveProperty('page');
-            expect(res.body.meta).toHaveProperty('limit');
-        }
+        expect(res.body.success).toBe(true);
+        expect(res.body).toHaveProperty('meta');
+        expect(res.body.meta).toHaveProperty('page');
+        expect(res.body.meta).toHaveProperty('limit');
     });
 
     test('D3: Search parameter filters results', async () => {
@@ -330,9 +334,13 @@ describe('📊 DATA INTEGRITY TESTS', () => {
             .get('/api/dashboard/drilldown')
             .query({ search: 'Amy', limit: 100 });
 
-        if (resAll.body.success && resFiltered.body.success) {
-            // Filtered results should be <= all results (unless no matches)
-            expect(resFiltered.body.data.length).toBeLessThanOrEqual(resAll.body.data.length);
-        }
+        expect(resAll.status).toBe(200);
+        expect(resFiltered.status).toBe(200);
+        expect(resAll.body.success).toBe(true);
+        expect(resFiltered.body.success).toBe(true);
+        expect(Array.isArray(resAll.body.data)).toBe(true);
+        expect(Array.isArray(resFiltered.body.data)).toBe(true);
+        // Filtered results should be <= all results (unless no matches)
+        expect(resFiltered.body.data.length).toBeLessThanOrEqual(resAll.body.data.length);
     });
 });

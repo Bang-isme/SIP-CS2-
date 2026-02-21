@@ -32,6 +32,10 @@ vi.mock('../components/Skeletons', () => ({
   SkeletonList: () => <div data-testid="skeleton-list" />,
 }));
 
+vi.mock('../components/IntegrationEventsPanel', () => ({
+  default: () => <div data-testid="integration-panel-mock">integration-panel</div>,
+}));
+
 describe('Dashboard states', () => {
   const onLogout = vi.fn();
   const userContext = { roles: ['user'] };
@@ -139,5 +143,17 @@ describe('Dashboard states', () => {
     await waitFor(() => {
       expect(screen.getByText(/No active alerts. System is currently clear/i)).toBeInTheDocument();
     });
+  });
+
+  it('allows super admin to access integration queue panel', async () => {
+    getEarningsSummary.mockResolvedValue(successEarnings);
+    getVacationSummary.mockResolvedValue(successVacation);
+    getBenefitsSummary.mockResolvedValue(successBenefits);
+    getTriggeredAlerts.mockResolvedValue({ data: [] });
+
+    render(<Dashboard onLogout={onLogout} currentUser={{ roles: ['super_admin'] }} />);
+
+    expect(await screen.findByTestId('integration-panel-mock')).toBeInTheDocument();
+    expect(screen.queryByText(/restricted to admin/i)).not.toBeInTheDocument();
   });
 });

@@ -109,6 +109,7 @@
     color: var(--color-danger);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    margin: 0;
 }
 
 .stat-error-message {

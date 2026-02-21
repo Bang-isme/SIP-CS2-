@@ -7,8 +7,8 @@ const normalizeRoles = (roles = []) => {
   return roles
     .map((role) => {
       if (!role) return null;
-      if (typeof role === "string") return role;
-      if (typeof role === "object" && role.name) return role.name;
+      if (typeof role === "string") return role.toLowerCase();
+      if (typeof role === "object" && role.name) return String(role.name).toLowerCase();
       if (typeof role === "object" && role._id) return String(role._id);
       return null;
     })
@@ -32,7 +32,7 @@ const sanitizeAuthUser = (userDoc) => {
 
 export const signupHandler = async (req, res) => {
   try {
-    const { username, email, password, roles } = req.body;
+    const { username, email, password } = req.body;
 
     // Creating a new User Object
     const newUser = new User({
@@ -41,14 +41,15 @@ export const signupHandler = async (req, res) => {
       password,
     });
 
-    // checking for roles
-    if (roles) {
-      const foundRoles = await Role.find({ name: { $in: roles } });
-      newUser.roles = foundRoles.map((role) => role._id);
-    } else {
-      const role = await Role.findOne({ name: "user" });
-      newUser.roles = [role._id];
+    // Security hardening: signup always gets baseline "user" role.
+    const role = await Role.findOne({ name: "user" });
+    if (!role) {
+      return res.status(500).json({
+        success: false,
+        message: "Default role configuration is missing",
+      });
     }
+    newUser.roles = [role._id];
 
     const savedUser = await newUser.save();
 
@@ -138,3 +139,4 @@ export const meHandler = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+

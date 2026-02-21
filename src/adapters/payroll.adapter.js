@@ -5,8 +5,14 @@
  */
 
 import BaseAdapter from './base.adapter.js';
-import { Earning, PayRate, SyncLog } from '../models/sql/index.js';
+import { PayRate, SyncLog } from '../models/sql/index.js';
 import { sequelize } from '../models/sql/index.js';
+
+const normalizePayType = (input) => {
+    const normalized = String(input || 'HOURLY').trim().toUpperCase();
+    const allowed = new Set(['HOURLY', 'SALARY', 'COMMISSION', 'TERMINATED']);
+    return allowed.has(normalized) ? normalized : 'HOURLY';
+};
 
 export class PayrollAdapter extends BaseAdapter {
     constructor() {
@@ -65,8 +71,9 @@ export class PayrollAdapter extends BaseAdapter {
             await PayRate.create({
                 employee_id: employeeId,
                 pay_rate: data.payRate || 0,
-                pay_type: data.payType || 'Hourly',
+                pay_type: normalizePayType(data.payType),
                 effective_date: new Date(),
+                is_active: true,
             }, { transaction: t });
         }
     }
@@ -74,12 +81,19 @@ export class PayrollAdapter extends BaseAdapter {
     async _handleUpdate(data, t) {
         const employeeId = data.employeeId || data._id?.toString();
         if (data.payRate !== undefined || data.payType !== undefined) {
+            const updatePayload = {
+                effective_date: new Date(),
+                is_active: true,
+            };
+            if (data.payRate !== undefined) {
+                updatePayload.pay_rate = data.payRate;
+            }
+            if (data.payType !== undefined) {
+                updatePayload.pay_type = normalizePayType(data.payType);
+            }
+
             await PayRate.update(
-                {
-                    pay_rate: data.payRate,
-                    pay_type: data.payType,
-                    effective_date: new Date(),
-                },
+                updatePayload,
                 { where: { employee_id: employeeId }, transaction: t }
             );
         }
@@ -89,7 +103,11 @@ export class PayrollAdapter extends BaseAdapter {
         const employeeId = data.employeeId || data._id?.toString();
         // Soft delete or mark as inactive in payroll, not hard delete earnings history
         await PayRate.update(
-            { pay_type: 'TERMINATED' },
+            {
+                pay_type: 'TERMINATED',
+                is_active: false,
+                effective_date: new Date(),
+            },
             { where: { employee_id: employeeId }, transaction: t }
         );
     }

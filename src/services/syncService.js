@@ -130,9 +130,8 @@ export const retryFailedSyncs = async () => {
                 successCount++;
                 logger.info('[SyncService]', `Retry SUCCESS for ${employeeId}`);
 
-                // Update historical logs to resolved (or just leave them and add a SUCCESS log)
-                // Better practice: update the FAILED logs to RESOLVED or effectively 'archive' them
-                await SyncLog.update({ status: 'RESOLVED' }, {
+                // Keep status transition inside SyncLog enum contract (PENDING/SUCCESS/FAILED)
+                await SyncLog.update({ status: 'SUCCESS' }, {
                     where: {
                         entity_id: employeeId,
                         status: 'FAILED'

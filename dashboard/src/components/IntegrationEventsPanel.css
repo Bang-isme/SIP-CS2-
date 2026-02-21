@@ -317,13 +317,13 @@
 
 .integration-row {
   display: grid;
-  grid-template-columns: 44px minmax(230px, 2.4fr) minmax(76px, 0.9fr) minmax(98px, 0.95fr) minmax(76px, 0.7fr) minmax(128px, 1fr) 68px;
+  grid-template-columns: 44px minmax(260px, 2.8fr) minmax(100px, 1fr) minmax(104px, 1fr) minmax(78px, 0.7fr) minmax(148px, 1.2fr) minmax(72px, 0.7fr);
   gap: 8px;
   padding: 8px 10px;
   align-items: center;
   border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-xs);
-  min-width: 720px;
+  min-width: 820px;
 }
 
 .integration-row:last-child {
@@ -340,7 +340,8 @@
 }
 
 .integration-head > div {
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.2;
 }
 
 .integration-head .cell-entity,
@@ -365,19 +366,21 @@
 }
 
 .cell-entity {
-  overflow: hidden;
+  overflow: visible;
   text-overflow: clip;
-  white-space: nowrap;
+  white-space: normal;
   line-height: 1.2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .cell-action,
 .cell-updated {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  overflow-wrap: normal;
-  word-break: normal;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .cell-status {
@@ -475,9 +478,9 @@
 
 @media (max-width: 1400px) {
   .integration-row {
-    grid-template-columns: 40px minmax(220px, 2.4fr) minmax(74px, 0.85fr) minmax(88px, 0.85fr) minmax(72px, 0.7fr) minmax(116px, 0.95fr) 56px;
+    grid-template-columns: 40px minmax(230px, 2.6fr) minmax(92px, 1fr) minmax(94px, 0.95fr) minmax(70px, 0.65fr) minmax(132px, 1.05fr) 56px;
     gap: 6px;
-    min-width: 680px;
+    min-width: 760px;
   }
 }
 
@@ -489,7 +492,7 @@
 
 @media (max-width: 1240px) {
   .integration-row {
-    grid-template-columns: 40px minmax(0, 2.2fr) minmax(92px, 0.9fr) minmax(66px, 0.65fr) minmax(118px, 1fr) 58px;
+    grid-template-columns: 40px minmax(0, 2.4fr) minmax(92px, 0.9fr) minmax(72px, 0.65fr) minmax(124px, 1fr) 58px;
   }
 
   .cell-action {

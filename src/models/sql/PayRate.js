@@ -9,28 +9,40 @@ const PayRate = sequelize.define(
             primaryKey: true,
             autoIncrement: true,
         },
-        name: {
-            type: DataTypes.STRING(100),
+        employee_id: {
+            type: DataTypes.STRING(50),
             allowNull: false,
+            unique: true,
+            comment: "Links to MongoDB Employee.employeeId",
         },
-        value: {
+        pay_rate: {
             type: DataTypes.DECIMAL(10, 2),
             allowNull: false,
             defaultValue: 0,
         },
-        tax_percentage: {
-            type: DataTypes.DECIMAL(5, 2),
+        pay_type: {
+            type: DataTypes.ENUM("HOURLY", "SALARY", "COMMISSION", "TERMINATED"),
             allowNull: false,
-            defaultValue: 0.1,
+            defaultValue: "HOURLY",
         },
-        type: {
-            type: DataTypes.ENUM("hourly", "salary", "commission"),
-            defaultValue: "salary",
+        effective_date: {
+            type: DataTypes.DATEONLY,
+            allowNull: false,
+            defaultValue: DataTypes.NOW,
+        },
+        is_active: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: true,
         },
     },
     {
         tableName: "pay_rates",
         timestamps: true,
+        indexes: [
+            { unique: true, fields: ["employee_id"] },
+            { fields: ["pay_type"] },
+        ],
     }
 );
 

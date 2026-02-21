@@ -3,6 +3,26 @@ import { SECRET } from "../config.js";
 import User from "../models/User.js";
 import Role from "../models/Role.js";
 
+const getUserRoleNames = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) return [];
+  const roles = await Role.find({ _id: { $in: user.roles } });
+  return roles.map((role) => String(role.name || "").toLowerCase()).filter(Boolean);
+};
+
+const authorizeAnyRole = async (req, res, next, allowedRoles, message) => {
+  try {
+    const roleNames = await getUserRoleNames(req.userId);
+    const hasRole = roleNames.some((roleName) => allowedRoles.includes(roleName));
+    if (hasRole) {
+      return next();
+    }
+    return res.status(403).json({ message });
+  } catch (error) {
+    return res.status(500).send({ message: error });
+  }
+};
+
 export const verifyToken = async (req, res, next) => {
   let token = req.headers["x-access-token"];
 
@@ -27,36 +47,13 @@ export const verifyToken = async (req, res, next) => {
 };
 
 export const isModerator = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.userId);
-    const roles = await Role.find({ _id: { $in: user.roles } });
-    for (let i = 0; i < roles.length; i++) {
-      if (roles[i].name === "moderator") {
-        next();
-        return;
-      }
-    }
-    return res.status(403).json({ message: "Require Moderator Role!" });
-  } catch (error) {
-    return res.status(500).send({ message: error });
-  }
+  return authorizeAnyRole(req, res, next, ["moderator"], "Require Moderator Role!");
 };
 
 export const isAdmin = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.userId);
-    const roles = await Role.find({ _id: { $in: user.roles } });
+  return authorizeAnyRole(req, res, next, ["admin", "super_admin"], "Require Admin Role!");
+};
 
-    for (let i = 0; i < roles.length; i++) {
-      if (roles[i].name === "admin") {
-        next();
-        return;
-      }
-    }
-
-    return res.status(403).json({ message: "Require Admin Role!" });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).send({ message: error });
-  }
+export const isSuperAdmin = async (req, res, next) => {
+  return authorizeAnyRole(req, res, next, ["super_admin"], "Require Super Admin Role!");
 };

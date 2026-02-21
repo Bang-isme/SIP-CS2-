@@ -18,11 +18,13 @@ import {
   FiDollarSign,
   FiHeart,
   FiRefreshCw,
+  FiUsers,
 } from 'react-icons/fi';
 import './Dashboard.css';
 
 const DrilldownModal = lazy(() => import('../components/DrilldownModal'));
 const IntegrationEventsPanel = lazy(() => import('../components/IntegrationEventsPanel'));
+const AdminUsersModal = lazy(() => import('../components/AdminUsersModal'));
 const FRESH_THRESHOLD_MINUTES = 120;
 
 const getErrorMessage = (error, fallback) => {
@@ -94,6 +96,7 @@ function Dashboard({ onLogout, currentUser }) {
   const [integrationError, setIntegrationError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [drilldown, setDrilldown] = useState(null);
+  const [showAdminUsersModal, setShowAdminUsersModal] = useState(false);
   const currentYear = new Date().getFullYear();
 
   const currentRoles = useMemo(() => {
@@ -101,14 +104,24 @@ function Dashboard({ onLogout, currentUser }) {
     return currentUser.roles
       .map((role) => {
         if (!role) return null;
-        if (typeof role === 'string') return role;
-        if (typeof role === 'object' && role.name) return role.name;
+        if (typeof role === 'string') return role.toLowerCase();
+        if (typeof role === 'object' && role.name) return String(role.name).toLowerCase();
         return null;
       })
       .filter(Boolean);
   }, [currentUser]);
 
-  const canAccessIntegrationQueue = currentRoles.includes('admin');
+  const canAccessIntegrationQueue = currentRoles.some(
+    (roleName) => roleName === 'admin' || roleName === 'super_admin',
+  );
+  const canManageUsers = currentRoles.includes('super_admin');
+  const effectiveRole = useMemo(() => {
+    if (currentRoles.includes('super_admin')) return 'super_admin';
+    if (currentRoles.includes('admin')) return 'admin';
+    if (currentRoles.includes('moderator')) return 'moderator';
+    if (currentRoles.includes('user')) return 'user';
+    return 'anonymous';
+  }, [currentRoles]);
 
   const fetchEarnings = async () => {
     setLoadingEarnings(true);
@@ -308,17 +321,27 @@ function Dashboard({ onLogout, currentUser }) {
             <span>HQ</span> HR & Payroll Analytics
           </h1>
           <span className="subtitle">Executive Overview - FY {currentYear}</span>
-          <div className="subtitle subtitle-meta-row">
+          <p className="subtitle subtitle-meta-row">
             <span className={`freshness-pill ${globalFreshness.css}`} title={globalFreshness.tooltip}>
               {globalFreshness.label}
             </span>
             <span>Data updated: {formatUpdatedAt(lastUpdatedAt)}</span>
-          </div>
+          </p>
         </div>
         <div className="header-right">
           <div className="system-status">
             <span className="dot online"></span> Systems Active
           </div>
+          {canManageUsers && (
+            <button
+              onClick={() => setShowAdminUsersModal(true)}
+              className="manage-users-btn"
+              type="button"
+            >
+              <FiUsers size={14} />
+              Manage Users
+            </button>
+          )}
           <button
             onClick={() => {
               void loadAllData();
@@ -585,9 +608,9 @@ function Dashboard({ onLogout, currentUser }) {
                 </Suspense>
               ) : (
                 <div className="panel-state panel-state-empty">
-                  <p>Integration Queue is restricted to admin role.</p>
-                  <p className="panel-state-caption">Current role: {currentRoles[0] || 'user'}</p>
-                  <p className="panel-state-caption">Use admin account to run retry/replay operations.</p>
+                  <p>Integration Queue is restricted to admin or super-admin role.</p>
+                  <p className="panel-state-caption">Current effective role: {effectiveRole}</p>
+                  <p className="panel-state-caption">Use an admin or super-admin account to run retry/replay operations.</p>
                 </div>
               )}
             </div>
@@ -609,6 +632,24 @@ function Dashboard({ onLogout, currentUser }) {
           <DrilldownModal
             filters={drilldown}
             onClose={() => setDrilldown(null)}
+          />
+        </Suspense>
+      )}
+
+      {showAdminUsersModal && (
+        <Suspense
+          fallback={
+            <div className="modal-loading-overlay">
+              <div className="modal-loading-card">
+                <FiRefreshCw size={14} className="spin" />
+                <span>Opening user manager...</span>
+              </div>
+            </div>
+          }
+        >
+          <AdminUsersModal
+            onClose={() => setShowAdminUsersModal(false)}
+            currentUser={currentUser}
           />
         </Suspense>
       )}

@@ -173,7 +173,7 @@
     background: var(--color-bg-card);
 }
 
-.alert-title-wrap {
+.alert-header-main {
     display: flex;
     align-items: center;
     gap: var(--space-3);
@@ -600,9 +600,6 @@
     align-items: center;
     gap: var(--space-3);
     flex: 1;
-}
-
-.modal-title h3 {
     margin: 0;
     font-size: 1.1rem;
     color: var(--color-primary-900);

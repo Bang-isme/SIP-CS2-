@@ -1,67 +1,75 @@
 # CEO Memo Acceptance Matrix (Case Study 1-5)
 
-> Last Updated: 2026-02-16
-> Purpose: acceptance status based on implemented evidence only.
+> Last Updated: 2026-02-21  
+> Policy: đánh giá theo evidence thật trong repo, không overclaim.
 
 ## 1) Core Stakeholder Needs
 
 | Need | Priority | Status | Evidence |
 |---|---|---|---|
 | Integrate HR + Payroll information | High | PASS | `src/controllers/dashboard.controller.js`, `scripts/aggregate-dashboard.js` |
-| Timely executive decision support | High | PASS | Pre-aggregated summaries, dashboard error/freshness states in `dashboard/src/pages/Dashboard.jsx` |
+| Timely executive decision support | High | PASS | Dashboard summary + freshness/error states in `dashboard/src/pages/Dashboard.jsx` |
 | Manage-by-exception | High | PASS | `dashboard/src/components/AlertsPanel.jsx`, `dashboard/src/components/IntegrationEventsPanel.jsx` |
 | Drill-down to details | Medium | PASS | `dashboard/src/components/DrilldownModal.jsx`, `GET /api/dashboard/drilldown` |
-| Reduce manual reporting disruption | Medium | PASS | Aggregation script + drilldown CSV export |
+| Reduce manual reporting disruption | Medium | PASS | Aggregation + drilldown CSV export |
 
 ## 2) CEO Memo Feature Acceptance
 
 | CEO Requirement | Status | Validation | Evidence |
 |---|---|---|---|
-| Earnings by shareholder/gender/ethnicity/PT-FT/department (current + previous year) | PASS | API + UI | `GET /api/dashboard/earnings`, `dashboard/src/components/EarningsChart.jsx` |
-| Vacation totals by same classifications (current + previous year) | PASS | API + UI | `GET /api/dashboard/vacation`, `dashboard/src/components/VacationChart.jsx` |
-| Avg benefits by plan, shareholder vs non-shareholder | PASS | API + UI | `GET /api/dashboard/benefits`, `dashboard/src/components/BenefitsChart.jsx` |
-| Alerts: anniversary / vacation / benefits_change / birthday | PASS | API + UI modal details | `GET /api/alerts/triggered`, `dashboard/src/components/AlertsPanel.jsx` |
-| Drill-down from summary widgets | PASS | UI click-through + context filters | `dashboard/src/pages/Dashboard.jsx`, `dashboard/src/components/DrilldownModal.jsx` |
-| Ad-hoc query support (min earnings > X) | PASS (guided) | Filter + export flow | `GET /api/dashboard/drilldown?minEarnings=...`, `dashboard/src/components/DrilldownModal.jsx` |
-| Decision clarity with data freshness and localized error states | PASS | UI behavior check | `dashboard/src/pages/Dashboard.jsx`, `dashboard/src/pages/Dashboard.css` |
+| Earnings by key dimensions (current + previous year) | PASS | API + UI | `GET /api/dashboard/earnings`, `dashboard/src/components/EarningsChart.jsx` |
+| Vacation totals by key dimensions | PASS | API + UI | `GET /api/dashboard/vacation`, `dashboard/src/components/VacationChart.jsx` |
+| Avg benefits by plan + shareholder split | PASS | API + UI | `GET /api/dashboard/benefits`, `dashboard/src/components/BenefitsChart.jsx` |
+| Alerts: anniversary/vacation/benefits_change/birthday | PASS | API + UI modal | `GET /api/alerts/triggered`, `dashboard/src/components/AlertsPanel.jsx` |
+| Drill-down + ad-hoc filter + export CSV | PASS | UI + API | `dashboard/src/components/DrilldownModal.jsx`, `GET /api/dashboard/drilldown/export` |
+| Integration queue monitor (admin path) | PASS | API + UI | `src/routes/integration.routes.js`, `dashboard/src/components/IntegrationEventsPanel.jsx` |
+| Decision clarity (error/freshness/badges) | PASS | UI behavior | `dashboard/src/pages/Dashboard.jsx`, `dashboard/src/pages/Dashboard.css` |
 
-## 3) Security and Reliability Hardening (2026-02-16)
+## 3) Security / Correctness Hardening
 
 | Item | Status | Evidence |
 |---|---|---|
-| `/api/users` restricted to admin-only | PASS | `src/routes/user.routes.js` |
-| User payload redaction (no `password`, no `tokens`) | PASS | `src/controllers/user.controller.js` |
-| Auth payload redaction for `signin/signup/me` | PASS | `src/controllers/auth.controller.js` |
-| `GET /api/auth/me` returns profile + roles for FE authz | PASS | `src/routes/auth.routes.js`, `src/controllers/auth.controller.js` |
-| Integration Queue hidden for non-admin users on FE | PASS | `dashboard/src/pages/Dashboard.jsx`, `dashboard/src/App.jsx` |
-| Authz + redaction tests | PASS | `src/__tests__/users.security.test.js` |
-| Auth profile endpoint tests | PASS | `src/__tests__/auth.profile.test.js` |
-| Auth signin redaction tests | PASS | `src/__tests__/auth.signin.security.test.js` |
-| Jest integration open-handle cleanup configuration | PASS | `tests/jest.config.js`, `src/__tests__/setup.js` |
+| `/api/users` restricted (admin/super-admin controls) | PASS | `src/routes/user.routes.js` |
+| Signup privilege-escalation blocked (`/auth/signup` always role `user`) | PASS | `src/controllers/auth.controller.js`, `src/__tests__/auth.signup.contract.test.js` |
+| Employee write path least-privilege (`POST/PUT/DELETE` admin-only) | PASS | `src/routes/employee.routes.js`, `src/__tests__/employee.routes.authz.test.js` |
+| Sync retry status aligned to enum (`SUCCESS/FAILED/PENDING`) | PASS | `src/services/syncService.js`, `src/models/sql/SyncLog.js`, `src/__tests__/sync.retry.status.test.js` |
+| PayRate adapter-model contract unified | PASS | `src/adapters/payroll.adapter.js`, `src/models/sql/PayRate.js`, `src/__tests__/payrate.contract.test.js` |
+| Root auth seed race fixed (`createRoles` then `createAdmin`) | PASS | `src/libs/initialSetup.js` |
 
 ## 4) Case Study Completion Snapshot
 
-| Case Study | Scope | Status | Remaining Gap |
+| Case Study | Scope | Status | Evidence-based note |
 |---|---|---|---|
-| Case 1 - Proposal | Problem framing + alternatives + plan | PASS (docs) | Add GUI sketch artifact if your instructor requires one |
-| Case 2 - Dashboard | Presentation-style integrated dashboard | PASS | None blocking |
-| Case 3 - Integrated System | Functional integration + consistency handling | PASS (eventual consistency) | No strict ACID/2PC |
-| Case 4 - Fully Integrated | Middleware-centric integration | PASS (middleware-lite implementation) | Kafka/RabbitMQ + DLQ + production observability still design-only |
-| Case 5 - Network Integration | Network/DR/Security strategy | PASS (docs + safe rehearsal) | Infra implementation not yet done |
+| Case 1 - Proposal | Problem framing + architecture options | PASS (docs-level) | Proposal/docs present |
+| Case 2 - Dashboard | Executive dashboard implementation | PASS (implemented) | Demo flow fully runnable |
+| Case 3 - Integrated System | Functional integration + consistency | PARTIAL | Eventual consistency works; no strict ACID/2PC |
+| Case 4 - Fully Integrated | Middleware-centric integration | PARTIAL | Outbox + worker + monitor done; no broker/DLQ ops grade |
+| Case 5 - Network Integration | Network/DR/security infra | DOCS-LEVEL | Plan/templates/rehearsal-safe; no production infra rollout |
 
-## 5) Quality Gate Evidence
+## 5) Quality Gate Evidence (2026-02-21)
 
 Backend:
-- `npm test` -> PASS (unit + integration)
+- `npm run lint` -> PASS
+- `npm test` -> PASS
+- `npm run test:advanced` -> PASS
+- `npm audit --omit=dev` -> PASS (0 critical, 0 high, 1 moderate via `sequelize -> lodash`)
 
 Frontend (`dashboard/`):
 - `npm run lint` -> PASS
+- `npm test` -> PASS
 - `npm run build` -> PASS
-- Bundle warning status: no >500 kB warning after chunk split (`dashboard/vite.config.js`)
+- `npm audit --omit=dev` -> PASS (0 vulnerabilities)
+- `accessibility_check.py --level AA` -> PASS (0 issue, compliance score 100)
 
-## 6) Decision Note
+Advisory scans:
+- `security_scan.py` -> PASS (0 critical, warnings remain)
+- `ux_audit.py` -> advisory warnings exist (non-blocking for current scope)
 
-- Current state is course-acceptance ready with stronger defense on security, resilience, and demo clarity.
-- Next optional investment (outside current scope):
-  1. Production message broker + DLQ
-  2. Case 5 infrastructure execution (network, backup, DR)
+## 6) Production-like Readiness Verdict
+
+- **Not enterprise production-ready yet**.  
+- Current state is **production-like for coursework/demo** with improved security and contract correctness.  
+- Remaining gaps before enterprise claim:
+  1. Replace DB-outbox polling with broker-grade architecture (Kafka/RabbitMQ + DLQ + observability).
+  2. Mature migration workflow beyond bootstrap baseline.
+  3. Resolve residual advisory findings and ops hardening backlog.

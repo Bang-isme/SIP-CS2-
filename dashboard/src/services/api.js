@@ -56,8 +56,23 @@ export const login = async (email, password) => {
   return response.data;
 };
 
-export const register = async (username, email, password) => {
-  const response = await api.post('/auth/signup', { username, email, password });
+export const register = async (username, email, password, roles = ['user']) => {
+  const response = await api.post('/auth/signup', { username, email, password, roles });
+  return response.data;
+};
+
+export const getUsers = async () => {
+  const response = await api.get('/users');
+  return response.data;
+};
+
+export const promoteUserToAdmin = async (userId) => {
+  const response = await api.put(`/users/${userId}/promote-admin`);
+  return response.data;
+};
+
+export const demoteUserFromAdmin = async (userId) => {
+  const response = await api.put(`/users/${userId}/demote-admin`);
   return response.data;
 };
 

@@ -13,6 +13,7 @@ jest.unstable_mockModule("../middlewares/authJwt.js", () => ({
     return next();
   },
   isAdmin: (req, res, next) => next(),
+  isSuperAdmin: (req, res, next) => next(),
   isModerator: (req, res, next) => next(),
 }));
 
@@ -26,7 +27,7 @@ jest.unstable_mockModule("../models/User.js", () => ({
 }));
 
 jest.unstable_mockModule("../models/Role.js", () => ({
-  ROLES: ["user", "admin", "moderator"],
+  ROLES: ["user", "admin", "moderator", "super_admin"],
   default: {
     find: jest.fn(async () => []),
     findOne: jest.fn(async () => ({ _id: "role-user-id" })),

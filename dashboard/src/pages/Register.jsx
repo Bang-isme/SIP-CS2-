@@ -17,7 +17,7 @@ function Register({ onSwitchToLogin }) {
     setSuccess('');
 
     try {
-      await register(username, email, password);
+      await register(username, email, password, ['user']);
       setSuccess('Registration successful! Redirecting to login...');
       setTimeout(() => {
         onSwitchToLogin();

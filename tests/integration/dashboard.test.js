@@ -7,6 +7,7 @@ import { MONGODB_URI } from '../../src/config.js';
 jest.unstable_mockModule('../../src/middlewares/authJwt.js', () => ({
     verifyToken: (req, res, next) => next(),
     isAdmin: (req, res, next) => next(),
+    isSuperAdmin: (req, res, next) => next(),
     isModerator: (req, res, next) => next()
 }));
 

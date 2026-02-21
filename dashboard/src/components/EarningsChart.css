@@ -85,7 +85,7 @@
           color: var(--color-text-tertiary);
           letter-spacing: 0.08em;
           font-weight: 700;
-          margin-bottom: 2px;
+          margin: 0 0 2px;
         }
         .breakdown-row {
           display: flex;
@@ -198,7 +198,7 @@
           letter-spacing: 0.08em;
           color: var(--color-text-tertiary);
           font-weight: 700;
-          margin-bottom: var(--space-2);
+          margin: 0 0 var(--space-2);
         }
         .dept-table {
           display: flex;
@@ -296,7 +296,7 @@
           letter-spacing: 0.08em;
           color: var(--color-text-tertiary);
           font-weight: 700;
-          margin-bottom: 4px;
+          margin: 0 0 4px;
         }
         .mover-row {
           display: flex;

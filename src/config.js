@@ -46,6 +46,12 @@ export const MYSQL_PORT = process.env.MYSQL_PORT || 3306;
 export const MYSQL_USER = process.env.MYSQL_USER || "root";
 export const MYSQL_PASSWORD = process.env.MYSQL_PASSWORD || "";
 export const MYSQL_DATABASE = process.env.MYSQL_DATABASE || "payroll_db";
+export const MYSQL_AUTO_SYNC = process.env.MYSQL_AUTO_SYNC
+  ? process.env.MYSQL_AUTO_SYNC === "true"
+  : !isProduction;
+export const MYSQL_REQUIRE_MIGRATIONS = process.env.MYSQL_REQUIRE_MIGRATIONS
+  ? process.env.MYSQL_REQUIRE_MIGRATIONS === "true"
+  : isProduction;
 
 // ===========================================
 // Outbox / Integration Worker (Case Study 4)
