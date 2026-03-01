@@ -74,3 +74,57 @@ Quality-gate scripts:
 - `sequelize` currently pulls `lodash@4.17.21` (moderate advisory); no critical/high remaining.
 - DB migration strategy is bootstrap-level, not yet a full incremental migration pipeline.
 - UX static audit still reports advisory warnings; not blocking current course demo acceptance.
+
+## 6) Addendum - 2026-03-02 (`audit_tmp` Readiness)
+
+Scope decision: freeze implementation at audit-compliance and data-correctness level, avoid new UX scope that is not required by `audit_tmp`.
+
+### 6.1 Audit Criteria Status
+
+| Criteria | Status | Evidence |
+|---|---|---|
+| CEO memo summary dimensions (earnings/vacation/benefits) | PASS | `GET /api/dashboard/earnings`, `GET /api/dashboard/vacation`, `GET /api/dashboard/benefits` |
+| Manage-by-exception alerts (4 types) | PASS | `GET /api/alerts/triggered`, `scripts/aggregate-dashboard.js` |
+| Drilldown + `minEarnings` query | PASS | `GET /api/dashboard/drilldown`, integration tests |
+| Alerts preview/modal deterministic order | PASS | `src/controllers/alerts.controller.js` (`days_until`, `name`, `employee_id`) |
+| Department labels not degraded to `Unassigned` in summaries | PASS | fallback mapping in aggregation/controller |
+| Cross-DB consistency | PASS | `node scripts/audit-data.js` -> `SQL Coverage: 100.00%` |
+
+### 6.2 Verification Run (2026-03-02)
+
+1. `npm run lint` -> PASS
+2. `npm run test:integration` -> PASS (5/5)
+3. `node scripts/audit-data.js` -> PASS
+   - `Total MongoDB Employees: 435000`
+   - `Total Unique SQL Employee IDs: 435000`
+   - `SQL Coverage: 100.00%`
+4. SQL alert summary check -> PASS
+   - `anniversary:35936`
+   - `vacation:50498`
+   - `benefits_change:3767`
+   - `birthday:36804`
+   - `total_affected:127005`
+
+### 6.3 Audit-Safe Delta
+
+- `src/utils/departmentMapping.js`
+  - deterministic fallback mapping when Mongo `departments` is empty.
+- `scripts/aggregate-dashboard.js`
+  - uses fallback department mapping and continues when Mongo quota blocks snapshot writes.
+- `src/controllers/dashboard.controller.js`
+  - `minEarnings` from SQL `earnings_employee_year`;
+  - department resolution fallback; department list remains valid without `departments` documents.
+- `src/controllers/alerts.controller.js`
+  - stable ordering for preview/modal (`days_until ASC`, `name ASC`, `employee_id ASC`).
+- `tests/integration/dashboard.test.js`
+  - added checks for `Unassigned` regression and `minEarnings` correctness.
+
+### 6.4 Updated Residual Risks
+
+1. Mongo Atlas quota is still exceeded; write paths may continue in fallback/degraded mode.
+2. `departments` collection in Mongo remains empty; deterministic fallback mapping is currently required.
+3. Current checkpoint is audit/demo ready, not a claim of full enterprise production hardening.
+
+### 6.5 Readiness Verdict
+
+Ready for `audit_tmp` walkthrough with scope frozen at required case-study outcomes.

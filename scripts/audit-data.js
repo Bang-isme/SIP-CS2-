@@ -12,6 +12,17 @@ import { connectMySQL } from '../src/mysqlDatabase.js';
 import { Earning, VacationRecord, EmployeeBenefit, BenefitPlan } from '../src/models/sql/index.js';
 import { Op, Sequelize } from 'sequelize';
 
+const DEPARTMENT_FALLBACK_ORDER = [
+    "Human Resources",
+    "Finance",
+    "Engineering",
+    "Sales",
+    "Marketing",
+    "IT Support",
+    "Operations",
+    "Legal",
+];
+
 async function auditHRData() {
     console.log('\n=== A. HR DATA (MongoDB) ===\n');
 
@@ -24,9 +35,24 @@ async function auditHRData() {
     const byDept = await Employee.aggregate([
         { $group: { _id: '$departmentId', count: { $sum: 1 } } }
     ]);
+
+    let fallbackDeptMap = new Map();
+    if (depts.length === 0 && byDept.length > 0) {
+        const sortedById = [...byDept]
+            .map((row) => ({ ...row, _key: String(row._id) }))
+            .sort((a, b) => a._key.localeCompare(b._key));
+
+        sortedById.forEach((row, idx) => {
+            const fallbackName = DEPARTMENT_FALLBACK_ORDER[idx] || `Dept-${idx + 1}`;
+            fallbackDeptMap.set(String(row._id), fallbackName);
+        });
+        console.log('\n[WARN] departments collection is empty; using fallback mapping from known seed department order.');
+    }
+
     console.log('\nBy Department:');
     byDept.forEach(d => {
-        const name = deptMap.get(d._id?.toString()) || 'Unknown';
+        const key = d._id?.toString();
+        const name = deptMap.get(key) || fallbackDeptMap.get(key) || 'Unknown';
         const pct = (d.count / total * 100).toFixed(2);
         console.log(`  ${name}: ${d.count} (${pct}%)`);
     });

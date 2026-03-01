@@ -18,6 +18,7 @@ import { connectMySQL, syncDatabase } from "../src/mysqlDatabase.js";
 import Employee from "../src/models/Employee.js";
 import Department from "../src/models/Department.js";
 import Alert from "../src/models/Alert.js";
+import { buildDepartmentNameMap } from "../src/utils/departmentMapping.js";
 import {
     Earning,
     VacationRecord,
@@ -34,11 +35,43 @@ import { Op } from "sequelize";
 
 const BATCH_SIZE = 5000;
 
+function parseRuntimeOptions(argv) {
+    const options = {
+        targetYear: new Date().getFullYear(),
+        skipSnapshot: false,
+    };
+
+    for (const arg of argv) {
+        if (arg === "--skip-snapshot") {
+            options.skipSnapshot = true;
+            continue;
+        }
+        if (/^\d{4}$/.test(arg)) {
+            options.targetYear = parseInt(arg, 10);
+        }
+    }
+
+    if (process.env.AGG_SKIP_EMPLOYEE_SNAPSHOT === "1") {
+        options.skipSnapshot = true;
+    }
+
+    return options;
+}
+
+function isMongoQuotaError(error) {
+    if (!error) return false;
+    const message = `${error.message || ""} ${error?.errorResponse?.errmsg || ""}`.toLowerCase();
+    return error.code === 8000 || error?.errorResponse?.code === 8000 || message.includes("space quota");
+}
+
 async function main() {
-    const targetYear = parseInt(process.argv[2]) || new Date().getFullYear();
+    const { targetYear, skipSnapshot } = parseRuntimeOptions(process.argv.slice(2));
 
     console.log("========================================");
     console.log(`Dashboard Aggregation - Year: ${targetYear}`);
+    if (skipSnapshot) {
+        console.log("Mode: skip Mongo annualEarnings snapshot updates");
+    }
     console.log("========================================\n");
 
     const startTime = Date.now();
@@ -52,7 +85,7 @@ async function main() {
         console.log("✓ Connected\n");
 
         // === STEP 1: Aggregate Earnings ===
-        await aggregateEarnings(targetYear);
+        await aggregateEarnings(targetYear, { skipSnapshot });
 
         // === STEP 2: Aggregate Vacation ===
         await aggregateVacation(targetYear);
@@ -75,12 +108,17 @@ async function main() {
     }
 }
 
-async function aggregateEarnings(targetYear) {
+async function aggregateEarnings(targetYear, options = {}) {
     console.log("1. Aggregating Earnings...");
 
     // Get department lookup
-    const departments = await Department.find().lean();
-    const deptMap = new Map(departments.map(d => [d._id.toString(), d.name]));
+    const { map: deptMap, usedFallback } = await buildDepartmentNameMap({
+        DepartmentModel: Department,
+        EmployeeModel: Employee,
+    });
+    if (usedFallback) {
+        console.warn("   ⚠ departments collection empty: using deterministic fallback mapping for department names.");
+    }
 
     // Get earnings from MySQL (already grouped by employee)
     const [currentEarnings, previousEarnings] = await Promise.all([
@@ -106,6 +144,8 @@ async function aggregateEarnings(targetYear) {
     let total = { current: 0, previous: 0 };
     let employeeCount = 0;
     let earningsUpdates = [];
+    let snapshotWritesEnabled = !options.skipSnapshot;
+    let snapshotWritesSkippedReason = options.skipSnapshot ? "cli_or_env_skip" : null;
 
     // Stream employees
     const cursor = Employee.find()
@@ -119,16 +159,30 @@ async function aggregateEarnings(targetYear) {
         const current = currentMap.get(empId) || 0;
         const previous = previousMap.get(empId) || 0;
 
-        // Update annual earnings snapshot in MongoDB (for fast minEarnings filter)
-        earningsUpdates.push({
-            updateOne: {
-                filter: { _id: emp._id },
-                update: { $set: { annualEarnings: current, annualEarningsYear: targetYear } }
+        // Update annual earnings snapshot in MongoDB (for fast minEarnings filter).
+        // If Mongo storage quota is exceeded, continue aggregation in read-only mode.
+        if (snapshotWritesEnabled) {
+            earningsUpdates.push({
+                updateOne: {
+                    filter: { _id: emp._id },
+                    update: { $set: { annualEarnings: current, annualEarningsYear: targetYear } }
+                }
+            });
+            if (earningsUpdates.length >= BATCH_SIZE) {
+                try {
+                    await Employee.bulkWrite(earningsUpdates, { ordered: false });
+                    earningsUpdates = [];
+                } catch (error) {
+                    if (isMongoQuotaError(error)) {
+                        snapshotWritesEnabled = false;
+                        snapshotWritesSkippedReason = "mongo_space_quota";
+                        earningsUpdates = [];
+                        console.warn("   ⚠ Mongo space quota reached. Continuing without annualEarnings snapshot updates.");
+                    } else {
+                        throw error;
+                    }
+                }
             }
-        });
-        if (earningsUpdates.length >= BATCH_SIZE) {
-            await Employee.bulkWrite(earningsUpdates, { ordered: false });
-            earningsUpdates = [];
         }
 
         if (current === 0 && previous === 0) continue;
@@ -170,8 +224,18 @@ async function aggregateEarnings(targetYear) {
         }
     }
 
-    if (earningsUpdates.length > 0) {
-        await Employee.bulkWrite(earningsUpdates, { ordered: false });
+    if (snapshotWritesEnabled && earningsUpdates.length > 0) {
+        try {
+            await Employee.bulkWrite(earningsUpdates, { ordered: false });
+        } catch (error) {
+            if (isMongoQuotaError(error)) {
+                snapshotWritesEnabled = false;
+                snapshotWritesSkippedReason = "mongo_space_quota";
+                console.warn("   ⚠ Mongo space quota reached during final snapshot flush. Continuing.");
+            } else {
+                throw error;
+            }
+        }
         earningsUpdates = [];
     }
 
@@ -225,13 +289,21 @@ async function aggregateEarnings(targetYear) {
 
     console.log(`   OK Saved ${currentYearRows.length} earnings-employee rows for ${targetYear}`);
     console.log(`   OK Saved ${previousYearRows.length} earnings-employee rows for ${targetYear - 1}`);
+    if (!snapshotWritesEnabled) {
+        console.log(`   NOTE annualEarnings snapshot updates skipped (${snapshotWritesSkippedReason})`);
+    }
 }
 
 async function aggregateVacation(targetYear) {
     console.log("\n2. Aggregating Vacation...");
 
-    const departments = await Department.find().lean();
-    const deptMap = new Map(departments.map(d => [d._id.toString(), d.name]));
+    const { map: deptMap, usedFallback } = await buildDepartmentNameMap({
+        DepartmentModel: Department,
+        EmployeeModel: Employee,
+    });
+    if (usedFallback) {
+        console.warn("   ⚠ departments collection empty: using deterministic fallback mapping for department names.");
+    }
 
     const [currentVacation, previousVacation] = await Promise.all([
         sequelize.query(`

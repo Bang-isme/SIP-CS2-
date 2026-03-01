@@ -137,7 +137,7 @@ export const getAlertEmployees = async (req, res) => {
         // Get paginated employees
         const employees = await AlertEmployee.findAll({
             where: whereClause,
-            order: [['days_until', 'ASC'], ['name', 'ASC']],
+            order: [['days_until', 'ASC'], ['name', 'ASC'], ['employee_id', 'ASC']],
             offset,
             limit,
             raw: true
@@ -224,7 +224,7 @@ export const getTriggeredAlerts = async (req, res) => {
             // Fetch first 5 employees for preview display on cards
             const previewEmployees = await AlertEmployee.findAll({
                 where: { alert_type: row.alert_type },
-                order: [['days_until', 'ASC'], ['name', 'ASC']],
+                order: [['days_until', 'ASC'], ['name', 'ASC'], ['employee_id', 'ASC']],
                 limit: 5,
                 raw: true
             });

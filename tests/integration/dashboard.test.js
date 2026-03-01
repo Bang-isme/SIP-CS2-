@@ -41,6 +41,13 @@ describe('Dashboard Integration Tests', () => {
                 expect(typeof res.body.data[0]).toBe('string');
             }
         });
+
+        it('should not return Unassigned in department filter options', async () => {
+            const res = await request(app).get('/api/dashboard/departments');
+            expect(res.statusCode).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(res.body.data).not.toContain('Unassigned');
+        });
     });
 
     describe('GET /api/dashboard/drilldown', () => {
@@ -72,6 +79,21 @@ describe('Dashboard Integration Tests', () => {
             const res = await request(app).get('/api/dashboard/drilldown?search=NonExistentUserXYZ');
             expect(res.statusCode).toBe(200);
             expect(res.body.data.length).toBe(0);
+        });
+
+        it('should support minEarnings filter using SQL aggregation source', async () => {
+            const threshold = 100000;
+            const res = await request(app)
+                .get(`/api/dashboard/drilldown?year=2026&minEarnings=${threshold}&page=1&limit=50`);
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body.success).toBe(true);
+            expect(Array.isArray(res.body.data)).toBe(true);
+
+            if (res.body.data.length > 0) {
+                const allMatched = res.body.data.every((emp) => Number(emp.totalEarnings || 0) >= threshold);
+                expect(allMatched).toBe(true);
+            }
         });
     });
 });

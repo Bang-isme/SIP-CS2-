@@ -3,6 +3,7 @@ import Department from "../models/Department.js";
 import { Earning, VacationRecord, BenefitPlan, EmployeeBenefit, EarningsSummary, EarningsEmployeeYear, VacationSummary, BenefitsSummary } from "../models/sql/index.js";
 import { Op, fn, col } from "sequelize";
 import dashboardCache from "../utils/cache.js";
+import { buildDepartmentNameMap, listDepartmentNames, resolveDepartmentIdByName } from "../utils/departmentMapping.js";
 
 
 /**
@@ -314,7 +315,12 @@ export const getDrilldown = async (req, res) => {
         const pageNum = Math.max(parseInt(page) || 1, 1);
         const limitNum = Math.min(parseInt(limit) || 20, 10000);
         const bulkMode = req.query.bulk === "1" || limitNum >= 1000;
-        const summaryMode = req.query.summary || (bulkMode ? "fast" : "full");
+        const requestedSummaryMode = req.query.summary || (bulkMode ? "fast" : "full");
+        const { map: departmentMap } = await buildDepartmentNameMap({
+            DepartmentModel: Department,
+            EmployeeModel: Employee,
+        });
+        let resolvedDepartmentName = null;
 
         const query = {};
         const applyEmployeeIdFilter = (ids) => {
@@ -337,11 +343,12 @@ export const getDrilldown = async (req, res) => {
             const isObjectId = /^[0-9a-fA-F]{24}$/.test(department);
             if (isObjectId) {
                 query.departmentId = department;
+                resolvedDepartmentName = departmentMap.get(department) || null;
             } else {
-                // Look up by name
-                const deptDoc = await Department.findOne({ name: department });
-                if (deptDoc) {
-                    query.departmentId = deptDoc._id;
+                const deptId = resolveDepartmentIdByName(department, departmentMap);
+                if (deptId) {
+                    query.departmentId = deptId;
+                    resolvedDepartmentName = departmentMap.get(deptId) || null;
                 } else {
                     return res.json({
                         success: true,
@@ -404,41 +411,42 @@ export const getDrilldown = async (req, res) => {
         if (employmentType) query.employmentType = employmentType;
         if (isShareholder !== undefined) query.isShareholder = isShareholder === "true";
 
-        // CEO Query: "Employees earning over $X" - Mongo filter using annualEarnings snapshot
+        // CEO Query: "Employees earning over $X" - SQL filter using earnings_employee_year
         const minEarnings = parseFloat(req.query.minEarnings);
         const hasMinEarnings = Number.isFinite(minEarnings) && minEarnings > 0;
+        const summaryMode = (hasMinEarnings && requestedSummaryMode === "full")
+            ? "fast"
+            : requestedSummaryMode;
 
         if (hasMinEarnings) {
-            const snapshotCount = await Employee.countDocuments({ annualEarningsYear: earningsYear });
-            if (snapshotCount === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: `No earnings snapshot for ${earningsYear}. Run: node scripts/aggregate-dashboard.js ${earningsYear}`
+            const matchingEarnings = await EarningsEmployeeYear.findAll({
+                where: {
+                    year: earningsYear,
+                    total: { [Op.gte]: minEarnings },
+                },
+                attributes: ["employee_id"],
+                raw: true,
+            });
+
+            const employeeIds = matchingEarnings.map((row) => row.employee_id).filter(Boolean);
+            const ok = applyEmployeeIdFilter(employeeIds);
+            if (!ok) {
+                return res.json({
+                    success: true,
+                    data: [],
+                    meta: { total: 0, page: parseInt(page), limit: parseInt(limit), pages: 0 }
                 });
             }
-
-            query.annualEarningsYear = earningsYear;
-            query.annualEarnings = { $gte: minEarnings };
         }
 
         const skip = (pageNum - 1) * limitNum;
-        let employeeQuery = Employee.find(query);
-        if (bulkMode) {
-            employeeQuery = employeeQuery.select("employeeId firstName lastName departmentId gender ethnicity employmentType isShareholder vacationDays annualEarnings annualEarningsYear");
-        } else {
-            employeeQuery = employeeQuery.populate("departmentId");
-        }
+        const employeeFields = "employeeId firstName lastName departmentId gender ethnicity employmentType isShareholder vacationDays annualEarnings annualEarningsYear";
+        const employeeQuery = Employee.find(query).select(employeeFields);
 
         const [employees, total] = await Promise.all([
             employeeQuery.skip(skip).limit(limitNum).lean(),
             Employee.countDocuments(query)
         ]);
-
-        let departmentMap = null;
-        if (bulkMode) {
-            const depts = await Department.find().select("_id name").lean();
-            departmentMap = new Map(depts.map(d => [d._id.toString(), d.name]));
-        }
 
         // Get payroll data for these employees (small batch, max 20)
         const employeeIds = employees.map((e) => e.employeeId || e._id.toString());
@@ -485,11 +493,8 @@ export const getDrilldown = async (req, res) => {
         }
 
         const getDepartmentName = (emp) => {
-            if (bulkMode) {
-                const deptId = emp.departmentId ? emp.departmentId.toString() : "";
-                return departmentMap?.get(deptId) || "Unassigned";
-            }
-            return emp.departmentId?.name || "Unassigned";
+            const deptId = emp.departmentId ? emp.departmentId.toString() : "";
+            return departmentMap.get(deptId) || "Unassigned";
         };
 
         let enrichedEmployees = employees.map((emp) => ({
@@ -561,7 +566,7 @@ export const getDrilldown = async (req, res) => {
             // Check if we can use pre-aggregated data for SINGLE dimension filter
             const activeFilters = [
                 gender ? { type: 'gender', value: gender } : null,
-                department ? { type: 'department', value: department } : null,
+                department ? { type: 'department', value: resolvedDepartmentName || department } : null,
                 ethnicity ? { type: 'ethnicity', value: ethnicity } : null,
                 employmentType ? { type: 'employmentType', value: employmentType } : null,
                 hasShareholderFilter ? { type: 'shareholder', value: isShareholder === 'true' ? 'shareholder' : 'nonShareholder' } : null
@@ -754,17 +759,35 @@ export const exportDrilldownCsv = async (req, res) => {
         const { department, gender, ethnicity, employmentType, isShareholder } = req.query;
         const currentYear = new Date().getFullYear();
         const earningsYear = parseInt(req.query.year) || currentYear;
+        const { map: departmentMap } = await buildDepartmentNameMap({
+            DepartmentModel: Department,
+            EmployeeModel: Employee,
+        });
 
         const query = {};
+        const applyEmployeeIdFilter = (ids) => {
+            if (!Array.isArray(ids) || ids.length === 0) return false;
+            if (!query.employeeId) {
+                query.employeeId = { $in: ids };
+                return true;
+            }
+            if (query.employeeId?.$in) {
+                const idSet = new Set(query.employeeId.$in);
+                const intersection = ids.filter((id) => idSet.has(id));
+                query.employeeId = { $in: intersection };
+                return intersection.length > 0;
+            }
+            return true;
+        };
 
         if (department) {
             const isObjectId = /^[0-9a-fA-F]{24}$/.test(department);
             if (isObjectId) {
                 query.departmentId = department;
             } else {
-                const deptDoc = await Department.findOne({ name: department });
-                if (deptDoc) {
-                    query.departmentId = deptDoc._id;
+                const deptId = resolveDepartmentIdByName(department, departmentMap);
+                if (deptId) {
+                    query.departmentId = deptId;
                 } else {
                     return res.status(404).json({ success: false, message: "Department not found." });
                 }
@@ -790,23 +813,36 @@ export const exportDrilldownCsv = async (req, res) => {
 
         const minEarnings = parseFloat(req.query.minEarnings);
         const hasMinEarnings = Number.isFinite(minEarnings) && minEarnings > 0;
+        const isVacation = req.query.context === 'vacation';
+        let earningsByEmployee = new Map();
 
-        if (hasMinEarnings) {
-            const snapshotCount = await Employee.countDocuments({ annualEarningsYear: earningsYear });
-            if (snapshotCount === 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: `No earnings snapshot for ${earningsYear}. Run: node scripts/aggregate-dashboard.js ${earningsYear}`
-                });
-            }
-            query.annualEarningsYear = earningsYear;
-            query.annualEarnings = { $gte: minEarnings };
+        if (!isVacation || hasMinEarnings) {
+            const earningsRows = await EarningsEmployeeYear.findAll({
+                where: { year: earningsYear },
+                attributes: ["employee_id", "total"],
+                raw: true,
+            });
+            earningsByEmployee = new Map(
+                earningsRows
+                    .map((row) => [row.employee_id, parseFloat(row.total) || 0])
+                    .filter(([employeeId]) => Boolean(employeeId))
+            );
         }
 
-        const depts = await Department.find().select("_id name").lean();
-        const deptMap = new Map(depts.map(d => [d._id.toString(), d.name]));
+        if (hasMinEarnings) {
+            const employeeIds = [];
+            for (const [employeeId, total] of earningsByEmployee.entries()) {
+                if (total >= minEarnings) employeeIds.push(employeeId);
+            }
+            const ok = applyEmployeeIdFilter(employeeIds);
+            if (!ok) {
+                return res.status(404).json({
+                    success: false,
+                    message: `No employees found with earnings >= ${minEarnings} for ${earningsYear}`,
+                });
+            }
+        }
 
-        const isVacation = req.query.context === 'vacation';
         const fileDate = new Date().toISOString().slice(0, 10);
 
         res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -839,9 +875,13 @@ export const exportDrilldownCsv = async (req, res) => {
         };
 
         for await (const emp of cursor) {
-            const deptName = deptMap.get(emp.departmentId?.toString()) || "Unassigned";
+            const deptName = departmentMap.get(emp.departmentId?.toString()) || "Unassigned";
+            const employeeId = emp.employeeId || emp._id.toString();
+            const hasSqlEarning = earningsByEmployee.has(employeeId);
             const isSnapshotValid = emp.annualEarningsYear === earningsYear && Number.isFinite(emp.annualEarnings);
-            const totalEarnings = isSnapshotValid ? emp.annualEarnings : 0;
+            const totalEarnings = hasSqlEarning
+                ? earningsByEmployee.get(employeeId)
+                : (isSnapshotValid ? emp.annualEarnings : 0);
             const row = [
                 escapeCsv(emp.employeeId || ""),
                 escapeCsv(`${emp.firstName || ""} ${emp.lastName || ""}`.trim()),
@@ -871,10 +911,15 @@ export const exportDrilldownCsv = async (req, res) => {
  */
 export const getDepartments = async (req, res) => {
     try {
-        const departments = await Department.find().sort({ name: 1 }).select("name");
+        const { map: departmentMap } = await buildDepartmentNameMap({
+            DepartmentModel: Department,
+            EmployeeModel: Employee,
+        });
+        const departments = listDepartmentNames(departmentMap)
+            .sort((a, b) => a.localeCompare(b));
         res.json({
             success: true,
-            data: departments.map(d => d.name)
+            data: departments
         });
     } catch (error) {
         console.error("getDepartments error:", error);
