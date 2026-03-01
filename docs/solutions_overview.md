@@ -3,6 +3,11 @@
 > **Phiên bản**: 1.0  
 > **Cập nhật**: 2026-02-05
 
+> **Data Volume Assumption (Updated 2026-03-02)**:
+> `500k` is the baseline for the HR employee master dataset (MongoDB `employees`), not for every database/table.
+> Payroll row volume is expected to be higher (often multi-million) based on pay periods and retention windows.
+> Quick estimate: `payroll_rows ~= employees x pay_periods_per_year x retention_years x detail_factor`.
+
 ---
 
 ## Mục Lục
@@ -149,7 +154,7 @@ node scripts/aggregate-dashboard.js [year]
 
 1. **Cursor-based Processing**
    - Stream employees theo batch (5000/batch) để tránh memory overflow
-   - Phù hợp với 500k+ records
+   - Phù hợp với 500k+ employee-master records
 
 2. **Snapshot trong MongoDB**
    - `annualEarnings` + `annualEarningsYear` được lưu trực tiếp trong Employee document

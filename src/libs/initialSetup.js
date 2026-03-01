@@ -4,17 +4,20 @@ import { ADMIN_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD } from "../config.js";
 
 const ALL_ROLE_NAMES = ["user", "moderator", "admin", "super_admin"];
 const ROOT_ADMIN_ROLE_NAMES = ["user", "super_admin"];
+const SHOULD_SKIP_AUTH_SEED = process.env.SKIP_AUTH_SEED === "1";
+
+const isMongoQuotaError = (error) => {
+  if (!error) return false;
+  const message = `${error.message || ""} ${error?.errorResponse?.errmsg || ""}`.toLowerCase();
+  return error.code === 8000 || error?.errorResponse?.code === 8000 || message.includes("space quota");
+};
 
 export const createRoles = async () => {
-  try {
-    for (const roleName of ALL_ROLE_NAMES) {
-      const existingRole = await Role.findOne({ name: roleName });
-      if (!existingRole) {
-        await new Role({ name: roleName }).save();
-      }
+  for (const roleName of ALL_ROLE_NAMES) {
+    const existingRole = await Role.findOne({ name: roleName });
+    if (!existingRole) {
+      await new Role({ name: roleName }).save();
     }
-  } catch (error) {
-    console.error(error);
   }
 };
 
@@ -48,10 +51,23 @@ export const createAdmin = async () => {
 };
 
 export const initializeAuthSeed = async () => {
-  await createRoles();
-  await createAdmin();
+  if (SHOULD_SKIP_AUTH_SEED) {
+    console.log("[initialSetup] SKIP_AUTH_SEED=1 -> auth seed skipped.");
+    return;
+  }
+
+  try {
+    await createRoles();
+    await createAdmin();
+  } catch (error) {
+    if (isMongoQuotaError(error)) {
+      console.warn("[initialSetup] Mongo space quota reached. Running without auth seed updates.");
+      return;
+    }
+    throw error;
+  }
 };
 
 initializeAuthSeed().catch((error) => {
-  console.error("initialSetup failed:", error.message);
+  console.error("[initialSetup] failed:", error.message);
 });

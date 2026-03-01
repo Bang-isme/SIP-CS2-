@@ -2,6 +2,11 @@
 
 > Last Updated: 2026-02-03T16:30:00+07:00
 
+> **Data Volume Assumption (Updated 2026-03-02)**:
+> `500k` is the baseline for the HR employee master dataset (MongoDB `employees`), not for every database/table.
+> Payroll row volume is expected to be higher (often multi-million) based on pay periods and retention windows.
+> Quick estimate: `payroll_rows ~= employees x pay_periods_per_year x retention_years x detail_factor`.
+
 ## Project Overview
 
 This is an academic project for the **System Integration** course, implementing Case Studies 2-5.
@@ -40,7 +45,7 @@ d:\SIP_CS 2\SIP_CS\
 ## Data Architecture
 
 ### MongoDB Collections (HR System)
-- `employees` - 500,000+ records
+- `employees` - 500,000+ records (HR employee-master baseline)
 - `departments` - Organizational structure
 - `alerts` - Alert configurations (type, threshold, isActive)
 - `users` - Authentication
@@ -62,7 +67,7 @@ d:\SIP_CS 2\SIP_CS\
 
 1. **Pre-aggregation Strategy**: Dashboard reads from summary tables for <100ms response time
 2. **Hybrid Pagination**: AlertEmployee table allows API pagination for 40k+ records
-3. **Cursor Streaming**: aggregate-dashboard.js uses MongoDB cursor to process 500k employees with constant memory
+3. **Cursor Streaming**: aggregate-dashboard.js uses MongoDB cursor to process 500k employee-master records with constant memory
 4. **Dynamic Thresholds**: Alert thresholds read from MongoDB Alert collection, not hardcoded
 
 ## Case Study Requirements Summary (2026-02-03)

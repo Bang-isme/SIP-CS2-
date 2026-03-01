@@ -2,18 +2,23 @@
 
 > Last Updated: 2026-01-23T03:05:00+07:00
 
+> **Data Volume Assumption (Updated 2026-03-02)**:
+> `500k` is the baseline for the HR employee master dataset (MongoDB `employees`), not for every database/table.
+> Payroll row volume is expected to be higher (often multi-million) based on pay periods and retention windows.
+> Quick estimate: `payroll_rows ~= employees x pay_periods_per_year x retention_years x detail_factor`.
+
 ---
 
 ## ADR-001: Pre-Aggregation Strategy for Dashboard Performance
 
 **Date**: 2026-01-23  
 **Status**: Accepted  
-**Context**: Dashboard needs to display summary data from 500k+ employee records with <100ms response time.
+**Context**: Dashboard needs to display summary data from 500k+ employee-master records with <100ms response time.
 
 **Decision**: Use pre-computed summary tables (`EarningsSummary`, `VacationSummary`, `BenefitsSummary`, `AlertsSummary`) populated by a batch script.
 
 **Consequences**:
-- ✅ Dashboard API reads ~20-50 rows instead of 500k
+- ✅ Dashboard API reads ~20-50 rows instead of scanning 500k employee documents
 - ✅ Response time <100ms
 - ⚠️ Data is stale until next aggregation run
 - ⚠️ Must run `node scripts/aggregate-dashboard.js` after data changes

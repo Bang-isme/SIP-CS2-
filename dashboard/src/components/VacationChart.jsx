@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { FiActivity, FiTarget, FiTrendingUp } from 'react-icons/fi';
 import './VacationChart.css';
 
 function VacationChart({ data, onDrilldown }) {
@@ -7,25 +8,25 @@ function VacationChart({ data, onDrilldown }) {
 
     // 1. Prepare Donut Data (Shareholders)
     const shareholder = [
-        { name: 'Non-Shareholders', value: data.byShareholder.nonShareholder.current, fill: '#3b82f6' },
-        { name: 'Shareholders', value: data.byShareholder.shareholder.current, fill: '#1e293b' },
+        { name: 'Non-Shareholders', value: data.byShareholder.nonShareholder.current, fill: '#818cf8' },
+        { name: 'Shareholders', value: data.byShareholder.shareholder.current, fill: '#0d9488' },
     ];
 
-    const genderPalette = ['#10b981', '#f59e0b', '#94a3b8'];
+    const genderPalette = ['#0d9488', '#f59e0b', '#8b5cf6'];
     const gender = Object.entries(data.byGender).map(([name, values], index) => ({
         name,
         value: values.current,
         fill: genderPalette[index % genderPalette.length],
     }));
 
-    const employmentPalette = ['#ef4444', '#64748b'];
+    const employmentPalette = ['#6366f1', '#f472b6'];
     const employment = Object.entries(data.byEmploymentType).map(([name, values], index) => ({
         name,
         value: values.current,
         fill: employmentPalette[index % employmentPalette.length],
     }));
 
-    const ethnicityPalette = ['#94a3b8', '#64748b', '#cbd5f5', '#a5b4fc', '#94a3b8', '#64748b'];
+    const ethnicityPalette = ['#6366f1', '#0d9488', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
     const ethnicity = Object.entries(data.byEthnicity).map(([name, values], index) => ({
         name,
         value: values.current,
@@ -46,10 +47,6 @@ function VacationChart({ data, onDrilldown }) {
     const topSegment = rankedSegments[0];
     const secondSegment = rankedSegments[1];
     const topPercent = totalValue > 0 && topSegment ? (topSegment.value / totalValue) * 100 : null;
-    const gapPercent =
-        totalValue > 0 && topSegment && secondSegment
-            ? ((topSegment.value - secondSegment.value) / totalValue) * 100
-            : null;
     const gapAbsolute =
         topSegment && secondSegment
             ? topSegment.value - secondSegment.value
@@ -143,11 +140,11 @@ function VacationChart({ data, onDrilldown }) {
                         <div className="stat-list">
                             {donutData.map((item) => (
                                 <button
-                                  type="button"
-                                  key={item.name}
-                                  className="stat-row"
-                                  onClick={() => handleDrilldown(item.name)}
-                                  aria-label={`Open drilldown for ${item.name}`}
+                                    type="button"
+                                    key={item.name}
+                                    className="stat-row"
+                                    onClick={() => handleDrilldown(item.name)}
+                                    aria-label={`Open drilldown for ${item.name}`}
                                 >
                                     <div className="stat-info">
                                         <span className="dot" style={{ background: item.fill }}></span>
@@ -157,26 +154,31 @@ function VacationChart({ data, onDrilldown }) {
                                 </button>
                             ))}
                         </div>
+                        <div className="stats-highlight" aria-label="Quick insights">
+                            <div className="highlight-card">
+                                <span className="highlight-icon" aria-hidden="true"><FiTarget size={14} /></span>
+                                <div className="highlight-content">
+                                    <span className="highlight-label">Top Segment</span>
+                                    <span className="highlight-value">
+                                        {topSegment ? `${topSegment.name} (${topPercent?.toFixed(1)}%)` : '--'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="highlight-card">
+                                <span className="highlight-icon" aria-hidden="true"><FiTrendingUp size={14} /></span>
+                                <div className="highlight-content">
+                                    <span className="highlight-label">Gap to #2</span>
+                                    <span className="highlight-value">
+                                        {gapAbsolute !== null ? `${formatNum(Math.abs(gapAbsolute))} days` : '--'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="stats-tip">
+                                <FiActivity size={13} aria-hidden="true" />
+                                <span>Click a segment to open filtered drilldown.</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-
-            <div className="vacation-insights">
-                <div className="insight-item">
-                    <span className="insight-label">Largest Segment</span>
-                    <span className="insight-value">
-                        {topSegment
-                            ? `${topSegment.name} (${topPercent?.toFixed(1)}%)`
-                            : '--'}
-                    </span>
-                </div>
-                <div className="insight-item">
-                    <span className="insight-label">Gap vs #2</span>
-                    <span className="insight-value">
-                        {gapPercent !== null
-                            ? `${gapPercent < 0.1 ? '<0.1' : gapPercent.toFixed(1)}% (${secondSegment?.name || 'n/a'}) | ${formatNum(Math.abs(gapAbsolute))} days`
-                            : '--'}
-                    </span>
                 </div>
             </div>
         </div>
@@ -184,6 +186,4 @@ function VacationChart({ data, onDrilldown }) {
 }
 
 export default VacationChart;
-
-
 

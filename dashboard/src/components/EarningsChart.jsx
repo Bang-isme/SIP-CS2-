@@ -1,5 +1,16 @@
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  FiActivity,
+  FiArrowDownRight,
+  FiArrowUpRight,
+  FiBriefcase,
+  FiFilter,
+  FiGlobe,
+  FiTrendingDown,
+  FiTrendingUp,
+  FiUsers,
+} from 'react-icons/fi';
 import './EarningsChart.css';
 
 function EarningsChart({ data, onDrilldown }) {
@@ -35,6 +46,7 @@ function EarningsChart({ data, onDrilldown }) {
       .sort((a, b) => b.current - a.current)
       .slice(0, 5);
   }, [deltas]);
+  const topDepartmentMax = topDepartments[0]?.current || 0;
 
   const movers = useMemo(() => {
     const gains = [...deltas].filter((item) => item.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 5);
@@ -116,7 +128,7 @@ function EarningsChart({ data, onDrilldown }) {
 
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={chartData} onClick={(e) => e && handleClick(e.activePayload?.[0]?.payload)}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f5" vertical={false} />
           <XAxis
             dataKey="name"
             tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
@@ -141,14 +153,17 @@ function EarningsChart({ data, onDrilldown }) {
             labelFormatter={(label) => label}
           />
           <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: 'var(--color-text-secondary)' }} />
-          <Bar dataKey="current" name="Current Year" fill="var(--color-primary-600)" radius={[4, 4, 0, 0]} maxBarSize={50} cursor="pointer" />
-          <Bar dataKey="previous" name="Previous Year" fill="var(--color-text-tertiary)" radius={[4, 4, 0, 0]} maxBarSize={50} />
+          <Bar dataKey="current" name="Current Year" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={48} cursor="pointer" />
+          <Bar dataKey="previous" name="Previous Year" fill="#c7ccfe" radius={[6, 6, 0, 0]} maxBarSize={48} />
         </BarChart>
       </ResponsiveContainer>
 
       <div className="insights-panel">
         <div className="insight-card">
-          <span className="insight-label">Top Growth Dept</span>
+          <div className="insight-head">
+            <span className="insight-icon pos" aria-hidden="true"><FiTrendingUp size={14} /></span>
+            <span className="insight-label">Top Growth Dept</span>
+          </div>
           <span className="insight-value">{insights.topGrowth?.name || 'N/A'}</span>
           <span className={`insight-delta ${insights.topGrowth?.diff >= 0 ? 'pos' : 'neg'}`}>
             <span className="delta-label">
@@ -163,7 +178,10 @@ function EarningsChart({ data, onDrilldown }) {
           </span>
         </div>
         <div className="insight-card">
-          <span className="insight-label">Biggest Decline Dept</span>
+          <div className="insight-head">
+            <span className="insight-icon neg" aria-hidden="true"><FiTrendingDown size={14} /></span>
+            <span className="insight-label">Biggest Decline Dept</span>
+          </div>
           <span className="insight-value">{insights.biggestDecline?.name || 'N/A'}</span>
           <span className={`insight-delta ${insights.biggestDecline?.diff >= 0 ? 'pos' : 'neg'}`}>
             <span className="delta-label">
@@ -181,26 +199,39 @@ function EarningsChart({ data, onDrilldown }) {
 
       <div className="earnings-advanced-panel">
         <div className="dept-summary data-surface">
-          <h3 className="dept-title">Top Departments (Current)</h3>
+          <h3 className="dept-title">
+            <FiActivity size={13} aria-hidden="true" />
+            <span>Top Departments (Current)</span>
+          </h3>
           <div className="dept-table">
-            {topDepartments.map((dept) => (
+            {topDepartments.map((dept, index) => {
+              const fillPct = topDepartmentMax > 0 ? Math.max(10, (dept.current / topDepartmentMax) * 100) : 10;
+              return (
                 <button
                   type="button"
                   key={dept.name}
                   className="dept-row"
                   onClick={() => handleClick({ fullName: dept.name })}
                   aria-label={`Open drilldown for ${dept.name}`}
+                  style={{ '--dept-fill': `${fillPct}%` }}
                 >
-                  <span className="dept-name">{dept.name}</span>
+                  <span className="dept-name-wrap">
+                    <span className="dept-rank">#{index + 1}</span>
+                    <span className="dept-name">{dept.name}</span>
+                  </span>
                   <span className="dept-value">{formatCurrency(dept.current)}</span>
                 </button>
-              ))}
+              );
+            })}
           </div>
         </div>
 
         <div className="movers-panel data-surface">
           <div className="movers-header">
-            <h3 className="movers-title">YoY Movers</h3>
+            <h3 className="movers-title">
+              <FiActivity size={13} aria-hidden="true" />
+              <span>YoY Movers</span>
+            </h3>
             <div className="movers-tabs">
               <button
                 className={`movers-tab ${moversMode === 'declines' ? 'active' : ''}`}
@@ -218,7 +249,10 @@ function EarningsChart({ data, onDrilldown }) {
           </div>
           <div className="movers-grid">
             <div className="movers-col">
-              <h4 className="movers-subtitle">Top Increases</h4>
+              <h4 className="movers-subtitle">
+                <FiArrowUpRight size={13} aria-hidden="true" />
+                <span>Top Increases</span>
+              </h4>
               {movers.gains.length === 0 ? (
                 <div className="movers-empty">No increases</div>
               ) : (
@@ -230,7 +264,10 @@ function EarningsChart({ data, onDrilldown }) {
                     onClick={() => handleClick({ fullName: dept.name })}
                     aria-label={`Open drilldown for ${dept.name}`}
                   >
-                    <span className="mover-name">{dept.name}</span>
+                    <span className="mover-name-wrap">
+                      <span className="mover-dot pos" aria-hidden="true"></span>
+                      <span className="mover-name">{dept.name}</span>
+                    </span>
                     <span className="mover-value pos">
                       <span className="mover-prefix">+</span>{formatCurrency(Math.abs(dept.diff))}
                       {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
@@ -241,7 +278,8 @@ function EarningsChart({ data, onDrilldown }) {
             </div>
             <div className="movers-col">
               <h4 className="movers-subtitle">
-                {moversMode === 'declines' ? 'Top Declines' : 'Smallest Growth'}
+                {moversMode === 'declines' ? <FiArrowDownRight size={13} aria-hidden="true" /> : <FiArrowUpRight size={13} aria-hidden="true" />}
+                <span>{moversMode === 'declines' ? 'Top Declines' : 'Smallest Growth'}</span>
               </h4>
               {moversMode === 'declines' ? (
                 movers.drops.length === 0 ? (
@@ -255,7 +293,10 @@ function EarningsChart({ data, onDrilldown }) {
                       onClick={() => handleClick({ fullName: dept.name })}
                       aria-label={`Open drilldown for ${dept.name}`}
                     >
-                      <span className="mover-name">{dept.name}</span>
+                      <span className="mover-name-wrap">
+                        <span className="mover-dot neg" aria-hidden="true"></span>
+                        <span className="mover-name">{dept.name}</span>
+                      </span>
                       <span className="mover-value neg">
                         <span className="mover-prefix">-</span>{formatCurrency(Math.abs(dept.diff))}
                         {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
@@ -274,7 +315,10 @@ function EarningsChart({ data, onDrilldown }) {
                     onClick={() => handleClick({ fullName: dept.name })}
                     aria-label={`Open drilldown for ${dept.name}`}
                   >
-                    <span className="mover-name">{dept.name}</span>
+                    <span className="mover-name-wrap">
+                      <span className="mover-dot pos" aria-hidden="true"></span>
+                      <span className="mover-name">{dept.name}</span>
+                    </span>
                     <span className="mover-value pos">
                       <span className="mover-prefix">+</span>{formatCurrency(Math.abs(dept.diff))}
                       {dept.percent !== null && dept.percent !== undefined ? ` (${dept.percent.toFixed(1)}%)` : ''}
@@ -287,10 +331,16 @@ function EarningsChart({ data, onDrilldown }) {
         </div>
 
         <div className="chart-breakdown data-surface">
-          <h4>By Demographics (Click to Filter)</h4>
+          <h4 className="breakdown-title">
+            <FiFilter size={13} aria-hidden="true" />
+            <span>By Demographics (Click to Filter)</span>
+          </h4>
           <div className="breakdown-groups">
             <div className="breakdown-group">
-              <h4 className="group-title">Gender</h4>
+              <h4 className="group-title">
+                <FiUsers size={12} aria-hidden="true" />
+                <span>Gender</span>
+              </h4>
               <div className="group-list">
                 {Object.entries(data.byGender).map(([gender, values]) => (
                   <button
@@ -316,7 +366,10 @@ function EarningsChart({ data, onDrilldown }) {
               )}
             </div>
             <div className="breakdown-group">
-              <h4 className="group-title">Ethnicity</h4>
+              <h4 className="group-title">
+                <FiGlobe size={12} aria-hidden="true" />
+                <span>Ethnicity</span>
+              </h4>
               <div className="group-list">
                 {Object.entries(data.byEthnicity).map(([ethnicity, values]) => (
                   <button
@@ -339,7 +392,10 @@ function EarningsChart({ data, onDrilldown }) {
               )}
             </div>
             <div className="breakdown-group">
-              <h4 className="group-title">Employment Type</h4>
+              <h4 className="group-title">
+                <FiBriefcase size={12} aria-hidden="true" />
+                <span>Employment Type</span>
+              </h4>
               <div className="group-list">
                 {Object.entries(data.byEmploymentType).map(([type, values]) => (
                   <button
@@ -372,6 +428,5 @@ function EarningsChart({ data, onDrilldown }) {
 }
 
 export default EarningsChart;
-
 
 

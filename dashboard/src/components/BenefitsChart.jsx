@@ -36,7 +36,7 @@ function BenefitsChart({ data, onDrilldown }) {
       <h4>Average Benefits Paid by Plan</h4>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={chartData} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={true} vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f5" horizontal={true} vertical={false} />
           <XAxis
             type="number"
             tickFormatter={formatCurrency}
@@ -67,7 +67,7 @@ function BenefitsChart({ data, onDrilldown }) {
           <Bar
             dataKey="shareholder"
             name="Shareholders"
-            fill="var(--color-success)"
+            fill="#0d9488"
             radius={[0, 4, 4, 0]}
             barSize={18}
             cursor="pointer"
@@ -80,7 +80,7 @@ function BenefitsChart({ data, onDrilldown }) {
           <Bar
             dataKey="nonShareholder"
             name="Non-Shareholders"
-            fill="var(--color-primary-500)"
+            fill="#8b5cf6"
             radius={[0, 4, 4, 0]}
             barSize={18}
             cursor="pointer"

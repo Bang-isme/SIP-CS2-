@@ -1,0 +1,72 @@
+{
+  "project_name": "SIP_CS",
+  "analyzed_at": "2026-02-24T23:22:44",
+  "sample_size": 50,
+  "files_analyzed": 50,
+  "naming": {
+    "variables": "camelCase",
+    "files": "mixed",
+    "functions": "camelCase",
+    "components": "camelCase",
+    "test_pattern": "*.test.js"
+  },
+  "structure": {
+    "avg_file_lines": 214.84,
+    "avg_functions_per_file": 9.9,
+    "directories": [
+      "controllers",
+      "services",
+      "models",
+      "utils",
+      "components",
+      "pages",
+      "routes",
+      "middlewares"
+    ],
+    "entry_point": "src/index.js"
+  },
+  "imports": {
+    "module_system": "esmodules",
+    "alias_used": false,
+    "ordering": "mostly built-in-external-internal"
+  },
+  "error_handling": {
+    "primary_style": "try-catch",
+    "custom_errors": false,
+    "response_format": "json"
+  },
+  "code_style": {
+    "semicolons": true,
+    "quotes": "double",
+    "trailing_commas": false,
+    "indent": "4 spaces",
+    "p90_line_length": 72
+  },
+  "patterns": {
+    "state_management": "none (backend)",
+    "state_management_all": [],
+    "state_management_all_raw": [
+      "useState"
+    ],
+    "data_fetching": "axios",
+    "data_fetching_all": [
+      "axios",
+      "fetch"
+    ],
+    "routing": "express-router",
+    "routing_all": [
+      "express-router"
+    ],
+    "orm": "sequelize",
+    "orm_all": [
+      "sequelize",
+      "mongoose",
+      "raw-queries"
+    ],
+    "auth": "jwt",
+    "auth_all": [
+      "jwt"
+    ]
+  },
+  "confidence": "high"
+}

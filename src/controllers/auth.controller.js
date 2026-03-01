@@ -3,6 +3,12 @@ import User from "../models/User.js";
 import Role from "../models/Role.js";
 import { SECRET } from "../config.js";
 
+const isMongoQuotaError = (error) => {
+  if (!error) return false;
+  const message = `${error.message || ""} ${error?.errorResponse?.errmsg || ""}`.toLowerCase();
+  return error.code === 8000 || error?.errorResponse?.code === 8000 || message.includes("space quota");
+};
+
 const normalizeRoles = (roles = []) => {
   return roles
     .map((role) => {
@@ -58,9 +64,17 @@ export const signupHandler = async (req, res) => {
       expiresIn: 86400, // 24 hours
     });
 
-    await User.findByIdAndUpdate(savedUser._id, {
-      tokens: [{ token, signedAt: Date.now().toString() }],
-    });
+    try {
+      await User.findByIdAndUpdate(savedUser._id, {
+        tokens: [{ token, signedAt: Date.now().toString() }],
+      });
+    } catch (tokenUpdateError) {
+      if (!isMongoQuotaError(tokenUpdateError)) {
+        throw tokenUpdateError;
+      }
+      // Allow signup response even when Mongo storage quota blocks non-critical token persistence.
+      console.warn("[auth] Mongo quota reached: skipping token persistence during signup.");
+    }
 
     const createdUser = await User.findById(savedUser._id).populate("roles", "name -_id");
     return res.status(200).json({
@@ -97,9 +111,17 @@ export const signinHandler = async (req, res) => {
       expiresIn: 86400, // 24 hours
     });
 
-    await User.findByIdAndUpdate(userFound._id, {
-      tokens: [{ token, signedAt: Date.now().toString() }],
-    });
+    try {
+      await User.findByIdAndUpdate(userFound._id, {
+        tokens: [{ token, signedAt: Date.now().toString() }],
+      });
+    } catch (tokenUpdateError) {
+      if (!isMongoQuotaError(tokenUpdateError)) {
+        throw tokenUpdateError;
+      }
+      // Keep login available in read-mostly mode when Atlas storage quota is exceeded.
+      console.warn("[auth] Mongo quota reached: skipping token persistence during signin.");
+    }
 
     return res.json({ success: true, data: sanitizeAuthUser(userFound), token });
   } catch (error) {
@@ -117,7 +139,15 @@ export const logoutHandler = async (req, res) => {
     const decoded = jwt.verify(token, SECRET);
     const user = await User.findById(decoded.id, { password: 0 });
     if (!user) return res.status(404).json({ message: "No user found" });
-    await User.findByIdAndUpdate(decoded.id, { tokens: [] });
+    try {
+      await User.findByIdAndUpdate(decoded.id, { tokens: [] });
+    } catch (logoutError) {
+      if (!isMongoQuotaError(logoutError)) {
+        throw logoutError;
+      }
+      // Token revocation is best-effort under quota pressure.
+      console.warn("[auth] Mongo quota reached: skipping token cleanup during logout.");
+    }
     return res.json({ success: true, message: "Sign out successfully!" });
   } catch (error) {
     return res.status(401).json({ message: "Unauthorized!" });

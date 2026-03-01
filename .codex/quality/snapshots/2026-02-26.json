@@ -1,0 +1,14 @@
+{
+  "date": "2026-02-26",
+  "metrics": {
+    "total_code_files": 117,
+    "total_lines": 13419,
+    "avg_file_lines": 114.69,
+    "avg_functions_per_file": 2.29,
+    "todo_count": 2,
+    "long_functions": 36,
+    "long_files": 5,
+    "test_files": 19,
+    "test_to_source_ratio": 0.19
+  }
+}

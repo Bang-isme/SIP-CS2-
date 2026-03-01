@@ -1,0 +1,1886 @@
+{
+  "generated_at": "2026-02-24T23:43:36",
+  "project_root": "D:/SIP_CS 2/SIP_CS",
+  "stats": {
+    "total_files": 98,
+    "total_edges": 168,
+    "modules": 18,
+    "routes": 48,
+    "models": 20,
+    "circular_dependencies": 1
+  },
+  "file_dependencies": {
+    "dashboard/eslint.config.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "dashboard/src/App.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/App.jsx"
+      ]
+    },
+    "dashboard/src/App.jsx": {
+      "imports": [
+        "dashboard/src/App.css",
+        "dashboard/src/pages/Dashboard.jsx",
+        "dashboard/src/pages/Login.jsx",
+        "dashboard/src/pages/Register.jsx",
+        "dashboard/src/services/api.js"
+      ],
+      "imported_by": [
+        "dashboard/src/main.jsx"
+      ]
+    },
+    "dashboard/src/components/AdminUsersModal.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/AdminUsersModal.jsx"
+      ]
+    },
+    "dashboard/src/components/AdminUsersModal.jsx": {
+      "imports": [
+        "dashboard/src/components/AdminUsersModal.css",
+        "dashboard/src/services/api.js"
+      ],
+      "imported_by": []
+    },
+    "dashboard/src/components/AlertsPanel.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/AlertsPanel.jsx"
+      ]
+    },
+    "dashboard/src/components/AlertsPanel.jsx": {
+      "imports": [
+        "dashboard/src/components/AlertsPanel.css",
+        "dashboard/src/services/api.js"
+      ],
+      "imported_by": [
+        "dashboard/src/pages/Dashboard.jsx"
+      ]
+    },
+    "dashboard/src/components/BenefitsChart.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/BenefitsChart.jsx"
+      ]
+    },
+    "dashboard/src/components/BenefitsChart.jsx": {
+      "imports": [
+        "dashboard/src/components/BenefitsChart.css"
+      ],
+      "imported_by": [
+        "dashboard/src/pages/Dashboard.jsx"
+      ]
+    },
+    "dashboard/src/components/DrilldownModal.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/DrilldownModal.jsx"
+      ]
+    },
+    "dashboard/src/components/DrilldownModal.jsx": {
+      "imports": [
+        "dashboard/src/components/DrilldownModal.css",
+        "dashboard/src/services/api.js"
+      ],
+      "imported_by": []
+    },
+    "dashboard/src/components/EarningsChart.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/EarningsChart.jsx"
+      ]
+    },
+    "dashboard/src/components/EarningsChart.jsx": {
+      "imports": [
+        "dashboard/src/components/EarningsChart.css"
+      ],
+      "imported_by": [
+        "dashboard/src/pages/Dashboard.jsx"
+      ]
+    },
+    "dashboard/src/components/ErrorBoundary.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/ErrorBoundary.jsx"
+      ]
+    },
+    "dashboard/src/components/ErrorBoundary.jsx": {
+      "imports": [
+        "dashboard/src/components/ErrorBoundary.css"
+      ],
+      "imported_by": [
+        "dashboard/src/main.jsx"
+      ]
+    },
+    "dashboard/src/components/IntegrationEventsPanel.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/IntegrationEventsPanel.jsx"
+      ]
+    },
+    "dashboard/src/components/IntegrationEventsPanel.jsx": {
+      "imports": [
+        "dashboard/src/components/IntegrationEventsPanel.css"
+      ],
+      "imported_by": []
+    },
+    "dashboard/src/components/Skeleton.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/Skeletons.jsx"
+      ]
+    },
+    "dashboard/src/components/Skeletons.jsx": {
+      "imports": [
+        "dashboard/src/components/Skeleton.css"
+      ],
+      "imported_by": [
+        "dashboard/src/pages/Dashboard.jsx"
+      ]
+    },
+    "dashboard/src/components/StatCard.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/StatCard.jsx"
+      ]
+    },
+    "dashboard/src/components/StatCard.jsx": {
+      "imports": [
+        "dashboard/src/components/StatCard.css"
+      ],
+      "imported_by": [
+        "dashboard/src/pages/Dashboard.jsx"
+      ]
+    },
+    "dashboard/src/components/VacationChart.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/components/VacationChart.jsx"
+      ]
+    },
+    "dashboard/src/components/VacationChart.jsx": {
+      "imports": [
+        "dashboard/src/components/VacationChart.css"
+      ],
+      "imported_by": [
+        "dashboard/src/pages/Dashboard.jsx"
+      ]
+    },
+    "dashboard/src/index.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/main.jsx"
+      ]
+    },
+    "dashboard/src/main.jsx": {
+      "imports": [
+        "dashboard/src/App.jsx",
+        "dashboard/src/components/ErrorBoundary.jsx",
+        "dashboard/src/index.css",
+        "dashboard/src/styles/typography.css",
+        "dashboard/src/styles/variables.css"
+      ],
+      "imported_by": []
+    },
+    "dashboard/src/pages/Dashboard.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/pages/Dashboard.jsx"
+      ]
+    },
+    "dashboard/src/pages/Dashboard.jsx": {
+      "imports": [
+        "dashboard/src/components/AlertsPanel.jsx",
+        "dashboard/src/components/BenefitsChart.jsx",
+        "dashboard/src/components/EarningsChart.jsx",
+        "dashboard/src/components/Skeletons.jsx",
+        "dashboard/src/components/StatCard.jsx",
+        "dashboard/src/components/VacationChart.jsx",
+        "dashboard/src/pages/Dashboard.css"
+      ],
+      "imported_by": [
+        "dashboard/src/App.jsx"
+      ]
+    },
+    "dashboard/src/pages/Login.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/pages/Login.jsx",
+        "dashboard/src/pages/Register.jsx"
+      ]
+    },
+    "dashboard/src/pages/Login.jsx": {
+      "imports": [
+        "dashboard/src/pages/Login.css",
+        "dashboard/src/services/api.js"
+      ],
+      "imported_by": [
+        "dashboard/src/App.jsx"
+      ]
+    },
+    "dashboard/src/pages/Register.jsx": {
+      "imports": [
+        "dashboard/src/pages/Login.css",
+        "dashboard/src/services/api.js"
+      ],
+      "imported_by": [
+        "dashboard/src/App.jsx"
+      ]
+    },
+    "dashboard/src/services/api.js": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/App.jsx",
+        "dashboard/src/components/AdminUsersModal.jsx",
+        "dashboard/src/components/AlertsPanel.jsx",
+        "dashboard/src/components/DrilldownModal.jsx",
+        "dashboard/src/pages/Login.jsx",
+        "dashboard/src/pages/Register.jsx"
+      ]
+    },
+    "dashboard/src/styles/typography.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/main.jsx"
+      ]
+    },
+    "dashboard/src/styles/variables.css": {
+      "imports": [],
+      "imported_by": [
+        "dashboard/src/main.jsx"
+      ]
+    },
+    "dashboard/src/test/setup.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "dashboard/vite.config.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "dashboard/vitest.config.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "jest.config.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "package.json": {
+      "imports": [],
+      "imported_by": [
+        "src/routes/index.routes.js"
+      ]
+    },
+    "scripts/aggregate-dashboard.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Alert.js",
+        "src/models/Department.js",
+        "src/models/Employee.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/audit-data.js": {
+      "imports": [
+        "src/models/Department.js",
+        "src/models/Employee.js",
+        "src/models/sql/index.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/debug-alert-config.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Alert.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/debug-alert-counts.js": {
+      "imports": [
+        "src/models/sql/index.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/debug_min_earnings.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "scripts/demo-integration-events.js": {
+      "imports": [
+        "src/models/sql/index.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/demo-integration-queue-flow.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "scripts/demo-integration-queue-scenario.js": {
+      "imports": [
+        "src/models/sql/index.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/dr-rehearsal-safe.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Employee.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/fix-alert-duplicates.js": {
+      "imports": [
+        "src/models/sql/index.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/fix_earnings_table.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "scripts/lint-backend.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "scripts/migrate-mysql.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "scripts/seed-admin.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Role.js",
+        "src/models/User.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/seed.js": {
+      "imports": [
+        "src/models/Alert.js",
+        "src/models/Department.js",
+        "src/models/Employee.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/setup-test-user.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Role.js",
+        "src/models/User.js"
+      ],
+      "imported_by": []
+    },
+    "scripts/test-drilldown-performance.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "src/adapters/base.adapter.js": {
+      "imports": [],
+      "imported_by": [
+        "src/adapters/payroll.adapter.js",
+        "src/adapters/security.mock.adapter.js"
+      ]
+    },
+    "src/adapters/payroll.adapter.js": {
+      "imports": [
+        "src/adapters/base.adapter.js",
+        "src/models/sql/index.js"
+      ],
+      "imported_by": []
+    },
+    "src/adapters/security.mock.adapter.js": {
+      "imports": [
+        "src/adapters/base.adapter.js"
+      ],
+      "imported_by": []
+    },
+    "src/app.js": {
+      "imports": [
+        "src/routes/alerts.routes.js",
+        "src/routes/auth.routes.js",
+        "src/routes/dashboard.routes.js",
+        "src/routes/employee.routes.js",
+        "src/routes/health.routes.js",
+        "src/routes/index.routes.js",
+        "src/routes/integration.routes.js",
+        "src/routes/products.routes.js",
+        "src/routes/sync.routes.js",
+        "src/routes/user.routes.js"
+      ],
+      "imported_by": [
+        "src/index.js"
+      ]
+    },
+    "src/config.js": {
+      "imports": [],
+      "imported_by": [
+        "scripts/aggregate-dashboard.js",
+        "scripts/debug-alert-config.js",
+        "scripts/dr-rehearsal-safe.js",
+        "scripts/seed-admin.js",
+        "scripts/setup-test-user.js",
+        "src/controllers/auth.controller.js",
+        "src/controllers/employee.controller.js",
+        "src/controllers/user.controller.js",
+        "src/database.js",
+        "src/index.js",
+        "src/libs/initialSetup.js",
+        "src/middlewares/authJwt.js",
+        "src/workers/integrationEventWorker.js"
+      ]
+    },
+    "src/config/integrations.js": {
+      "imports": [],
+      "imported_by": [
+        "src/registry/serviceRegistry.js"
+      ]
+    },
+    "src/controllers/alerts.controller.js": {
+      "imports": [
+        "src/models/Alert.js",
+        "src/models/Employee.js",
+        "src/models/sql/index.js",
+        "src/utils/cache.js"
+      ],
+      "imported_by": []
+    },
+    "src/controllers/auth.controller.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Role.js",
+        "src/models/User.js"
+      ],
+      "imported_by": []
+    },
+    "src/controllers/dashboard.controller.js": {
+      "imports": [
+        "src/models/Department.js",
+        "src/models/Employee.js",
+        "src/models/sql/index.js",
+        "src/utils/cache.js"
+      ],
+      "imported_by": []
+    },
+    "src/controllers/employee.controller.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Employee.js",
+        "src/services/integrationEventService.js",
+        "src/services/syncService.js"
+      ],
+      "imported_by": [
+        "src/routes/employee.routes.js"
+      ]
+    },
+    "src/controllers/integration.controller.js": {
+      "imports": [
+        "src/models/sql/index.js"
+      ],
+      "imported_by": []
+    },
+    "src/controllers/products.controller.js": {
+      "imports": [
+        "src/models/Product.js"
+      ],
+      "imported_by": []
+    },
+    "src/controllers/user.controller.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Role.js",
+        "src/models/User.js"
+      ],
+      "imported_by": []
+    },
+    "src/database.js": {
+      "imports": [
+        "src/config.js"
+      ],
+      "imported_by": [
+        "src/index.js"
+      ]
+    },
+    "src/index.js": {
+      "imports": [
+        "src/app.js",
+        "src/config.js",
+        "src/database.js",
+        "src/libs/initialSetup.js",
+        "src/mysqlDatabase.js",
+        "src/services/syncService.js",
+        "src/workers/integrationEventWorker.js"
+      ],
+      "imported_by": []
+    },
+    "src/instrument.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "src/libs/initialSetup.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Role.js",
+        "src/models/User.js"
+      ],
+      "imported_by": [
+        "src/index.js"
+      ]
+    },
+    "src/middlewares/authJwt.js": {
+      "imports": [
+        "src/config.js",
+        "src/models/Role.js",
+        "src/models/User.js"
+      ],
+      "imported_by": [
+        "src/middlewares/index.js",
+        "src/routes/alerts.routes.js",
+        "src/routes/auth.routes.js",
+        "src/routes/dashboard.routes.js",
+        "src/routes/employee.routes.js",
+        "src/routes/integration.routes.js",
+        "src/routes/products.routes.js",
+        "src/routes/sync.routes.js",
+        "src/routes/user.routes.js"
+      ]
+    },
+    "src/middlewares/index.js": {
+      "imports": [
+        "src/middlewares/authJwt.js",
+        "src/middlewares/verifySignup.js"
+      ],
+      "imported_by": []
+    },
+    "src/middlewares/verifySignup.js": {
+      "imports": [
+        "src/models/Role.js",
+        "src/models/User.js"
+      ],
+      "imported_by": [
+        "src/middlewares/index.js",
+        "src/routes/user.routes.js"
+      ]
+    },
+    "src/models/Alert.js": {
+      "imports": [],
+      "imported_by": [
+        "scripts/aggregate-dashboard.js",
+        "scripts/debug-alert-config.js",
+        "scripts/seed.js",
+        "src/controllers/alerts.controller.js"
+      ]
+    },
+    "src/models/Department.js": {
+      "imports": [],
+      "imported_by": [
+        "scripts/aggregate-dashboard.js",
+        "scripts/audit-data.js",
+        "scripts/seed.js",
+        "src/controllers/dashboard.controller.js"
+      ]
+    },
+    "src/models/Employee.js": {
+      "imports": [],
+      "imported_by": [
+        "scripts/aggregate-dashboard.js",
+        "scripts/audit-data.js",
+        "scripts/dr-rehearsal-safe.js",
+        "scripts/seed.js",
+        "src/controllers/alerts.controller.js",
+        "src/controllers/dashboard.controller.js",
+        "src/controllers/employee.controller.js"
+      ]
+    },
+    "src/models/Payrate.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "src/models/Product.js": {
+      "imports": [],
+      "imported_by": [
+        "src/controllers/products.controller.js"
+      ]
+    },
+    "src/models/Role.js": {
+      "imports": [],
+      "imported_by": [
+        "scripts/seed-admin.js",
+        "scripts/setup-test-user.js",
+        "src/controllers/auth.controller.js",
+        "src/controllers/user.controller.js",
+        "src/libs/initialSetup.js",
+        "src/middlewares/authJwt.js",
+        "src/middlewares/verifySignup.js"
+      ]
+    },
+    "src/models/User.js": {
+      "imports": [],
+      "imported_by": [
+        "scripts/seed-admin.js",
+        "scripts/setup-test-user.js",
+        "src/controllers/auth.controller.js",
+        "src/controllers/user.controller.js",
+        "src/libs/initialSetup.js",
+        "src/middlewares/authJwt.js",
+        "src/middlewares/verifySignup.js"
+      ]
+    },
+    "src/models/sql/AlertEmployee.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/AlertsSummary.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/BenefitPlan.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/EmployeeBenefit.js",
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/BenefitsSummary.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/Earning.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/EarningsEmployeeYear.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/EarningsSummary.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/EmployeeBenefit.js": {
+      "imports": [
+        "src/models/sql/BenefitPlan.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/IntegrationEvent.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/PayRate.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/SyncLog.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/VacationRecord.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/VacationSummary.js": {
+      "imports": [
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "src/models/sql/index.js"
+      ]
+    },
+    "src/models/sql/index.js": {
+      "imports": [
+        "src/models/sql/AlertEmployee.js",
+        "src/models/sql/AlertsSummary.js",
+        "src/models/sql/BenefitPlan.js",
+        "src/models/sql/BenefitsSummary.js",
+        "src/models/sql/Earning.js",
+        "src/models/sql/EarningsEmployeeYear.js",
+        "src/models/sql/EarningsSummary.js",
+        "src/models/sql/EmployeeBenefit.js",
+        "src/models/sql/IntegrationEvent.js",
+        "src/models/sql/PayRate.js",
+        "src/models/sql/SyncLog.js",
+        "src/models/sql/VacationRecord.js",
+        "src/models/sql/VacationSummary.js",
+        "src/mysqlDatabase.js"
+      ],
+      "imported_by": [
+        "scripts/audit-data.js",
+        "scripts/debug-alert-counts.js",
+        "scripts/demo-integration-events.js",
+        "scripts/demo-integration-queue-scenario.js",
+        "scripts/fix-alert-duplicates.js",
+        "src/adapters/payroll.adapter.js",
+        "src/controllers/alerts.controller.js",
+        "src/controllers/dashboard.controller.js",
+        "src/controllers/integration.controller.js",
+        "src/routes/sync.routes.js",
+        "src/services/integrationEventService.js",
+        "src/services/syncService.js"
+      ]
+    },
+    "src/mysqlDatabase.js": {
+      "imports": [],
+      "imported_by": [
+        "scripts/aggregate-dashboard.js",
+        "scripts/audit-data.js",
+        "scripts/debug-alert-counts.js",
+        "scripts/demo-integration-events.js",
+        "scripts/demo-integration-queue-scenario.js",
+        "scripts/dr-rehearsal-safe.js",
+        "scripts/fix-alert-duplicates.js",
+        "scripts/seed.js",
+        "src/index.js",
+        "src/models/sql/AlertEmployee.js",
+        "src/models/sql/AlertsSummary.js",
+        "src/models/sql/BenefitPlan.js",
+        "src/models/sql/BenefitsSummary.js",
+        "src/models/sql/Earning.js",
+        "src/models/sql/EarningsEmployeeYear.js",
+        "src/models/sql/EarningsSummary.js",
+        "src/models/sql/EmployeeBenefit.js",
+        "src/models/sql/IntegrationEvent.js",
+        "src/models/sql/PayRate.js",
+        "src/models/sql/SyncLog.js",
+        "src/models/sql/VacationRecord.js",
+        "src/models/sql/VacationSummary.js",
+        "src/models/sql/index.js",
+        "src/routes/health.routes.js"
+      ]
+    },
+    "src/permissions/Product.js": {
+      "imports": [],
+      "imported_by": []
+    },
+    "src/registry/serviceRegistry.js": {
+      "imports": [
+        "src/config/integrations.js"
+      ],
+      "imported_by": [
+        "src/services/syncService.js"
+      ]
+    },
+    "src/routes/alerts.routes.js": {
+      "imports": [
+        "src/middlewares/authJwt.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/auth.routes.js": {
+      "imports": [
+        "src/middlewares/authJwt.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/dashboard.routes.js": {
+      "imports": [
+        "src/middlewares/authJwt.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/employee.routes.js": {
+      "imports": [
+        "src/controllers/employee.controller.js",
+        "src/middlewares/authJwt.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/health.routes.js": {
+      "imports": [
+        "src/mysqlDatabase.js",
+        "src/services/syncService.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/index.routes.js": {
+      "imports": [
+        "package.json"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/integration.routes.js": {
+      "imports": [
+        "src/middlewares/authJwt.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/products.routes.js": {
+      "imports": [
+        "src/middlewares/authJwt.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/sync.routes.js": {
+      "imports": [
+        "src/middlewares/authJwt.js",
+        "src/models/sql/index.js",
+        "src/services/syncService.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/routes/user.routes.js": {
+      "imports": [
+        "src/middlewares/authJwt.js",
+        "src/middlewares/verifySignup.js"
+      ],
+      "imported_by": [
+        "src/app.js"
+      ]
+    },
+    "src/services/integrationEventService.js": {
+      "imports": [
+        "src/models/sql/index.js",
+        "src/services/syncService.js"
+      ],
+      "imported_by": [
+        "src/controllers/employee.controller.js",
+        "src/workers/integrationEventWorker.js"
+      ]
+    },
+    "src/services/syncService.js": {
+      "imports": [
+        "src/models/sql/index.js",
+        "src/registry/serviceRegistry.js",
+        "src/utils/logger.js"
+      ],
+      "imported_by": [
+        "src/controllers/employee.controller.js",
+        "src/index.js",
+        "src/routes/health.routes.js",
+        "src/routes/sync.routes.js",
+        "src/services/integrationEventService.js"
+      ]
+    },
+    "src/utils/cache.js": {
+      "imports": [],
+      "imported_by": [
+        "src/controllers/alerts.controller.js",
+        "src/controllers/dashboard.controller.js"
+      ]
+    },
+    "src/utils/logger.js": {
+      "imports": [],
+      "imported_by": [
+        "src/services/syncService.js"
+      ]
+    },
+    "src/workers/integrationEventWorker.js": {
+      "imports": [
+        "src/config.js",
+        "src/services/integrationEventService.js"
+      ],
+      "imported_by": [
+        "src/index.js"
+      ]
+    },
+    "tests/jest.config.js": {
+      "imports": [],
+      "imported_by": []
+    }
+  },
+  "module_boundaries": {
+    "adapters": {
+      "imports_from": [
+        "models"
+      ],
+      "imported_by": []
+    },
+    "components": {
+      "imports_from": [
+        "services"
+      ],
+      "imported_by": [
+        "dashboard",
+        "pages"
+      ]
+    },
+    "config": {
+      "imports_from": [],
+      "imported_by": [
+        "registry"
+      ]
+    },
+    "controllers": {
+      "imports_from": [
+        "models",
+        "root",
+        "services",
+        "utils"
+      ],
+      "imported_by": [
+        "routes"
+      ]
+    },
+    "dashboard": {
+      "imports_from": [
+        "components",
+        "pages",
+        "services"
+      ],
+      "imported_by": []
+    },
+    "libs": {
+      "imports_from": [
+        "models",
+        "root"
+      ],
+      "imported_by": [
+        "root"
+      ]
+    },
+    "middlewares": {
+      "imports_from": [
+        "models",
+        "root"
+      ],
+      "imported_by": [
+        "routes"
+      ]
+    },
+    "models": {
+      "imports_from": [
+        "root"
+      ],
+      "imported_by": [
+        "adapters",
+        "controllers",
+        "libs",
+        "middlewares",
+        "routes",
+        "scripts",
+        "services"
+      ]
+    },
+    "pages": {
+      "imports_from": [
+        "components",
+        "services"
+      ],
+      "imported_by": [
+        "dashboard"
+      ]
+    },
+    "permissions": {
+      "imports_from": [],
+      "imported_by": []
+    },
+    "registry": {
+      "imports_from": [
+        "config"
+      ],
+      "imported_by": [
+        "services"
+      ]
+    },
+    "root": {
+      "imports_from": [
+        "libs",
+        "routes",
+        "services",
+        "workers"
+      ],
+      "imported_by": [
+        "controllers",
+        "libs",
+        "middlewares",
+        "models",
+        "routes",
+        "scripts",
+        "workers"
+      ]
+    },
+    "routes": {
+      "imports_from": [
+        "controllers",
+        "middlewares",
+        "models",
+        "root",
+        "services"
+      ],
+      "imported_by": [
+        "root"
+      ]
+    },
+    "scripts": {
+      "imports_from": [
+        "models",
+        "root"
+      ],
+      "imported_by": []
+    },
+    "services": {
+      "imports_from": [
+        "models",
+        "registry",
+        "utils"
+      ],
+      "imported_by": [
+        "components",
+        "controllers",
+        "dashboard",
+        "pages",
+        "root",
+        "routes",
+        "workers"
+      ]
+    },
+    "tests": {
+      "imports_from": [],
+      "imported_by": []
+    },
+    "utils": {
+      "imports_from": [],
+      "imported_by": [
+        "controllers",
+        "services"
+      ]
+    },
+    "workers": {
+      "imports_from": [
+        "root",
+        "services"
+      ],
+      "imported_by": [
+        "root"
+      ]
+    }
+  },
+  "api_routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "alerts.controller.getAlerts",
+      "file": "src/routes/alerts.routes.js",
+      "models": [
+        "Alert",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": "alerts.controller.createAlert",
+      "file": "src/routes/alerts.routes.js",
+      "models": [
+        "Alert",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/:id",
+      "handler": "alerts.controller.updateAlert",
+      "file": "src/routes/alerts.routes.js",
+      "models": [
+        "Alert",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/:id",
+      "handler": "alerts.controller.deleteAlert",
+      "file": "src/routes/alerts.routes.js",
+      "models": [
+        "Alert",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/triggered",
+      "handler": "alerts.controller.getTriggeredAlerts",
+      "file": "src/routes/alerts.routes.js",
+      "models": [
+        "Alert",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/:type/employees",
+      "handler": "alerts.controller.getAlertEmployees",
+      "file": "src/routes/alerts.routes.js",
+      "models": [
+        "Alert",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/signup",
+      "handler": "auth.controller.signupHandler",
+      "file": "src/routes/auth.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/signin",
+      "handler": "auth.controller.signinHandler",
+      "file": "src/routes/auth.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/logout",
+      "handler": "auth.controller.logoutHandler",
+      "file": "src/routes/auth.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/me",
+      "handler": "auth.controller.meHandler",
+      "file": "src/routes/auth.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/earnings",
+      "handler": "dashboard.controller.getEarningsSummary",
+      "file": "src/routes/dashboard.routes.js",
+      "models": [
+        "Department",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/vacation",
+      "handler": "dashboard.controller.getVacationSummary",
+      "file": "src/routes/dashboard.routes.js",
+      "models": [
+        "Department",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/benefits",
+      "handler": "dashboard.controller.getBenefitsSummary",
+      "file": "src/routes/dashboard.routes.js",
+      "models": [
+        "Department",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/drilldown",
+      "handler": "dashboard.controller.getDrilldown",
+      "file": "src/routes/dashboard.routes.js",
+      "models": [
+        "Department",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/drilldown/export",
+      "handler": "dashboard.controller.exportDrilldownCsv",
+      "file": "src/routes/dashboard.routes.js",
+      "models": [
+        "Department",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/departments",
+      "handler": "dashboard.controller.getDepartments",
+      "file": "src/routes/dashboard.routes.js",
+      "models": [
+        "Department",
+        "Employee",
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "employee.controller.getEmployees",
+      "file": "src/routes/employee.routes.js",
+      "models": [
+        "Employee"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/:employeeId",
+      "handler": "employee.controller.getEmployee",
+      "file": "src/routes/employee.routes.js",
+      "models": [
+        "Employee"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": "employee.controller.createEmployee",
+      "file": "src/routes/employee.routes.js",
+      "models": [
+        "Employee"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/:id",
+      "handler": "employee.controller.updateEmployee",
+      "file": "src/routes/employee.routes.js",
+      "models": [
+        "Employee"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/:id",
+      "handler": "employee.controller.deleteEmployee",
+      "file": "src/routes/employee.routes.js",
+      "models": [
+        "Employee"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "res) => {",
+      "file": "src/routes/health.routes.js"
+    },
+    {
+      "method": "GET",
+      "path": "/integrations",
+      "handler": "res) => {",
+      "file": "src/routes/health.routes.js"
+    },
+    {
+      "method": "GET",
+      "path": "/ready",
+      "handler": "res) => {",
+      "file": "src/routes/health.routes.js"
+    },
+    {
+      "method": "GET",
+      "path": "/live",
+      "handler": "res) => {",
+      "file": "src/routes/health.routes.js"
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "res) => {",
+      "file": "src/routes/index.routes.js"
+    },
+    {
+      "method": "GET",
+      "path": "/events",
+      "handler": "integration.controller.listIntegrationEvents",
+      "file": "src/routes/integration.routes.js",
+      "models": [
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/events/metrics",
+      "handler": "integration.controller.getIntegrationMetrics",
+      "file": "src/routes/integration.routes.js",
+      "models": [
+        "index"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/events/retry/:id",
+      "handler": "integration.controller.retryIntegrationEvent",
+      "file": "src/routes/integration.routes.js",
+      "models": [
+        "index"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/events/retry-dead",
+      "handler": "integration.controller.retryDeadIntegrationEvents",
+      "file": "src/routes/integration.routes.js",
+      "models": [
+        "index"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/events/replay",
+      "handler": "integration.controller.replayIntegrationEvents",
+      "file": "src/routes/integration.routes.js",
+      "models": [
+        "index"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "products.controller.getProducts",
+      "file": "src/routes/products.routes.js",
+      "models": [
+        "Product"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/:productId",
+      "handler": "products.controller.getProductById",
+      "file": "src/routes/products.routes.js",
+      "models": [
+        "Product"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": "products.controller.createProduct",
+      "file": "src/routes/products.routes.js",
+      "models": [
+        "Product"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": "products.controller.createProduct",
+      "file": "src/routes/products.routes.js",
+      "models": [
+        "Product"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/:productId",
+      "handler": "products.controller.updateProductById",
+      "file": "src/routes/products.routes.js",
+      "models": [
+        "Product"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/:productId",
+      "handler": "products.controller.deleteProductById",
+      "file": "src/routes/products.routes.js",
+      "models": [
+        "Product"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": "products.controller.createProduct",
+      "file": "src/routes/products.routes.js",
+      "models": [
+        "Product"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/search/:productName",
+      "handler": "products.controller.searchProduct",
+      "file": "src/routes/products.routes.js",
+      "models": [
+        "Product"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/status",
+      "handler": "res) => {",
+      "file": "src/routes/sync.routes.js"
+    },
+    {
+      "method": "GET",
+      "path": "/logs",
+      "handler": "res) => {",
+      "file": "src/routes/sync.routes.js"
+    },
+    {
+      "method": "POST",
+      "path": "/retry",
+      "handler": "res) => {",
+      "file": "src/routes/sync.routes.js"
+    },
+    {
+      "method": "GET",
+      "path": "/entity/:type/:id",
+      "handler": "res) => {",
+      "file": "src/routes/sync.routes.js"
+    },
+    {
+      "method": "POST",
+      "path": "/",
+      "handler": "user.controller.createUser",
+      "file": "src/routes/user.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "user.controller.getUsers",
+      "file": "src/routes/user.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/:userId",
+      "handler": "user.controller.getUser",
+      "file": "src/routes/user.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/:id/promote-admin",
+      "handler": "user.controller.promoteUserToAdmin",
+      "file": "src/routes/user.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/:id/demote-admin",
+      "handler": "user.controller.demoteUserFromAdmin",
+      "file": "src/routes/user.routes.js",
+      "models": [
+        "Role",
+        "User"
+      ]
+    }
+  ],
+  "data_models": {
+    "Alert": {
+      "file": "src/models/Alert.js",
+      "type": "mongoose",
+      "fields": [
+        "createdBy",
+        "description",
+        "isActive",
+        "lastTriggered",
+        "name",
+        "threshold"
+      ],
+      "relationships": [
+        {
+          "type": "ref",
+          "target": "User",
+          "field": "createdBy"
+        }
+      ]
+    },
+    "AlertEmployee": {
+      "file": "src/models/sql/AlertEmployee.js",
+      "type": "sequelize",
+      "fields": [
+        "aggregated_at",
+        "alert_type",
+        "days_until",
+        "employee_id",
+        "extra_data",
+        "id",
+        "name"
+      ],
+      "relationships": []
+    },
+    "AlertsSummary": {
+      "file": "src/models/sql/AlertsSummary.js",
+      "type": "sequelize",
+      "fields": [
+        "alert_type",
+        "computed_at",
+        "employee_count",
+        "id",
+        "matching_employees",
+        "threshold"
+      ],
+      "relationships": []
+    },
+    "BenefitPlan": {
+      "file": "src/models/sql/BenefitPlan.js",
+      "type": "sequelize",
+      "fields": [
+        "description",
+        "id",
+        "is_active",
+        "monthly_cost",
+        "name"
+      ],
+      "relationships": []
+    },
+    "BenefitsSummary": {
+      "file": "src/models/sql/BenefitsSummary.js",
+      "type": "sequelize",
+      "fields": [
+        "average_paid",
+        "computed_at",
+        "enrollment_count",
+        "id",
+        "plan_name",
+        "shareholder_type",
+        "total_paid"
+      ],
+      "relationships": []
+    },
+    "Department": {
+      "file": "src/models/Department.js",
+      "type": "mongoose",
+      "fields": [
+        "code",
+        "description",
+        "isActive",
+        "managerId",
+        "name"
+      ],
+      "relationships": [
+        {
+          "type": "ref",
+          "target": "Employee",
+          "field": "managerId"
+        }
+      ]
+    },
+    "Earning": {
+      "file": "src/models/sql/Earning.js",
+      "type": "sequelize",
+      "fields": [
+        "amount",
+        "description",
+        "employee_id",
+        "id",
+        "month",
+        "year"
+      ],
+      "relationships": []
+    },
+    "EarningsEmployeeYear": {
+      "file": "src/models/sql/EarningsEmployeeYear.js",
+      "type": "sequelize",
+      "fields": [
+        "employee_id",
+        "id",
+        "total",
+        "year"
+      ],
+      "relationships": []
+    },
+    "EarningsSummary": {
+      "file": "src/models/sql/EarningsSummary.js",
+      "type": "sequelize",
+      "fields": [
+        "computed_at",
+        "current_total",
+        "employee_count",
+        "group_type",
+        "group_value",
+        "id",
+        "previous_total",
+        "year"
+      ],
+      "relationships": []
+    },
+    "Employee": {
+      "file": "src/models/Employee.js",
+      "type": "mongoose",
+      "fields": [
+        "annualEarnings",
+        "annualEarningsYear",
+        "birthDate",
+        "departmentId",
+        "employeeId",
+        "employmentType",
+        "ethnicity",
+        "firstName",
+        "gender",
+        "hireDate",
+        "isShareholder",
+        "lastName",
+        "paidLastYear",
+        "paidToDate",
+        "payRate",
+        "payRateId",
+        "vacationDays"
+      ],
+      "relationships": [
+        {
+          "type": "ref",
+          "target": "Department",
+          "field": "departmentId"
+        }
+      ]
+    },
+    "EmployeeBenefit": {
+      "file": "src/models/sql/EmployeeBenefit.js",
+      "type": "sequelize",
+      "fields": [
+        "amount_paid",
+        "effective_date",
+        "employee_id",
+        "id",
+        "is_active",
+        "key",
+        "last_change_date",
+        "model",
+        "plan_id"
+      ],
+      "relationships": [
+        {
+          "type": "belongsTo",
+          "target": "BenefitPlan",
+          "field": ""
+        },
+        {
+          "type": "hasMany",
+          "target": "EmployeeBenefit",
+          "field": ""
+        }
+      ]
+    },
+    "IntegrationEvent": {
+      "file": "src/models/sql/IntegrationEvent.js",
+      "type": "sequelize",
+      "fields": [
+        "action",
+        "attempts",
+        "entity_id",
+        "entity_type",
+        "id",
+        "last_error",
+        "next_run_at",
+        "payload",
+        "processed_at",
+        "status"
+      ],
+      "relationships": []
+    },
+    "Payrate": {
+      "file": "src/models/Payrate.js",
+      "type": "mongoose",
+      "fields": [
+        "amount",
+        "name",
+        "taxPercentage",
+        "value"
+      ],
+      "relationships": []
+    },
+    "PayRate": {
+      "file": "src/models/sql/PayRate.js",
+      "type": "sequelize",
+      "fields": [
+        "effective_date",
+        "employee_id",
+        "id",
+        "is_active",
+        "pay_rate",
+        "pay_type"
+      ],
+      "relationships": []
+    },
+    "Product": {
+      "file": "src/models/Product.js",
+      "type": "mongoose",
+      "fields": [
+        "category",
+        "imgURL",
+        "name",
+        "price",
+        "userId"
+      ],
+      "relationships": [
+        {
+          "type": "ref",
+          "target": "User",
+          "field": "userId"
+        }
+      ]
+    },
+    "Role": {
+      "file": "src/models/Role.js",
+      "type": "mongoose",
+      "fields": [
+        "name"
+      ],
+      "relationships": []
+    },
+    "SyncLog": {
+      "file": "src/models/sql/SyncLog.js",
+      "type": "sequelize",
+      "fields": [
+        "action",
+        "completed_at",
+        "entity_id",
+        "entity_type",
+        "error_message",
+        "id",
+        "retry_count",
+        "status"
+      ],
+      "relationships": []
+    },
+    "User": {
+      "file": "src/models/User.js",
+      "type": "mongoose",
+      "fields": [
+        "email",
+        "password",
+        "roles",
+        "tokens",
+        "username"
+      ],
+      "relationships": []
+    },
+    "VacationRecord": {
+      "file": "src/models/sql/VacationRecord.js",
+      "type": "sequelize",
+      "fields": [
+        "days_taken",
+        "employee_id",
+        "end_date",
+        "id",
+        "reason",
+        "start_date",
+        "year"
+      ],
+      "relationships": []
+    },
+    "VacationSummary": {
+      "file": "src/models/sql/VacationSummary.js",
+      "type": "sequelize",
+      "fields": [
+        "computed_at",
+        "current_total",
+        "employee_count",
+        "group_type",
+        "group_value",
+        "id",
+        "previous_total",
+        "year"
+      ],
+      "relationships": []
+    }
+  },
+  "circular_dependencies": [
+    [
+      "controllers",
+      "libs",
+      "middlewares",
+      "models",
+      "root",
+      "routes",
+      "services",
+      "workers"
+    ]
+  ],
+  "warnings": []
+}

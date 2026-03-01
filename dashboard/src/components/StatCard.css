@@ -1,28 +1,99 @@
-/* StatCard.css - v2.0 (Data Tile - Industrial) */
+/* ═══════════════════════════════════════
+   StatCard — v3.0 (Premium KPI Tiles)
+   ═══════════════════════════════════════ */
 
 .stat-card {
     background: var(--color-bg-card);
     border-radius: var(--radius-lg);
-    padding: var(--space-4);
-    /* Compact padding */
-    /* Use border instead of shadow for separation */
+    padding: var(--space-4) var(--space-5);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-card);
-    /* Very subtle elevation */
-
     display: flex;
     flex-direction: column;
-    /* Stack vertically for tile look */
     justify-content: space-between;
     height: 100%;
-    min-height: 90px;
+    min-height: 100px;
+    transition: all var(--duration-normal) var(--ease-out);
+    animation: fadeIn 0.5s var(--ease-out) both;
+    position: relative;
+    overflow: hidden;
+}
 
-    transition: border-color var(--duration-fast);
+/* Subtle accent glow on top edge */
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-earnings);
+    opacity: 0;
+    transition: opacity var(--duration-normal);
 }
 
 .stat-card:hover {
-    border-color: var(--color-primary-300);
-    /* No movement triggers */
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+    border-color: var(--color-primary-200);
+}
+
+.stat-card:hover::before {
+    opacity: 1;
+}
+
+/* Staggered animation for KPI grid */
+.kpi-grid .stat-card:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.kpi-grid .stat-card:nth-child(2) {
+    animation-delay: 0.08s;
+}
+
+.kpi-grid .stat-card:nth-child(3) {
+    animation-delay: 0.16s;
+}
+
+.kpi-grid .stat-card:nth-child(4) {
+    animation-delay: 0.24s;
+}
+
+/* Accent colors per position */
+.kpi-grid .stat-card:nth-child(1)::before {
+    background: var(--gradient-earnings);
+}
+
+.kpi-grid .stat-card:nth-child(2)::before {
+    background: var(--gradient-vacation);
+}
+
+.kpi-grid .stat-card:nth-child(3)::before {
+    background: var(--gradient-benefits);
+}
+
+.kpi-grid .stat-card:nth-child(4)::before {
+    background: var(--gradient-alerts);
+}
+
+.kpi-grid .stat-card:nth-child(1):hover {
+    --glow: var(--glow-indigo);
+    box-shadow: var(--shadow-card-hover), var(--glow);
+}
+
+.kpi-grid .stat-card:nth-child(2):hover {
+    --glow: var(--glow-teal);
+    box-shadow: var(--shadow-card-hover), var(--glow);
+}
+
+.kpi-grid .stat-card:nth-child(3):hover {
+    --glow: var(--glow-violet);
+    box-shadow: var(--shadow-card-hover), var(--glow);
+}
+
+.kpi-grid .stat-card:nth-child(4):hover {
+    --glow: var(--glow-amber);
+    box-shadow: var(--shadow-card-hover), var(--glow);
 }
 
 .stat-card-error {
@@ -30,7 +101,12 @@
     background: var(--color-danger-bg);
 }
 
-/* Header Row: Label + Icon */
+.stat-card-error::before {
+    background: linear-gradient(135deg, #ef4444, #f87171) !important;
+    opacity: 1;
+}
+
+/* ── Header Row ── */
 .stat-header-row {
     display: flex;
     justify-content: space-between;
@@ -39,72 +115,92 @@
 }
 
 .stat-title {
-    font-size: var(--font-size-xs);
+    font-size: 0.6875rem;
     font-weight: 700;
-    color: var(--color-text-secondary);
+    color: var(--color-text-tertiary);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     margin: 0;
 }
 
 .stat-icon-wrapper {
-    /* Subtle muted icon in corner */
-    background: transparent;
-    color: var(--color-text-tertiary);
-    font-size: 1.125rem;
-    padding: 0;
-    width: auto;
-    height: auto;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
     display: flex;
-    opacity: 0.7;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: var(--color-primary-600);
+    background: var(--color-primary-50);
+    transition: all var(--duration-normal);
 }
 
-/* Value Row */
-.stat-value {
-    font-size: 1.45rem;
-    font-weight: 700;
-    color: var(--color-primary-900);
-    line-height: 1.1;
-    letter-spacing: -0.02em;
+/* Icon colors per KPI position */
+.kpi-grid .stat-card:nth-child(1) .stat-icon-wrapper {
+    color: var(--accent-earnings);
+    background: var(--accent-earnings-light);
+}
 
-    /* Technical number display */
+.kpi-grid .stat-card:nth-child(2) .stat-icon-wrapper {
+    color: var(--accent-vacation);
+    background: var(--accent-vacation-light);
+}
+
+.kpi-grid .stat-card:nth-child(3) .stat-icon-wrapper {
+    color: var(--accent-benefits);
+    background: var(--accent-benefits-light);
+}
+
+.kpi-grid .stat-card:nth-child(4) .stat-icon-wrapper {
+    color: var(--accent-alerts);
+    background: var(--accent-alerts-light);
+}
+
+/* ── Value Row ── */
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--color-text-main);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
     font-feature-settings: "tnum" 1;
     font-variant-numeric: tabular-nums;
 }
 
-/* Footer / Trend Row */
+/* ── Trend Row ── */
 .stat-subtext {
-    font-size: var(--font-size-xs);
-    font-weight: 500;
+    font-size: 0.6875rem;
+    font-weight: 600;
     margin-top: var(--space-2);
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    width: fit-content;
 }
 
-/* Trend Colors */
 .stat-subtext.text-success {
     color: var(--color-success);
     background: var(--color-success-bg);
-    padding: 2px 8px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--color-border);
+    border: none;
 }
 
 .stat-subtext.text-danger {
     color: var(--color-danger);
     background: var(--color-danger-bg);
-    padding: 2px 8px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--color-border);
+    border: none;
 }
 
 .stat-subtext.text-muted {
     color: var(--color-text-tertiary);
+    background: var(--color-bg-subtle);
 }
 
+/* ── Error State ── */
 .stat-error-title {
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--color-danger);
     text-transform: uppercase;
@@ -121,13 +217,15 @@
 .stat-retry-btn {
     border: 1px solid #fecaca;
     background: #fff;
-    color: #b91c1c;
+    color: var(--color-danger);
     border-radius: var(--radius-md);
-    padding: 4px 8px;
+    padding: 5px 12px;
     font-size: var(--font-size-xs);
     font-weight: 700;
     cursor: pointer;
     align-self: flex-start;
+    font-family: inherit;
+    transition: all var(--duration-fast);
 }
 
 .stat-retry-btn:hover {
@@ -135,15 +233,16 @@
     background: #fff5f5;
 }
 
-/* Skeletons */
+/* ── Skeletons ── */
 .skeleton-stat {
     background: var(--color-bg-subtle);
 }
 
 .skeleton-line {
-    background: var(--color-border);
+    background: linear-gradient(90deg, var(--color-border) 25%, var(--color-bg-subtle) 50%, var(--color-border) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s linear infinite;
     border-radius: var(--radius-sm);
-    opacity: 0.5;
 }
 
 .skeleton-line.sm {

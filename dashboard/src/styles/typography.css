@@ -1,23 +1,21 @@
-/* Typography Utilities - v2.0 */
+/* Typography Utilities — v3.0 */
 
 body {
     font-family: var(--font-family-sans);
     color: var(--color-text-main);
     background-color: var(--color-bg-body);
     -webkit-font-smoothing: antialiased;
-    line-height: 1.5;
-    /* Enable Tabular Nums by default for data tables */
-    font-feature-settings: "tnum" on, "cv05" on;
+    line-height: 1.6;
+    font-feature-settings: "cv05" on;
 }
 
 h1,
 h2,
 h3,
 h4 {
-    color: var(--color-primary-900);
-    /* Darker, authoritative */
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    color: var(--color-text-main);
+    font-weight: 700;
+    letter-spacing: -0.025em;
     margin-bottom: var(--space-2);
     line-height: 1.2;
 }
@@ -40,8 +38,7 @@ p {
     margin-bottom: var(--space-4);
 }
 
-/* --- Utilities --- */
-
+/* ── Utilities ── */
 .text-sm {
     font-size: var(--font-size-sm);
 }
@@ -63,10 +60,9 @@ p {
 }
 
 .text-primary {
-    color: var(--color-primary-700);
+    color: var(--color-primary-600);
 }
 
-/* Status Text Colors */
 .text-success {
     color: var(--color-success);
 }
@@ -83,7 +79,6 @@ p {
     color: var(--color-info);
 }
 
-/* Weights */
 .font-normal {
     font-weight: 400;
 }
@@ -100,12 +95,10 @@ p {
     font-weight: 700;
 }
 
-/* Special Data Displays */
 .text-mono {
     font-family: var(--font-family-mono);
     font-size: 0.9em;
-    /* Optical adjustment */
-    letter-spacing: -0.5px;
+    letter-spacing: -0.3px;
 }
 
 .text-tabular {
@@ -113,7 +106,6 @@ p {
     font-variant-numeric: tabular-nums;
 }
 
-/* Helpers */
 .text-center {
     text-align: center;
 }
@@ -124,7 +116,7 @@ p {
 
 .uppercase {
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
 }
 
 .truncate {

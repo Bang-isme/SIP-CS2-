@@ -1,6 +1,6 @@
 # Case Study 5 - Network / DR / Security Plan
 
-> Last Updated: 2026-02-03
+> Last Updated: 2026-03-02
 
 ## 1) Mục tiêu
 - Đề xuất kiến trúc mạng, vùng bảo mật, DR strategy, RTO/RPO.
@@ -56,10 +56,11 @@ Internet
 - Output report: `SIP_CS/Memory/DR/dr_rehearsal_safe_YYYY-MM-DD.json`
 - Mục tiêu: kiểm tra số lượng dữ liệu và ghi nhận thời gian kiểm chứng.
 
-#### Kết quả rehearsal gần nhất (2026-02-03)
-- Report: `Memory/DR/dr_rehearsal_safe_2026-02-03.json`
-- Duration: ~1.7s
+#### Kết quả rehearsal gần nhất (2026-03-01)
+- Report: `Memory/DR/dr_rehearsal_safe_2026-03-01.json`
+- Duration: ~1.2s
 - Mongo employees: 500,000
+- Interpretation note: 500,000 applies to the HR employee master dataset (MongoDB), not to every database/table.
 - MySQL:
   - integration_events: 2
   - sync_logs: 8

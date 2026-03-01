@@ -1,4 +1,15 @@
 import { useState } from 'react';
+import {
+  FiAlertTriangle,
+  FiBarChart2,
+  FiHelpCircle,
+  FiInfo,
+  FiLogIn,
+  FiLock,
+  FiMail,
+  FiShield,
+  FiUser,
+} from 'react-icons/fi';
 import { login } from '../services/api';
 import './Login.css';
 
@@ -38,14 +49,14 @@ function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
 
             <div className="feature-list">
               <div className="feature-item">
-                <span className="icon">FAST</span>
+                <span className="icon" aria-hidden="true"><FiBarChart2 size={20} /></span>
                 <div>
                   <h4>Real-time Insights</h4>
                   <p>Monitor KPIs instantly</p>
                 </div>
               </div>
               <div className="feature-item">
-                <span className="icon">SEC</span>
+                <span className="icon" aria-hidden="true"><FiShield size={20} /></span>
                 <div>
                   <h4>Secure Access</h4>
                   <p>Enterprise-grade security</p>
@@ -67,28 +78,34 @@ function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label htmlFor="login-email">Email Address</label>
-                <input
-                  id="login-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
-                  required
-                  className="input-field"
-                />
+                <div className="input-shell">
+                  <span className="input-icon" aria-hidden="true"><FiMail size={16} /></span>
+                  <input
+                    id="login-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    required
+                    className="input-field input-with-icon"
+                  />
+                </div>
               </div>
 
               <div className="form-group">
                 <label htmlFor="login-password">Password</label>
-                <input
-                  id="login-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="********"
-                  required
-                  className="input-field"
-                />
+                <div className="input-shell">
+                  <span className="input-icon" aria-hidden="true"><FiLock size={16} /></span>
+                  <input
+                    id="login-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="********"
+                    required
+                    className="input-field input-with-icon"
+                  />
+                </div>
               </div>
 
               <div className="form-actions">
@@ -100,24 +117,30 @@ function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
                   className="forgot-password-btn"
                   onClick={() => setError('Password reset is not available in demo mode.')}
                 >
-                  Forgot password?
+                  <FiHelpCircle size={14} aria-hidden="true" />
+                  <span>Forgot password?</span>
                 </button>
               </div>
 
               {sessionNotice && (
                 <div className="notice-message" role="status" aria-live="polite">
-                  <span>INFO</span> {sessionNotice}
+                  <FiInfo size={14} aria-hidden="true" />
+                  <span>{sessionNotice}</span>
                 </div>
               )}
 
               {error && (
                 <div className="error-message" role="alert">
-                  <span>WARN</span> {error}
+                  <FiAlertTriangle size={14} aria-hidden="true" />
+                  <span>{error}</span>
                 </div>
               )}
 
               <button type="submit" disabled={loading} className="login-btn">
-                {loading ? 'Authenticating...' : 'Sign In'}
+                <span className="login-btn-content">
+                  <FiLogIn size={16} aria-hidden="true" />
+                  <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
+                </span>
               </button>
             </form>
 
@@ -127,7 +150,9 @@ function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
                 <button type="button" className="login-link-btn" onClick={onSwitchToRegister}>Sign Up</button>
               </p>
               <div className="demo-credentials">
-                Demo: <code>{DEMO_ADMIN_EMAIL}</code> / <code>{DEMO_ADMIN_PASSWORD}</code>
+                <FiUser size={13} aria-hidden="true" />
+                <span>Demo:</span>
+                <code>{DEMO_ADMIN_EMAIL}</code> / <code>{DEMO_ADMIN_PASSWORD}</code>
               </div>
             </div>
           </div>

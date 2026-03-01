@@ -3,6 +3,11 @@
 > **Phiên bản**: 1.0  
 > **Cập nhật**: 2026-02-05
 
+> **Data Volume Assumption (Updated 2026-03-02)**:
+> `500k` is the baseline for the HR employee master dataset (MongoDB `employees`), not for every database/table.
+> Payroll row volume is expected to be higher (often multi-million) based on pay periods and retention windows.
+> Quick estimate: `payroll_rows ~= employees x pay_periods_per_year x retention_years x detail_factor`.
+
 Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tương ứng**, phân loại theo:
 - **CEO Memo**: Yêu cầu từ phía lãnh đạo/business
 - **Developer**: Vấn đề kỹ thuật cần giải quyết
@@ -23,7 +28,7 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 
 | Yêu cầu CEO | Vấn đề cụ thể | Giải pháp | File liên quan |
 |-------------|---------------|-----------|----------------|
-| Xem tổng earnings theo shareholder/gender/ethnicity/emp-type/department | Dữ liệu nằm rải rác ở 2 DB, query real-time quá chậm với 500k+ records | **Pre-aggregation vào Summary Tables** - Batch script tổng hợp trước, API chỉ đọc summary | `aggregate-dashboard.js` → `EarningsSummary` |
+| Xem tổng earnings theo shareholder/gender/ethnicity/emp-type/department | Dữ liệu nằm rải rác ở 2 DB, query real-time quá chậm với 500k+ employee-master records | **Pre-aggregation vào Summary Tables** - Batch script tổng hợp trước, API chỉ đọc summary | `aggregate-dashboard.js` → `EarningsSummary` |
 | So sánh current year vs previous year | Cần join nhiều bảng và tính toán phức tạp | **Parallel aggregation** - Tính đồng thời 2 năm, lưu `current_total` + `previous_total` trong cùng 1 row | `aggregate-dashboard.js` lines 86-98 |
 | Vacation days theo phân loại | Tương tự earnings, query chậm | **VacationSummary table** - Cùng pattern với earnings | `aggregate-dashboard.js` → `VacationSummary` |
 | Average benefits theo plan + shareholder | Cần cross-DB join (Mongo shareholder + MySQL benefits) | **Shareholder Set in Memory** - Load shareholders từ Mongo vào Set, loop qua MySQL benefits | `aggregate-dashboard.js` → `BenefitsSummary` |
@@ -41,11 +46,11 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 
 ---
 
-### 1.3 Drilldown Performance (500k+ records)
+### 1.3 Drilldown Performance (500k+ employee-master records)
 
 | Yêu cầu CEO | Vấn đề cụ thể | Giải pháp | File liên quan |
 |-------------|---------------|-----------|----------------|
-| Drilldown phải nhanh | Query 500k employees quá chậm | **Phân tầng performance strategy** | |
+| Drilldown phải nhanh | Query 500k employee documents quá chậm | **Phân tầng performance strategy** | |
 | | Limit nhỏ (< 1000) | Normal query với pagination | `dashboard.controller.js` |
 | | Limit lớn (>= 1000) | **Bulk mode** - Skip enrichment, return basic data | `dashboard.controller.js` `bulk=1` |
 | | Count total | **Fast summary mode** - Chỉ trả count, không tính sum | `dashboard.controller.js` `summary=fast` |
@@ -88,11 +93,11 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 
 ## 2. Developer Technical Problems → Solutions
 
-### 2.1 Performance với Large Dataset (500k+ records)
+### 2.1 Performance với Large Dataset (500k+ employee-master records)
 
 | Vấn đề Developer | Chi tiết | Giải pháp | File liên quan |
 |------------------|----------|-----------|----------------|
-| Memory overflow khi load all employees | 500k records = ~2GB memory | **Cursor-based streaming** - MongoDB cursor với batchSize | `aggregate-dashboard.js` line 111-114 |
+| Memory overflow khi load all employees | 500k employee documents = ~2GB memory | **Cursor-based streaming** - MongoDB cursor với batchSize | `aggregate-dashboard.js` line 111-114 |
 | Slow bulk writes | Individual inserts quá chậm | **bulkWrite + bulkCreate** - Batch 5000 records mỗi lần | `aggregate-dashboard.js` lines 129-132 |
 | Cross-DB join impossible | MongoDB + MySQL không join được | **Pre-compute vào same DB** - Snapshot earnings vào Mongo, summary vào MySQL | `aggregate-dashboard.js` |
 | API response timeout | Drilldown query timeout | **Pagination + Limit + Bulk mode** - Phân tầng strategy | `dashboard.controller.js` |
@@ -223,7 +228,7 @@ CEO Problems Solved:
 
 Developer Problems Solved:
 ├── Cross-DB join impossible ✓
-├── Query performance with 500k records ✓
+├── Query performance with 500k employee-master records ✓
 ├── Memory management (cursor streaming) ✓
 └── Bulk write efficiency ✓
 ```
