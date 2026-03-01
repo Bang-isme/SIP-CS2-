@@ -320,8 +320,8 @@ function Dashboard({ onLogout, currentUser }) {
           <h1>
             <span>HQ</span> HR & Payroll Analytics
           </h1>
-          <span className="subtitle">Executive Overview - FY {currentYear}</span>
-          <p className="subtitle subtitle-meta-row">
+          <p className="subtitle-meta-row subtitle-meta-compact">
+            <span className="subtitle-context">Executive Overview - FY {currentYear}</span>
             <span className={`freshness-pill ${globalFreshness.css}`} title={globalFreshness.tooltip}>
               {globalFreshness.label}
             </span>

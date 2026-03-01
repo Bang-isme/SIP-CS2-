@@ -2,9 +2,20 @@ import React from 'react';
 import './StatCard.css';
 
 const StatCard = ({ title, value, subtext, icon, trend, loading, error, onRetry }) => {
+    const resolveTone = (label = '') => {
+        const normalized = label.toLowerCase();
+        if (normalized.includes('payroll')) return 'earnings';
+        if (normalized.includes('vacation')) return 'vacation';
+        if (normalized.includes('benefits')) return 'benefits';
+        if (normalized.includes('action')) return 'alerts';
+        return 'neutral';
+    };
+
+    const tone = resolveTone(title);
+
     if (loading) {
         return (
-            <div className="stat-card skeleton-stat">
+            <div className={`stat-card stat-card--${tone} skeleton-stat`}>
                 <div className="skeleton-icon"></div>
                 <div className="skeleton-content">
                     <div className="skeleton-line sm"></div>
@@ -16,9 +27,12 @@ const StatCard = ({ title, value, subtext, icon, trend, loading, error, onRetry 
 
     if (error) {
         return (
-            <div className="stat-card stat-card-error">
+            <div className={`stat-card stat-card--${tone} stat-card-error`}>
                 <div className="stat-header-row">
-                    <h3 className="stat-title">{title}</h3>
+                    <div className="stat-headline">
+                        <h3 className="stat-title">{title}</h3>
+                        <span className="stat-signal">Needs retry</span>
+                    </div>
                     <div className="stat-icon-wrapper">
                         {icon}
                     </div>
@@ -39,23 +53,36 @@ const StatCard = ({ title, value, subtext, icon, trend, loading, error, onRetry 
     const isNegative = trend === 'down';
     /* Logic: Explicitly handle neutral/no trend */
     const trendClass = isPositive ? 'text-success' : (isNegative ? 'text-danger' : 'text-muted');
+    const trendSignal = isPositive ? 'Rising' : (isNegative ? 'Watch' : 'Stable');
+    const trendArrow = isPositive ? '↗' : (isNegative ? '↘' : '→');
 
     return (
-        <div className="stat-card">
-            {/* 1. Header Row: Title & Icon */}
+        <div className={`stat-card stat-card--${tone}`}>
+            <div className="stat-card-glow" aria-hidden="true"></div>
             <div className="stat-header-row">
-                <h3 className="stat-title">{title}</h3>
+                <div className="stat-headline">
+                    <h3 className="stat-title">{title}</h3>
+                    <span className={`stat-signal ${trendClass}`}>
+                        <span aria-hidden="true">{trendArrow}</span>
+                        <span>{trendSignal}</span>
+                    </span>
+                </div>
                 <div className="stat-icon-wrapper">
                     {icon}
                 </div>
             </div>
 
-            {/* 2. Primary Value */}
-            <div className="stat-value">
-                {value}
+            <div className="stat-value-wrap">
+                <div className="stat-value">
+                    {value}
+                </div>
+                <div className="stat-pulse" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
             </div>
 
-            {/* 3. Footer Context (Trend) */}
             {subtext && (
                 <div className={`stat-subtext ${trendClass}`}>
                     {subtext}

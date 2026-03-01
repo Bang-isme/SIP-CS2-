@@ -101,6 +101,12 @@ function AlertsPanel({ alerts }) {
     return `${value} day${value === 1 ? '' : 's'}`;
   };
 
+  const getInitials = (name = '') => {
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '--';
+    return parts.slice(0, 2).map((part) => part[0].toUpperCase()).join('');
+  };
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -273,24 +279,33 @@ function AlertsPanel({ alerts }) {
           const Icon = config.icon || FiBell;
           const PriorityIcon = config.priorityIcon || FiBell;
           const spanFull = hasOddCount && index === sortedAlerts.length - 1;
+          const share = summary.totalAffected > 0 ? (alert.count / summary.totalAffected) * 100 : 0;
 
           return (
             <div
               key={index}
               className={`alert-card${spanFull ? ' span-full' : ''}`}
-              style={{ '--accent-color': config.color }}
+              style={{ '--accent-color': config.color, '--alert-share': `${Math.max(7, share)}%` }}
             >
               <div className="alert-card-inner">
                 <div className="alert-header">
-                  <div className="alert-header-main">
-                    <span className="alert-icon" style={{ color: config.color }} aria-hidden="true">
-                      <Icon size={16} />
-                    </span>
-                    <h3 className="alert-name">{config.label || alert.alert.name}</h3>
-                    <span className="priority-badge" title={`Severity: ${config.severity}`} style={{ color: config.priorityColor }}>
-                      <PriorityIcon size={12} />
-                      <span className="priority-text">{config.severity}</span>
-                    </span>
+                  <div className="alert-header-content">
+                    <div className="alert-header-main">
+                      <span className="alert-icon" style={{ color: config.color }} aria-hidden="true">
+                        <Icon size={16} />
+                      </span>
+                      <h3 className="alert-name">{config.label || alert.alert.name}</h3>
+                      <span className="priority-badge" title={`Severity: ${config.severity}`} style={{ color: config.priorityColor }}>
+                        <PriorityIcon size={12} />
+                        <span className="priority-text">{config.severity}</span>
+                      </span>
+                    </div>
+                    <div className="alert-header-meta">
+                      <span className="alert-meta-text">{share.toFixed(1)}% impact share</span>
+                      <span className="alert-impact-track" aria-hidden="true">
+                        <span className="alert-impact-fill"></span>
+                      </span>
+                    </div>
                   </div>
                   <span className="alert-badge">{alert.count}</span>
                 </div>
@@ -299,9 +314,12 @@ function AlertsPanel({ alerts }) {
                   {/* Safe array access to prevent crash */}
                   {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, PREVIEW_LIMIT).map((emp, i) => (
                     <div key={i} className="employee-row">
-                      <div className="emp-details">
-                        <span className="emp-name">{emp.name}</span>
-                        <span className="emp-id">{emp.employeeId}</span>
+                      <div className="emp-identity">
+                        <span className="emp-avatar" aria-hidden="true">{getInitials(emp.name)}</span>
+                        <div className="emp-details">
+                          <span className="emp-name">{emp.name}</span>
+                          <span className="emp-id">{emp.employeeId}</span>
+                        </div>
                       </div>
                       {/* Tags logic */}
                       {emp.vacationDays !== undefined && (

@@ -120,7 +120,17 @@ function VacationChart({ data, onDrilldown }) {
                                     ))}
                                 </Pie>
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '10px', border: '1px solid var(--color-border)', background: 'var(--color-bg-card)', boxShadow: 'var(--shadow-lg)' }}
+                                    position={{ x: 12, y: 8 }}
+                                    wrapperStyle={{ zIndex: 10, pointerEvents: 'none' }}
+                                    cursor={{ fill: 'rgba(99, 102, 241, 0.06)' }}
+                                    contentStyle={{
+                                        borderRadius: '10px',
+                                        border: '1px solid #d5dff3',
+                                        background: '#ffffff',
+                                        boxShadow: '0 12px 24px -16px rgba(15, 23, 42, 0.45)',
+                                    }}
+                                    itemStyle={{ color: 'var(--color-text-main)', fontWeight: 700 }}
+                                    labelStyle={{ color: '#64748b', fontWeight: 700 }}
                                     formatter={(val) => `${formatNum(val)} days`}
                                 />
                             </PieChart>
@@ -186,4 +196,3 @@ function VacationChart({ data, onDrilldown }) {
 }
 
 export default VacationChart;
-

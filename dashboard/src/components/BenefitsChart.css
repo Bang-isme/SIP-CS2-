@@ -1,35 +1,29 @@
-/* ═══════════════════════════════════════
-   BenefitsChart — v3.0 (Premium)
-   ═══════════════════════════════════════ */
-
 .benefits-container {
   margin-top: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  animation: fadeIn 0.5s var(--ease-out) both;
+  gap: 14px;
+  animation: fadeIn 0.45s var(--ease-out) both;
 }
 
 .benefits-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-divider);
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e4eaf8;
 }
 
 .summary-card {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  border-radius: 12px;
   text-align: left;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-xs);
+  border: 1px solid #dbe4f7;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-height: 76px;
-  transition: all var(--duration-normal) var(--ease-out);
+  min-height: 88px;
+  transition: transform var(--duration-normal) var(--ease-out), border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out);
   position: relative;
   overflow: hidden;
 }
@@ -37,67 +31,103 @@
 .summary-card::before {
   content: '';
   position: absolute;
-  top: 0;
   left: 0;
   right: 0;
+  top: 0;
   height: 3px;
   border-radius: 3px 3px 0 0;
 }
 
+.summary-card::after {
+  content: '';
+  position: absolute;
+  right: -24px;
+  bottom: -24px;
+  width: 90px;
+  height: 90px;
+  border-radius: 999px;
+  border: 1px dashed rgba(99, 102, 241, 0.24);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .summary-card:hover {
-  border-color: var(--color-primary-200);
-  box-shadow: var(--shadow-sm);
+  border-color: #bfd0f5;
+  box-shadow: 0 16px 24px -22px rgba(30, 41, 59, 0.5);
   transform: translateY(-1px);
 }
 
 .summary-card.shareholder {
-  border-left: none;
+  background:
+    linear-gradient(140deg, rgba(13, 148, 136, 0.12) 0%, rgba(13, 148, 136, 0) 55%),
+    linear-gradient(180deg, #ffffff 0%, #f7fdfb 100%);
 }
 
 .summary-card.shareholder::before {
-  background: var(--gradient-vacation);
+  background: linear-gradient(90deg, #0d9488 0%, #14b8a6 100%);
 }
 
 .summary-card.non-shareholder {
-  border-left: none;
+  background:
+    linear-gradient(140deg, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0) 55%),
+    linear-gradient(180deg, #ffffff 0%, #f9f7ff 100%);
 }
 
 .summary-card.non-shareholder::before {
-  background: var(--gradient-benefits);
+  background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%);
 }
 
 .summary-label {
   display: block;
-  font-size: 0.6875rem;
-  color: var(--color-text-tertiary);
+  font-size: 0.69rem;
+  color: #8b97ab;
   margin-bottom: 2px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .summary-value {
   display: block;
-  font-size: 1.25rem;
+  font-size: 2rem;
+  line-height: 1.02;
   font-weight: 800;
   font-family: var(--font-family-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .summary-count {
   display: block;
-  font-size: 0.6875rem;
-  color: var(--color-text-tertiary);
+  font-size: 0.72rem;
+  color: #8b97ab;
   margin-top: 2px;
   font-family: var(--font-family-mono);
 }
 
 .benefits-container h4 {
-  font-size: 0.6875rem;
-  color: var(--color-text-tertiary);
+  font-size: 0.71rem;
+  color: #8b97ab;
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.benefits-container .recharts-cartesian-grid line {
+  stroke: #e9eef9;
+}
+
+.benefits-container .recharts-legend-item-text {
   font-weight: 700;
+}
+
+@media (max-width: 960px) {
+  .benefits-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-value {
+    font-size: 1.75rem;
+  }
 }
