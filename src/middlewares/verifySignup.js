@@ -1,19 +1,41 @@
 import User from "../models/User.js";
 import { ROLES } from "../models/Role.js";
+import { getRequestId } from "../utils/requestTracking.js";
+import {
+  createApiError,
+  createConflictError,
+  respondWithApiError,
+  sendApiError,
+} from "../utils/apiErrors.js";
 
 export const checkExistingUser = async (req, res, next) => {
   try {
-    const userFound = await User.findOne({ username: req.body.username });
-    if (userFound)
-      return res.status(400).json({ message: "The user already exists" });
+    const username = req.body?.username ? String(req.body.username).trim() : "";
+    const emailValue = req.body?.email ? String(req.body.email).trim().toLowerCase() : "";
 
-    const email = await User.findOne({ email: req.body.email });
+    const userFound = username ? await User.findOne({ username }) : null;
+    if (userFound)
+      return sendApiError(
+        res,
+        createConflictError("The user already exists", "AUTH_USERNAME_ALREADY_EXISTS"),
+      );
+
+    const email = emailValue ? await User.findOne({ email: emailValue }) : null;
     if (email)
-      return res.status(400).json({ message: "The email already exists" });
+      return sendApiError(
+        res,
+        createConflictError("The email already exists", "AUTH_EMAIL_ALREADY_EXISTS"),
+      );
 
     next();
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "VerifySignup",
+      defaultCode: "AUTH_SIGNUP_PRECHECK_FAILED",
+    });
   }
 };
 
@@ -22,13 +44,22 @@ export const checkExistingRole = (req, res, next) => {
   if (!req.body.roles) return next();
 
   if (!Array.isArray(req.body.roles)) {
-    return res.status(400).json({ message: "Roles must be an array" });
+    return sendApiError(
+      res,
+      createApiError("Roles must be an array", {
+        statusCode: 422,
+        code: "AUTH_ROLES_ARRAY_REQUIRED",
+      }),
+    );
   }
 
   for (let i = 0; i < req.body.roles.length; i++) {
     if (!ROLES.includes(req.body.roles[i])) {
-      return res.status(400).json({
+      return res.status(422).json({
+        success: false,
         message: `Role ${req.body.roles[i]} does not exist`,
+        code: "AUTH_ROLE_UNKNOWN",
+        requestId: getRequestId({ req, res }),
       });
     }
   }

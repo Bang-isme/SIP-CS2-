@@ -5,6 +5,7 @@ Single-page truth list for viva/demo defense. Distinguishes implemented scope vs
 
 ## 1) Integration Depth
 - Outbox + worker + replay/retry are implemented.
+- Stale `PROCESSING` recovery now has timeout-based hardening, but this is still DB-outbox middleware-lite rather than broker-grade operations.
 - Broker-grade architecture (Kafka/RabbitMQ), DLQ routing, and full observability stack are not implemented yet.
 
 ## 2) Consistency Model
@@ -16,8 +17,8 @@ Single-page truth list for viva/demo defense. Distinguishes implemented scope vs
 - Bootstrap migration workflow exists (`npm run db:migrate:mysql`) but full incremental/versioned migration pipeline is still pending.
 
 ## 4) Security Posture
-- No critical/high vulnerabilities in backend production dependencies (`npm audit --omit=dev`).
-- One moderate advisory remains transitively via `sequelize -> lodash`.
+- Backend production dependencies are clean as of 2026-03-19 (`npm audit --omit=dev` -> 0 vulnerabilities after dependency refresh).
+- Full workspace `npm audit` still reports advisories in legacy dev tooling; this is a cleanup backlog, not a current production-dependency blocker.
 - Security scan still reports warning-level findings (logging/http-local/demo artifacts).
 
 ## 5) UI/UX and A11y

@@ -46,6 +46,7 @@ jest.unstable_mockModule("../middlewares/authJwt.js", () => ({
     }
     return res.status(403).json({ message: "Require Admin Role!" });
   },
+  canManageProducts: (req, res, next) => next(),
 }));
 
 const { default: employeeRoutes } = await import("../routes/employee.routes.js");

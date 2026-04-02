@@ -1,164 +1,247 @@
 import Product from "../models/Product.js";
+import {
+  createBadRequestError,
+  createNotFoundError,
+  respondWithApiError,
+  sendApiError,
+} from "../utils/apiErrors.js";
+import {
+  buildProductMeta,
+  normalizeProductIdParam,
+  normalizeProductPayload,
+  normalizeProductSearchParam,
+  ProductContractError,
+  sendProductContractError,
+} from "../utils/productContracts.js";
 
-const USER_SEARCH_INDEX_NAME = 'user_search'
-const USER_AUTOCOMPLETE_INDEX_NAME = 'user_autocomplete'
+const escapeRegexLiteral = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const sanitizeProduct = (productDoc) => {
+  const source = productDoc && typeof productDoc.toObject === "function"
+    ? productDoc.toObject()
+    : productDoc || {};
+
+  return {
+    _id: source._id?.toString?.() || source._id,
+    name: source.name || "",
+    category: source.category || "",
+    price: Number.isFinite(source.price) ? source.price : Number(source.price) || 0,
+    imgURL: source.imgURL || "",
+    createdAt: source.createdAt || null,
+    updatedAt: source.updatedAt || null,
+  };
+};
 
 export const createProduct = async (req, res) => {
-  const { name, category, price, imgURL } = req.body;
-
   try {
-    const newProduct = new Product({
-      name,
-      category,
-      price,
-      imgURL,
-    });
-
+    const productPayload = normalizeProductPayload(req.body, { partial: false });
+    const newProduct = new Product(productPayload);
     const productSaved = await newProduct.save();
 
-    res.status(201).json({success: true, data: productSaved});
+    return res.status(201).json({
+      success: true,
+      data: sanitizeProduct(productSaved),
+      meta: buildProductMeta({
+        req,
+        res,
+        dataset: "products",
+        actorId: req.userId || null,
+      }),
+    });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({success: false, data: error});
+    if (error instanceof ProductContractError) {
+      return sendProductContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "ProductsController",
+      defaultCode: "PRODUCT_CREATE_FAILED",
+    });
   }
 };
 
 export const getProductById = async (req, res) => {
-  const { productId } = req.params;
+  try {
+    const productId = normalizeProductIdParam(req.params.productId);
+    const product = await Product.findById(productId);
 
-  const product = await Product.findById(productId);
-  res.status(200).json({success: true, data: product});
+    if (!product) {
+      return sendApiError(res, createNotFoundError("Product not found", "PRODUCT_NOT_FOUND"));
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: sanitizeProduct(product),
+      meta: buildProductMeta({
+        req,
+        res,
+        dataset: "productDetail",
+        actorId: req.userId || null,
+        filters: { productId },
+      }),
+    });
+  } catch (error) {
+    if (error instanceof ProductContractError) {
+      return sendProductContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "ProductsController",
+      defaultCode: "PRODUCT_DETAIL_LOOKUP_FAILED",
+    });
+  }
 };
 
 export const getProducts = async (req, res) => {
-  const products = await Product.find();
-  return res.json({success: true, data: products});
+  try {
+    const products = await Product.find();
+    const data = products.map((product) => sanitizeProduct(product));
+
+    return res.json({
+      success: true,
+      data,
+      meta: buildProductMeta({
+        req,
+        res,
+        dataset: "products",
+        actorId: req.userId || null,
+        total: data.length,
+      }),
+    });
+  } catch (error) {
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "ProductsController",
+      defaultCode: "PRODUCT_LIST_FAILED",
+    });
+  }
 };
 
 export const updateProductById = async (req, res) => {
-  const updatedProduct = await Product.findByIdAndUpdate(
-    req.params.productId,
-    req.body,
-    {
-      new: true,
+  try {
+    const productId = normalizeProductIdParam(req.params.productId);
+    const updatePayload = normalizeProductPayload(req.body, { partial: true });
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      productId,
+      updatePayload,
+      {
+        new: true,
+        runValidators: true,
+        context: "query",
+      },
+    );
+
+    if (!updatedProduct) {
+      return sendApiError(res, createNotFoundError("Product not found", "PRODUCT_NOT_FOUND"));
     }
-  );
-  res.status(204).json({success: true, data: updatedProduct});
+
+    return res.status(200).json({
+      success: true,
+      data: sanitizeProduct(updatedProduct),
+      meta: buildProductMeta({
+        req,
+        res,
+        dataset: "productMutation",
+        actorId: req.userId || null,
+        filters: { productId },
+        action: "UPDATE",
+      }),
+    });
+  } catch (error) {
+    if (error instanceof ProductContractError) {
+      return sendProductContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "ProductsController",
+      defaultCode: "PRODUCT_UPDATE_FAILED",
+    });
+  }
 };
 
 export const deleteProductById = async (req, res) => {
-  const { productId } = req.params;
-  await Product.findByIdAndDelete(productId);
-  // code 200 is ok too
-  res.status(204).json({success: true, data: []});
+  try {
+    const productId = normalizeProductIdParam(req.params.productId);
+    const deletedProduct = await Product.findByIdAndDelete(productId);
+
+    if (!deletedProduct) {
+      return sendApiError(res, createNotFoundError("Product not found", "PRODUCT_NOT_FOUND"));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Product deleted",
+      meta: buildProductMeta({
+        req,
+        res,
+        dataset: "productMutation",
+        actorId: req.userId || null,
+        filters: { productId },
+        action: "DELETE",
+      }),
+    });
+  } catch (error) {
+    if (error instanceof ProductContractError) {
+      return sendProductContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "ProductsController",
+      defaultCode: "PRODUCT_DELETE_FAILED",
+    });
+  }
 };
 
-
-// export const search = async (req, res) => {
-//   const searchQuery = req.query.query
-//   const country = req.query.name
-
-//   if (!searchQuery || searchQuery.length < 2) {
-//     res.json([])
-//     return
-//   }
-
-//   // const db = mongoClient.db('tutorial')
-//   // const collection = db.collection<Product>(MONGODB_COLLECTION)
-//   const collection = Product.find()
-//   const pipeline = []
-
-//   if (country) {
-//     pipeline.push({
-//       $search: {
-//         index: USER_SEARCH_INDEX_NAME,
-//         compound: {
-//           must: [
-//             {
-//               text: {
-//                 query: searchQuery,
-//                 path: ['name', 'price'],
-//                 fuzzy: {},
-//               },
-//             },
-//             {
-//               text: {
-//                 query: country,
-//                 path: 'country',
-//               },
-//             },
-//           ],
-//         },
-//       },
-//     })
-//   } else {
-//     pipeline.push({
-//       $search: {
-//         index: USER_SEARCH_INDEX_NAME,
-//         text: {
-//           query: searchQuery,
-//           path: ['fullName', 'email'],
-//           fuzzy: {},
-//         },
-//       },
-//     })
-//   }
-
-//   pipeline.push({
-//     $project: {
-//       _id: 0,
-//       score: {$meta: 'searchScore'},
-//       userId: 1,
-//       fullName: 1,
-//       email: 1,
-//       avatar: 1,
-//       registeredAt: 1,
-//       country: 1,
-//     },
-//   })
-
-//   const result = await collection.aggregate(pipeline).sort({score: -1}).limit(10)
-//   const array = await result.toArray()
-//   res.json(array)
-
-// }
 export const searchProduct = async (req, res) => {
   try {
-    let results;
-    console.log(req.params.productName)
-    if (req.params.productName) {
-      results = await Product.aggregate([
-        {
-          $text:{
-          $search: {
-            index: "autocomplete",
-            autocomplete: {
-              query: req.params.productName,
-              path: "name",
-              fuzzy: {
-                maxEdits: 1,
-              },
-              tokenOrder: "sequential",
-            },
-          },
-        }
-      },
-        {
-          $product: {
-            name: 1,
-            _id: 1,
-          },
-        },
-        {
-          $limit: 10,
-        },
-      ]);
-      if (results) return res.send(results);
+    const productName = normalizeProductSearchParam(req.params.productName);
+    if (productName.length < 2) {
+      return sendApiError(
+        res,
+        createBadRequestError(
+          "productName must be at least 2 characters for search.",
+          "PRODUCT_SEARCH_TERM_TOO_SHORT",
+        ),
+      );
     }
-    res.send([]);
+
+    const nameRegex = new RegExp(escapeRegexLiteral(productName), "i");
+    const results = await Product.find({ name: nameRegex }).limit(10);
+    const data = results.map((product) => sanitizeProduct(product));
+
+    return res.json({
+      success: true,
+      data,
+      meta: buildProductMeta({
+        req,
+        res,
+        dataset: "productSearch",
+        actorId: req.userId || null,
+        total: data.length,
+        filters: { productName },
+      }),
+    });
   } catch (error) {
-    console.log(error);
-    res.send([]);
+    if (error instanceof ProductContractError) {
+      return sendProductContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "ProductsController",
+      defaultCode: "PRODUCT_SEARCH_FAILED",
+    });
   }
-}
+};

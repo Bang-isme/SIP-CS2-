@@ -1,7 +1,18 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { FixedSizeList as VirtualList } from 'react-window';
-import { getDrilldown, getDepartments, exportDrilldownCsv } from '../services/api';
+import {
+  getBenefitsSummary,
+  getDrilldown,
+  getDepartments,
+  exportDrilldownCsv,
+} from '../services/api';
 import { FiSearch } from 'react-icons/fi';
+import {
+  buildRecommendedDrilldownPresets,
+  deleteDrilldownPreset,
+  loadSavedDrilldownPresets,
+  saveDrilldownPreset,
+} from '../utils/drilldownPresets';
 import './DrilldownModal.css';
 
 function DrilldownModal({ filters: initialFilters, onClose }) {
@@ -11,11 +22,15 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const [loadError, setLoadError] = useState('');
  const [departmentsError, setDepartmentsError] = useState('');
  const [exportError, setExportError] = useState('');
+ const [presetFeedback, setPresetFeedback] = useState({ type: '', message: '' });
  const [page, setPage] = useState(1);
  const [pageSize, setPageSize] = useState(20);
  const [localSearch, setLocalSearch] = useState('');
  const [debouncedSearch, setDebouncedSearch] = useState('');
  const [departments, setDepartments] = useState([]);
+ const [benefitPlans, setBenefitPlans] = useState([]);
+ const [savedPresets, setSavedPresets] = useState([]);
+ const [presetName, setPresetName] = useState('');
  const requestIdRef = useRef(0);
  const abortRef = useRef(null);
  const summaryRequestIdRef = useRef(0);
@@ -25,6 +40,10 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const closeButtonRef = useRef(null);
  const lastFocusedElementRef = useRef(null);
  const [containerHeight, setContainerHeight] = useState(420);
+ const modalContext = initialFilters?.context || '';
+ const isVacationContext = modalContext === 'vacation';
+ const isBenefitsContext = modalContext === 'benefits';
+ const shouldShowMinEarningsFilter = modalContext === 'earnings' || !modalContext;
 
  const loadDepartments = async () => {
   setDepartmentsError('');
@@ -37,10 +56,41 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   }
  };
 
+ const loadBenefitPlans = async () => {
+  if (!isBenefitsContext && !initialFilters?.benefitPlan) {
+   setBenefitPlans([]);
+   return;
+  }
+
+  try {
+   const response = await getBenefitsSummary();
+   const plans = Object.keys(response?.data?.byPlan || {})
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+   if (initialFilters?.benefitPlan && !plans.includes(initialFilters.benefitPlan)) {
+    plans.unshift(initialFilters.benefitPlan);
+   }
+   setBenefitPlans(plans);
+  } catch {
+   setBenefitPlans(initialFilters?.benefitPlan ? [initialFilters.benefitPlan] : []);
+  }
+ };
+
  // Fetch departments on mount
  useEffect(() => {
   void loadDepartments();
  }, []);
+
+ useEffect(() => {
+  void loadBenefitPlans();
+  // loadBenefitPlans is context-aware and intentionally re-runs when benefits scope changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [isBenefitsContext, initialFilters?.benefitPlan]);
+
+ useEffect(() => {
+  setSavedPresets(loadSavedDrilldownPresets({ context: modalContext }));
+  setPresetFeedback({ type: '', message: '' });
+ }, [modalContext]);
 
  useEffect(() => {
   lastFocusedElementRef.current = document.activeElement;
@@ -69,7 +119,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const [ethnicityFilter, setEthnicityFilter] = useState(initialFilters?.ethnicity || '');
  const [shareholderFilter, setShareholderFilter] = useState(initialFilters?.isShareholder !== undefined ? String(initialFilters.isShareholder) : '');
  const [benefitPlanFilter, setBenefitPlanFilter] = useState(initialFilters?.benefitPlan || '');
- const [minEarnings, setMinEarnings] = useState(''); // CEO Query: "Employees earning over $X"
+ const [minEarnings, setMinEarnings] = useState(initialFilters?.minEarnings ? String(initialFilters.minEarnings) : ''); // CEO Query: "Employees earning over $X"
 
  useEffect(() => {
   setDeptFilter(initialFilters?.department || '');
@@ -78,6 +128,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   setEthnicityFilter(initialFilters?.ethnicity || '');
   setShareholderFilter(initialFilters?.isShareholder !== undefined ? String(initialFilters.isShareholder) : '');
   setBenefitPlanFilter(initialFilters?.benefitPlan || '');
+  setMinEarnings(initialFilters?.minEarnings ? String(initialFilters.minEarnings) : '');
   setPage(1);
  }, [initialFilters]);
 
@@ -90,8 +141,62 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   ethnicity: ethnicityFilter || undefined,
   isShareholder: shareholderFilter || undefined,
   benefitPlan: benefitPlanFilter || undefined,
-  minEarnings: minEarnings || undefined
- }), [initialFilters, deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings]);
+  minEarnings: shouldShowMinEarningsFilter ? (minEarnings || undefined) : undefined
+ }), [initialFilters, deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings, shouldShowMinEarningsFilter]);
+
+ const applyFilterState = (nextFilters = {}) => {
+  setDeptFilter(nextFilters.department || '');
+  setTypeFilter(nextFilters.employmentType || '');
+  setGenderFilter(nextFilters.gender || '');
+  setEthnicityFilter(nextFilters.ethnicity || '');
+  setShareholderFilter(nextFilters.isShareholder !== undefined ? String(nextFilters.isShareholder) : '');
+  setBenefitPlanFilter(nextFilters.benefitPlan || '');
+  setMinEarnings(shouldShowMinEarningsFilter ? (nextFilters.minEarnings ? String(nextFilters.minEarnings) : '') : '');
+  setLocalSearch(nextFilters.search || '');
+  setDebouncedSearch(nextFilters.search || '');
+  setPage(1);
+ };
+
+ const resetAllFilters = () => {
+  applyFilterState({});
+ };
+
+ const handleSavePreset = () => {
+  try {
+   const nextSavedPresets = saveDrilldownPreset({
+    name: presetName,
+    context: modalContext,
+    filters: {
+     department: deptFilter || undefined,
+     employmentType: typeFilter || undefined,
+     gender: genderFilter || undefined,
+     ethnicity: ethnicityFilter || undefined,
+     isShareholder: shareholderFilter || undefined,
+     benefitPlan: benefitPlanFilter || undefined,
+     minEarnings: shouldShowMinEarningsFilter ? (minEarnings || undefined) : undefined,
+     search: localSearch || undefined,
+    },
+   });
+   setSavedPresets(nextSavedPresets);
+   setPresetFeedback({ type: 'success', message: `Saved preset "${presetName.trim()}".` });
+   setPresetName('');
+  } catch (error) {
+   setPresetFeedback({ type: 'error', message: error.message || 'Unable to save preset' });
+  }
+ };
+
+ const handleDeletePreset = (presetId, presetLabel) => {
+  const nextSavedPresets = deleteDrilldownPreset({ id: presetId, context: modalContext });
+  setSavedPresets(nextSavedPresets);
+  setPresetFeedback({ type: 'success', message: `Removed preset "${presetLabel}".` });
+ };
+
+ const recommendedPresets = useMemo(() => {
+  return buildRecommendedDrilldownPresets({
+   context: modalContext,
+   benefitPlans,
+  });
+ }, [modalContext, benefitPlans]);
 
  const summaryKey = useMemo(() => JSON.stringify({
   ...activeFilters,
@@ -191,10 +296,22 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const summaryLoading = summaryState.loading;
  const renderCurrency = (value) => (summaryLoading || summaryPartial) ? '--' : formatCurrency(value);
  const renderVacation = (value) => (summaryLoading || summaryPartial) ? '--' : `${(value || 0).toLocaleString()} days`;
+ const renderBenefit = (value) => (summaryLoading || summaryPartial) ? '--' : formatCurrency(value);
  const isVirtual = pageSize >= 1000;
  const virtualHeaderHeight = 44;
  const rowHeight = 56;
  const listHeight = Math.max(containerHeight - virtualHeaderHeight, 200);
+ const metricColumnLabel = isVacationContext ? 'Vacation Used' : isBenefitsContext ? 'Benefits Cost' : 'Earnings';
+
+ const renderMetricCell = (emp) => {
+  if (isVacationContext) {
+   return <span className="vacation-days">{emp.vacationDays || 0} d</span>;
+  }
+  if (isBenefitsContext) {
+   return <span className="earnings-val">{formatCurrency(emp.benefitCost || 0)}</span>;
+  }
+  return <span className="earnings-val">{formatCurrency(emp.totalEarnings || 0)}</span>;
+ };
 
  const activeFilterChips = useMemo(() => {
   const chips = [];
@@ -207,10 +324,10 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
    chips.push({ key: 'shareholder', label: `Status: ${label}`, onClear: () => setShareholderFilter('') });
   }
   if (benefitPlanFilter) chips.push({ key: 'benefitPlan', label: `Plan: ${benefitPlanFilter}`, onClear: () => setBenefitPlanFilter('') });
-  if (minEarnings) chips.push({ key: 'minEarnings', label: `Min Earnings: $${Number(minEarnings).toLocaleString()}`, onClear: () => setMinEarnings('') });
+  if (shouldShowMinEarningsFilter && minEarnings) chips.push({ key: 'minEarnings', label: `Min Earnings: $${Number(minEarnings).toLocaleString()}`, onClear: () => setMinEarnings('') });
   if (debouncedSearch) chips.push({ key: 'search', label: `Search: ${debouncedSearch}`, onClear: () => setLocalSearch('') });
   return chips;
- }, [deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings, debouncedSearch]);
+ }, [deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings, debouncedSearch, shouldShowMinEarningsFilter]);
 
  const handleModalKeyDown = (event) => {
   if (event.key === 'Escape') {
@@ -269,11 +386,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      {emp.isShareholder && <span className="shareholder-tag">Shareholder</span>}
     </div>
     <div className="virtual-cell earnings text-right">
-     {activeFilters.context === 'vacation' ? (
-      <span className="vacation-days">{emp.vacationDays || 0} d</span>
-     ) : (
-      <span className="earnings-val">{formatCurrency(emp.totalEarnings)}</span>
-     )}
+     {renderMetricCell(emp)}
     </div>
    </div>
   );
@@ -347,6 +460,93 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
     {/* Filter Bar */}
     <div className="filter-bar">
+     <div className="preset-workbench">
+      <div className="preset-section">
+       <div className="preset-section-header">
+        <span className="preset-section-label">Memo Presets</span>
+        <span className="preset-section-caption">One-click queries for common CEO memo scenarios</span>
+       </div>
+       <div className="preset-chip-row">
+        {recommendedPresets.map((preset) => (
+         <button
+          key={preset.id}
+          type="button"
+          className="preset-chip"
+          onClick={() => {
+           applyFilterState(preset.filters);
+           setPresetFeedback({ type: '', message: '' });
+          }}
+          title={preset.description}
+         >
+          {preset.name}
+         </button>
+        ))}
+       </div>
+      </div>
+
+      <div className="preset-section preset-section-saved">
+       <div className="preset-section-header">
+        <span className="preset-section-label">Saved Views</span>
+        <span className="preset-section-caption">Reusable filters for demo and viva follow-up questions</span>
+       </div>
+       {savedPresets.length > 0 ? (
+        <div className="saved-preset-list">
+         {savedPresets.map((preset) => (
+          <div key={preset.id} className="saved-preset-card">
+           <button
+            type="button"
+            className="saved-preset-button"
+            onClick={() => {
+             applyFilterState(preset.filters);
+             setPresetFeedback({ type: '', message: '' });
+            }}
+            title={`Apply saved preset: ${preset.name}`}
+           >
+            {preset.name}
+           </button>
+           <button
+            type="button"
+            className="saved-preset-delete"
+            onClick={() => handleDeletePreset(preset.id, preset.name)}
+            aria-label={`Delete saved preset ${preset.name}`}
+           >
+            ×
+           </button>
+          </div>
+         ))}
+        </div>
+       ) : (
+        <p className="preset-empty">No saved views yet. Save one from your current filter mix.</p>
+       )}
+       <div className="preset-save-row">
+        <label className="sr-only" htmlFor="drilldown-preset-name">Preset name</label>
+        <input
+         id="drilldown-preset-name"
+         type="text"
+         className="preset-name-input"
+         placeholder="Save current view as..."
+         value={presetName}
+         onChange={(e) => setPresetName(e.target.value)}
+        />
+        <button
+         type="button"
+         className="preset-save-button"
+         onClick={handleSavePreset}
+        >
+         Save View
+        </button>
+       </div>
+       {presetFeedback.message && (
+        <div
+         className={`preset-feedback preset-feedback--${presetFeedback.type || 'success'}`}
+         role={presetFeedback.type === 'error' ? 'alert' : 'status'}
+        >
+         {presetFeedback.message}
+        </div>
+       )}
+      </div>
+     </div>
+
      <div className="filter-row filter-row-primary">
      <div className="search-group">
        <label className="sr-only" htmlFor="drilldown-search">Search employees</label>
@@ -431,28 +631,49 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       </div>
      </div>
 
-     {/* CEO Query Filter: Employees earning over $X */}
-     <div className="filter-row filter-row-secondary">
-      <div className="earnings-filter-group">
-       <span className="filter-label">Min Earnings $</span>
-       <label className="sr-only" htmlFor="drilldown-min-earnings">Minimum earnings filter</label>
-       <input
-        id="drilldown-min-earnings"
-        type="number"
-        placeholder="e.g. 50000"
-        className="earnings-input"
-        value={minEarnings}
-        onChange={(e) => { setMinEarnings(e.target.value); setPage(1); }}
-        aria-label="Minimum earnings"
-       />
-       <div className="quick-filters">
-        <button type="button" onClick={() => { setMinEarnings('100000'); setPage(1); }}>Over 100k</button>
-        <button type="button" onClick={() => { setMinEarnings('150000'); setPage(1); }}>Over 150k</button>
-        <button type="button" onClick={() => { setMinEarnings('200000'); setPage(1); }}>Over 200k</button>
-        <button type="button" className="ghost" onClick={() => { setMinEarnings(''); setPage(1); }}>Clear</button>
-       </div>
+     {(shouldShowMinEarningsFilter || isBenefitsContext) && (
+      <div className="filter-row filter-row-secondary">
+       {shouldShowMinEarningsFilter && (
+        <div className="earnings-filter-group">
+         <span className="filter-label">Min Earnings $</span>
+         <label className="sr-only" htmlFor="drilldown-min-earnings">Minimum earnings filter</label>
+         <input
+          id="drilldown-min-earnings"
+          type="number"
+          placeholder="e.g. 50000"
+          className="earnings-input"
+          value={minEarnings}
+          onChange={(e) => { setMinEarnings(e.target.value); setPage(1); }}
+          aria-label="Minimum earnings"
+         />
+         <div className="quick-filters">
+          <button type="button" onClick={() => { setMinEarnings('100000'); setPage(1); }}>Over 100k</button>
+          <button type="button" onClick={() => { setMinEarnings('150000'); setPage(1); }}>Over 150k</button>
+          <button type="button" onClick={() => { setMinEarnings('200000'); setPage(1); }}>Over 200k</button>
+          <button type="button" className="ghost" onClick={() => { setMinEarnings(''); setPage(1); }}>Clear</button>
+         </div>
+        </div>
+       )}
+       {isBenefitsContext && (
+        <div className="benefit-plan-filter-group">
+         <span className="filter-label">Benefit Plan</span>
+         <label className="sr-only" htmlFor="drilldown-benefit-plan">Benefit plan filter</label>
+         <select
+          id="drilldown-benefit-plan"
+          value={benefitPlanFilter}
+          onChange={(e) => { setBenefitPlanFilter(e.target.value); setPage(1); }}
+          className={`filter-select benefit-plan-select ${benefitPlanFilter ? 'active' : ''}`}
+          aria-label="Benefit plan filter"
+         >
+          <option value="">All Plans</option>
+          {benefitPlans.map((plan) => (
+           <option key={plan} value={plan}>{plan}</option>
+          ))}
+         </select>
+        </div>
+       )}
       </div>
-     </div>
+     )}
     </div>
 
     {(departmentsError || exportError) && (
@@ -486,17 +707,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
         </button>
        ))}
       </div>
-      <button className="clear-all" onClick={() => {
-       setDeptFilter('');
-       setTypeFilter('');
-       setGenderFilter('');
-       setEthnicityFilter('');
-       setShareholderFilter('');
-       setBenefitPlanFilter('');
-       setMinEarnings('');
-       setLocalSearch('');
-       setPage(1);
-      }}>
+      <button className="clear-all" onClick={resetAllFilters}>
        Clear All
       </button>
      </div>
@@ -524,7 +735,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       {(activeFilters.context === 'benefits' || !activeFilters.context) && (
        <div className="summary-metric">
         <span className="summary-metric-label">Total Benefits Cost</span>
-        <span className="summary-metric-value summary-benefits">{renderCurrency(summaryData.totalBenefits)}</span>
+        <span className="summary-metric-value summary-benefits">{renderBenefit(summaryData.totalBenefits)}</span>
        </div>
       )}
 
@@ -570,7 +781,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
           <div>Department</div>
           <div>Role Info</div>
           <div>Status</div>
-          <div className="text-right">{activeFilters.context === 'vacation' ? 'Vacation Used' : 'Earnings'}</div>
+          <div className="text-right">{metricColumnLabel}</div>
          </div>
          {displayData.length === 0 ? (
           <div className="no-results">
@@ -600,7 +811,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
            <th>Role Info</th>
            <th>Status</th>
            <th className="text-right">
-            {activeFilters.context === 'vacation' ? 'Vacation Used' : 'Earnings'}
+            {metricColumnLabel}
            </th>
           </tr>
          </thead>
@@ -642,11 +853,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
               {emp.isShareholder && <span className="shareholder-tag">Shareholder</span>}
              </td>
              <td className="text-right font-mono">
-              {activeFilters.context === 'vacation' ? (
-               <span className="vacation-days">{emp.vacationDays || 0} d</span>
-              ) : (
-               <span className="earnings-val">{formatCurrency(emp.totalEarnings)}</span>
-              )}
+              {renderMetricCell(emp)}
              </td>
             </tr>
            ))

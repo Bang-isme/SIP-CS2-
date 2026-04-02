@@ -64,6 +64,7 @@ describe("Auth signup contract", () => {
   it("should accept signup payload and assign default user role", async () => {
     const res = await request(app)
       .post("/api/auth/signup")
+      .set("x-request-id", "req-auth-signup-1")
       .send({
         username: "signup-user",
         email: "signup.user@example.com",
@@ -72,9 +73,13 @@ describe("Auth signup contract", () => {
       })
       .expect("Content-Type", /json/);
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.roles).toEqual(["user"]);
+    expect(res.body.meta).toEqual(expect.objectContaining({
+      dataset: "authSignup",
+      requestId: "req-auth-signup-1",
+    }));
     expect(mockRoleFindOne).toHaveBeenCalledWith({ name: "user" });
     expect(mockRoleFind).not.toHaveBeenCalled();
   });
@@ -90,7 +95,7 @@ describe("Auth signup contract", () => {
       })
       .expect("Content-Type", /json/);
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.roles).toEqual(["user"]);
     expect(mockRoleFindOne).toHaveBeenCalledWith({ name: "user" });

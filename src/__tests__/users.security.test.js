@@ -12,6 +12,17 @@ jest.unstable_mockModule("../middlewares/authJwt.js", () => ({
     req.userId = "mock-user-id";
     return next();
   },
+  canManageAlerts: (req, res, next) => {
+    if (
+      req.headers["x-user-role"] === "moderator" ||
+      req.headers["x-user-role"] === "admin" ||
+      req.headers["x-user-role"] === "super_admin"
+    ) {
+      return next();
+    }
+    return res.status(403).json({ message: "Require Moderator, Admin, or Super Admin Role!" });
+  },
+  canManageProducts: (req, res, next) => next(),
   isAdmin: (req, res, next) => {
     if (req.headers["x-user-role"] === "admin") {
       return next();
@@ -83,12 +94,18 @@ describe("Users Endpoint - Security Guardrails", () => {
   it("should return redacted users for admin requests", async () => {
     const res = await request(app)
       .get("/api/users")
+      .set("x-request-id", "req-users-1")
       .set("x-access-token", "valid-admin-token")
       .set("x-user-role", "admin")
       .expect("Content-Type", /json/);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(res.body.meta).toEqual(expect.objectContaining({
+      dataset: "users",
+      total: 1,
+      requestId: "req-users-1",
+    }));
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0]).toMatchObject({

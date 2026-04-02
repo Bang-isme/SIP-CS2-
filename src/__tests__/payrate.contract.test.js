@@ -13,6 +13,7 @@ describe("PayRate model-adapter contract", () => {
     expect(attrs).toHaveProperty("pay_rate");
     expect(attrs).toHaveProperty("pay_type");
     expect(attrs).toHaveProperty("effective_date");
+    expect(attrs.employee_id.unique).not.toBe(true);
   });
 
   test("payroll adapter uses the same pay_rate contract fields", () => {

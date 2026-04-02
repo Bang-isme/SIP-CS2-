@@ -1,90 +1,112 @@
-# Case Study 4 - Architecture (Fully Integrated System)
+﻿# Case Study 4 - Architecture (Fully Integrated System)
 
-> Last Updated: 2026-02-03
+> Last Updated: 2026-04-02
 
 ## 1) Mục tiêu
 - Tạo cảm giác “một hệ thống duy nhất”.
-- Middleware chính thức để mở rộng tích hợp.
+- Có lớp middleware để mở rộng tích hợp.
+- Có khả năng nhìn, retry, replay, và phục hồi lỗi tích hợp.
 
-## 2) Kiến trúc hiện có (scaffold)
-- `integrations.js` chứa danh sách adapter đang active.
-- `ServiceRegistry` load adapter động.
-- `SyncService` broadcast đến adapters.
-- `Health` endpoint kiểm tra tình trạng tích hợp.
+## 2) Kiến trúc hiện có
+- `integrations.js` khai báo integrations đang active.
+- `ServiceRegistry` load adapters động.
+- `SyncService` điều phối đồng bộ đến adapters.
+- `IntegrationEvent` đóng vai trò DB-backed outbox queue.
+- `integrationEventWorker` xử lý event nền.
+- Health + monitor APIs dùng để quan sát trạng thái.
 
-## 3) Outbox + Worker (Middleware-lite)
-- Tất cả thay đổi employee sẽ tạo **IntegrationEvent** (Outbox) trong MySQL.
-- Worker chạy nền đọc event theo batch, gọi `syncEmployeeToAll`.
-- Có retry + backoff, quá số lần thì chuyển trạng thái **DEAD**.
-- API monitor (admin-only): `/api/integrations/events` + retry thủ công.
-- Replay (admin-only): `/api/integrations/events/replay` (lọc FAILED/DEAD theo entity/date).
-- Demo script: `node scripts/demo-integration-events.js` (tạo FAILED/DEAD để test).
-- UI monitor: Integration Queue panel trong Dashboard (filter + retry nhanh).
+## 3) DB-backed outbox + worker (middleware-lite)
 
-## 4) Data Flow
-1. CRUD từ HR -> **Outbox enqueue**.
-2. Worker -> ServiceRegistry -> Adapter tương ứng.
-3. Adapter sync -> SyncLog.
+Luồng chính:
+1. HR CRUD ghi source-of-truth vào Mongo.
+2. Hệ thống enqueue `IntegrationEvent` vào MySQL.
+3. Worker đọc event `PENDING/FAILED`.
+4. Event được claim sang `PROCESSING`.
+5. `syncEmployeeToAll` gọi adapters và cập nhật kết quả.
 
-## 5) Kiến trúc lớn (Design-only)
-### 5.1 Event Broker Layer
-- Outbox publish sang event broker (Kafka/RabbitMQ).
-- Consumer group xử lý theo domain: payroll, security, analytics.
-- Bảo đảm at-least-once, idempotent ở consumer.
+Những gì đã có:
+- Retry + exponential backoff.
+- Max attempts và trạng thái `DEAD`.
+- Metrics endpoint.
+- Replay theo filter.
+- Timeout-based recovery cho stale `PROCESSING`.
+- End-to-end correlation trace: `correlation_id` được giữ từ employee mutation request vào `integration_events`, qua worker/direct fallback, xuống `sync_log`.
+- Operator audit trail ngay trên `integration_events` cho retry/replay/recover (`last_operator_action`, `last_operator_actor_id`, `last_operator_request_id`, `last_operator_at`).
+- Durable audit history riêng trong `integration_event_audits` để giữ đầy đủ các lần retry/replay/recover theo từng event.
 
-### 5.2 DLQ & Replay Policy
-- Retry policy theo backoff + max attempts.
-- DLQ chính thức lưu FAILED lâu dài.
-- Replay UI cho phép reprocess theo time range hoặc entity.
-- TTL cho event trong broker và DLQ.
+Admin path hiện tại:
+- `GET /api/integrations/events`
+- `GET /api/integrations/events/:id/audit`
+- `GET /api/integrations/events/metrics`
+- `POST /api/integrations/events/retry/:id`
+- `POST /api/integrations/events/retry-dead`
+- `POST /api/integrations/events/recover-stuck`
+- `POST /api/integrations/events/replay`
 
-### 5.3 Observability & SLO/SLA
-- Metrics: queue lag, retry count, dead count, success rate, p95 latency.
-- Tracing: correlation ID xuyên suốt CRUD -> outbox -> broker -> consumer.
-- Dashboard: trạng thái integrations + SLA vi phạm.
-- Target SLO: 99% event sync < 5 phút, lỗi < 1%.
+Contract rules:
+- Integration operator APIs giờ validate chặt query/payload/path params và trả `422 + errors[]` khi filter/id sai, thay vì silently normalize.
+- `GET /api/integrations/events` trả canonical `{ success, data, meta }` với `meta.dataset`, `meta.filters`, `meta.totalPages`, `meta.actorId`.
+- Mutation paths (`retry`, `retry-dead`, `recover-stuck`, `replay`) trả thêm operator metadata để FE/admin path biết ai chạy thao tác nào và filter nào đã được áp dụng.
+- Integration/auth error paths và metadata envelopes giờ gắn `x-request-id` + `requestId` correlation token để operator có thể nối UI evidence với server logs theo từng request.
+- Retry/replay/recover không chỉ trả metadata ở response mà còn ghi audit metadata bền vững vào queue row để state change có thể giải thích lại sau demo hoặc incident review.
+- Nếu cần lịch sử đầy đủ thay vì latest state, admin path đọc qua `GET /api/integrations/events/:id/audit` từ bảng `integration_event_audits`.
+- Replay chỉ cho phép status `FAILED` hoặc `DEAD`, và không cho phép gửi đồng thời `fromDate` với `fromDays`.
 
-### 5.4 Sequence (ASCII)
-```
-Client -> API -> Outbox -> Broker -> Consumer -> SyncLog -> Target Systems
-          |         |        |         |            |
-          |         |        |         |            +--> Health/Status
-          |         |        |         +--> DLQ on failures
-          |         |        +--> Retry policy
-          |         +--> Enqueue events
-          +--> CRUD done
-```
+Role:
+- `admin` và `super_admin`
 
-### 5.5 Production-ready Option (Kafka/RabbitMQ)
-- Production có thể dùng Kafka/RabbitMQ để tăng throughput và durability.
-- Trong phạm vi case study, dùng Outbox + Worker để tập trung vào logic tích hợp,
-  đồng thời vẫn mô tả rõ kiến trúc broker ở mức design.
-- Lợi ích khi triển khai thật:
-  - Partitioning để scale theo domain.
-  - Consumer groups để xử lý song song.
-  - Retention policy và replay tốt hơn.
+## 4) Queue observability đã triển khai
 
-## 6) Mở rộng hệ thống
-- Thêm adapter mới chỉ cần thêm file adapter và tên trong `integrations.js`.
-- Hỗ trợ nhiều hệ thống đích (Payroll, Security, ...).
+Metrics đang có:
+- `backlog`
+- `actionable`
+- `counts` theo trạng thái
+- `stuckProcessingCount`
+- `healthyProcessingCount`
+- `processingTimeoutMinutes`
+- `oldestPendingAt`
+- `oldestPendingAgeMinutes`
 
-## 7) Gaps cần bổ sung
-- Event broker thực tế (Kafka/RabbitMQ) và DLQ storage.
-- Replay UI + monitoring dashboard triển khai thật.
-- SLA/SLO monitoring ở production.
-- Hiện tại chỉ có outbox worker (middleware-lite), chưa có broker chính thức.
+UI Integration Queue hiện dùng các metrics này để:
+- hiển thị severity
+- tách `PROCESSING` khỏe và `PROCESSING` bị kẹt
+- cho admin thực hiện retry/replay/recover
 
-## 8) Queue Observability (Implemented)
-- Added admin metrics endpoint: `GET /api/integrations/events/metrics`.
-- Metrics returned: `backlog`, `actionable`, `oldestPendingAt`, `oldestPendingAgeMinutes`, and per-status counts.
-- Dashboard queue monitor now computes severity levels (`Healthy`, `Warning`, `Critical`) from these metrics.
-- Goal: make middleware risk visible during demo without adding external broker infrastructure.
+Schema/ops guard đã có:
+- MySQL migration status giờ kiểm cả required migration IDs, không chỉ nhìn bảng có tồn tại hay không.
+- Operator audit columns được rollout bằng incremental migration `20260402_000002_integration_event_operator_audit`.
+- Audit history table được rollout bằng incremental migration `20260402_000003_integration_event_audit_history`.
+- Correlation trace columns/indexes được rollout bằng incremental migration `20260402_000004_integration_correlation_trace`.
 
-## 9) Live Demo Workflow (Implemented)
-- Added scenario script: `scripts/demo-integration-queue-scenario.js`.
-- NPM commands:
-  - `npm run demo:queue:healthy`
-  - `npm run demo:queue:warning`
-  - `npm run demo:queue:critical`
-  - `npm run demo:queue:cleanup`
-- Full operator flow documented at: `docs/integration_queue_demo_runbook.md`.
+## 5) Điều cần nói đúng bản chất
+
+Đây là gì:
+- DB-backed outbox queue
+- polling worker
+- middleware-lite đủ để demo và bảo vệ coursework
+
+Đây chưa phải là gì:
+- transactional outbox chuẩn
+- Kafka/RabbitMQ production stack
+- enterprise DLQ/observability platform
+
+## 6) Kiến trúc mở rộng ở mức design-only
+
+Production-ready option:
+- Event broker layer: Kafka/RabbitMQ
+- DLQ tách riêng
+- Consumer groups
+- tracing/correlation ID xuyên broker/worker đầy đủ
+- SLO/SLA monitoring và alerting chuẩn vận hành
+
+Các phần này hiện phần lớn mới là định hướng kiến trúc. Repo hiện đã có correlation chain xuyên HTTP -> outbox -> worker/direct fallback -> `sync_log`, kèm durable operator audit history trong MySQL; chưa có broker-grade telemetry/distributed tracing platform.
+
+## 7) Gaps còn lại
+- Chưa có broker thật.
+- Chưa có DLQ storage tách biệt.
+- Chưa có observability production-grade.
+- Chưa có migration sang event backbone cấp enterprise.
+
+## 8) Kết luận
+- Case Study 4 đang ở mức partial nhưng có implementation thật cho queue, retry, replay và recovery.
+- Đây là phần đủ tốt để chứng minh nhóm hiểu middleware-centric integration, miễn là không overclaim lên enterprise stack.

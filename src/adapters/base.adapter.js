@@ -12,9 +12,10 @@ export class BaseAdapter {
      * Sync employee data to external system.
      * @param {Object} employeeData - Employee data from MongoDB.
      * @param {string} action - 'CREATE' | 'UPDATE' | 'DELETE'.
+     * @param {Object} syncContext - Cross-cutting metadata like correlationId/source/eventId.
      * @returns {Promise<{success: boolean, message: string}>}
      */
-    async sync(employeeData, action) {
+    async sync(employeeData, action, syncContext = {}) {
         throw new Error(`sync() not implemented in ${this.name}`);
     }
 

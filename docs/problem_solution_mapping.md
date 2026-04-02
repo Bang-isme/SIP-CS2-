@@ -1,4 +1,4 @@
-# Problem-Solution Mapping (Chi Tiết Vấn Đề → Giải Pháp)
+﻿# Problem-Solution Mapping (Chi Tiết Vấn Đề → Giải Pháp)
 
 > **Phiên bản**: 1.0  
 > **Cập nhật**: 2026-02-05
@@ -64,7 +64,7 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 |-------------|---------------|-----------|----------------|
 | Anniversary alerts (vào công ty N ngày tới) | Cần tính ngày anniversary và so với today | **Alert type: anniversary** - Loop employees, tính daysUntil | `aggregate-dashboard.js` lines 448-484 |
 | High vacation alerts (> threshold days) | Query đơn giản nhưng cần persist | **Alert type: vacation** - Query `vacationDays > threshold` | `aggregate-dashboard.js` lines 486-510 |
-| Benefits change alerts (thay đổi trong N ngày) | Cần track last_change_date | **Alert type: benefits_change** - Query MySQL `last_change_date >= cutoff` | `aggregate-dashboard.js` lines 513-551 |
+| Benefits change alerts (thay đổi trong N ngày) | Cần track recent changes nhưng vẫn phải giải thích vì sao payroll cần chú ý | **Alert type: benefits_change** - Query MySQL `last_change_date >= cutoff`, sau đó build payroll-impact metadata (`plan`, `annual paid amount`, `effective date`, `impact code`) | `aggregate-dashboard.js`, `benefitsPayrollImpact.js` |
 | Birthday alerts (sinh nhật tháng này) | CEO muốn strict "tháng hiện tại", không phải 30 ngày tới | **Strict current month logic** - Check `birthDate.getMonth() === currentMonth` | `aggregate-dashboard.js` lines 553-594 |
 | Xem danh sách employees trong mỗi alert | Lưu trong AlertsSummary có limit | **AlertEmployee table** - Lưu chi tiết riêng, không limit | `AlertEmployee.js`, `alerts.controller.js` |
 | Pagination với 10k+ employees per alert | JSON array trong AlertsSummary quá lớn | **Separate AlertEmployee table** - Pagination từ MySQL, không load all | `alerts.controller.js` → `/:type/employees` |
@@ -120,11 +120,11 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 
 | Vấn đề Developer | Chi tiết | Giải pháp | File liên quan |
 |------------------|----------|-----------|----------------|
-| Sync trực tiếp có thể fail giữa chừng | Data in Mongo, sync failed → inconsistent | **Outbox Pattern** - Ghi event vào outbox, worker xử lý async | `IntegrationEvent.js` |
+| Sync trực tiếp có thể fail giữa chừng | Data in Mongo, sync failed → inconsistent | **DB-backed outbox-style queue** - Ghi event vào MySQL outbox, worker xử lý async | `IntegrationEvent.js`, `integrationEventService.js` |
 | Worker crash mất event | Memory-only queue không persist | **IntegrationEvent MySQL table** - Persist events, survive restart | `IntegrationEvent.js` |
 | Retry storm khi target down | Retry liên tục làm overload | **Exponential backoff** - 5s → 10s → 20s → 40s → 60s cap | `integrationEventService.js` lines 9-13 |
-| Event stuck trong queue mãi | Retry vô hạn không tốt | **Max attempts + DEAD status** - Sau N lần, chuyển DEAD | `integrationEventService.js` line 66 |
-| Không biết queue status | No visibility | **Admin APIs + UI** - `/api/integrations/events` + IntegrationEventsPanel | `integrations.routes.js` |
+| Event stuck trong queue mãi | Worker chết giữa chừng hoặc retry vô hạn không tốt | **Max attempts + DEAD status + stale PROCESSING recovery** - Event quá hạn trong `PROCESSING` sẽ được recover theo timeout | `integrationEventService.js`, `integration.controller.js` |
+| Không biết queue status | No visibility | **Admin APIs + UI** - `/api/integrations/events`, `/metrics`, `/recover-stuck` + IntegrationEventsPanel | `integration.routes.js` |
 | Cần replay old events | Debug hoặc fix data | **Replay API** - Filter by entity/date/status, re-enqueue | `integrations.routes.js` |
 
 ---
@@ -146,7 +146,7 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 |------------------|----------|-----------|----------------|
 | Hard-coded alert thresholds | Không thay đổi được runtime | **Alert MongoDB collection** - Configurable thresholds | `Alert.js` |
 | Duplicate alert configs | Có thể tạo nhiều config cùng type | **fix-alert-duplicates.js** - Script xóa duplicates | `scripts/fix-alert-duplicates.js` |
-| Alert count không match drilldown | Summary count vs actual count | **Re-run batch** - Đồng bộ hóa data | `aggregate-dashboard.js` |
+| Alert count không match drilldown | Summary count vs actual count | **Targeted alert refresh + batch rebuild khi cần** - CRUD alert sẽ refresh alert aggregates ngay; full batch vẫn dùng để rebuild tổng thể | `alerts.controller.js`, `alertAggregationService.js`, `aggregate-dashboard.js` |
 
 ---
 

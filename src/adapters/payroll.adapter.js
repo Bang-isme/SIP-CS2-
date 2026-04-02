@@ -7,6 +7,7 @@
 import BaseAdapter from './base.adapter.js';
 import { PayRate, SyncLog } from '../models/sql/index.js';
 import { sequelize } from '../models/sql/index.js';
+import logger from '../utils/logger.js';
 
 const normalizePayType = (input) => {
     const normalized = String(input || 'HOURLY').trim().toUpperCase();
@@ -19,16 +20,16 @@ export class PayrollAdapter extends BaseAdapter {
         super('PayrollAdapter');
     }
 
-    async sync(employeeData, action) {
+    async sync(employeeData, action, syncContext = {}) {
         const t = await sequelize.transaction();
         const syncLog = {
             source_system: 'HR_MongoDB',
             target_system: 'Payroll_MySQL',
             entity_type: 'employee',
             entity_id: employeeData.employeeId || employeeData._id?.toString(),
+            correlation_id: syncContext.correlationId || null,
             action: action,
             status: 'PENDING',
-            created_at: new Date(),
         };
 
         try {
@@ -48,25 +49,45 @@ export class PayrollAdapter extends BaseAdapter {
 
             await t.commit();
             syncLog.status = 'SUCCESS';
-            syncLog.synced_at = new Date();
+            syncLog.completed_at = new Date();
             await SyncLog.create(syncLog);
-            console.log(`[${this.name}] ${action} synced for employee ${syncLog.entity_id}`);
+            logger.info(this.name, 'Employee synced to payroll', {
+                employeeId: syncLog.entity_id,
+                action,
+                correlationId: syncLog.correlation_id,
+                source: syncContext.source || null,
+                integrationEventId: syncContext.integrationEventId || null,
+            });
             return { success: true, message: `Synced to Payroll` };
 
         } catch (error) {
             await t.rollback();
             syncLog.status = 'FAILED';
             syncLog.error_message = error.message;
+            syncLog.completed_at = new Date();
             await SyncLog.create(syncLog);
-            console.error(`[${this.name}] Sync failed:`, error.message);
+            logger.warn(this.name, 'Payroll sync failed', {
+                employeeId: syncLog.entity_id,
+                action,
+                correlationId: syncLog.correlation_id,
+                source: syncContext.source || null,
+                integrationEventId: syncContext.integrationEventId || null,
+                errorMessage: error.message,
+            });
             return { success: false, message: error.message };
         }
     }
 
     async _handleCreate(data, t) {
         const employeeId = data.employeeId || data._id?.toString();
-        // Ensure PayRate exists for this employee
-        const existingRate = await PayRate.findOne({ where: { employee_id: employeeId }, transaction: t });
+        const existingRate = await PayRate.findOne({
+            where: {
+                employee_id: employeeId,
+                is_active: true,
+            },
+            order: [["effective_date", "DESC"], ["id", "DESC"]],
+            transaction: t,
+        });
         if (!existingRate) {
             await PayRate.create({
                 employee_id: employeeId,
@@ -81,35 +102,56 @@ export class PayrollAdapter extends BaseAdapter {
     async _handleUpdate(data, t) {
         const employeeId = data.employeeId || data._id?.toString();
         if (data.payRate !== undefined || data.payType !== undefined) {
-            const updatePayload = {
+            const currentRate = await PayRate.findOne({
+                where: {
+                    employee_id: employeeId,
+                    is_active: true,
+                },
+                order: [["effective_date", "DESC"], ["id", "DESC"]],
+                transaction: t,
+            });
+            await PayRate.update(
+                { is_active: false },
+                { where: { employee_id: employeeId, is_active: true }, transaction: t }
+            );
+
+            await PayRate.create({
+                employee_id: employeeId,
+                pay_rate: data.payRate !== undefined
+                    ? data.payRate
+                    : Number(currentRate?.pay_rate || 0),
+                pay_type: normalizePayType(data.payType !== undefined ? data.payType : currentRate?.pay_type),
                 effective_date: new Date(),
                 is_active: true,
-            };
-            if (data.payRate !== undefined) {
-                updatePayload.pay_rate = data.payRate;
-            }
-            if (data.payType !== undefined) {
-                updatePayload.pay_type = normalizePayType(data.payType);
-            }
-
-            await PayRate.update(
-                updatePayload,
-                { where: { employee_id: employeeId }, transaction: t }
-            );
+            }, { transaction: t });
         }
     }
 
     async _handleDelete(data, t) {
         const employeeId = data.employeeId || data._id?.toString();
-        // Soft delete or mark as inactive in payroll, not hard delete earnings history
+        const currentRate = await PayRate.findOne({
+            where: {
+                employee_id: employeeId,
+                is_active: true,
+            },
+            order: [["effective_date", "DESC"], ["id", "DESC"]],
+            transaction: t,
+        });
+
         await PayRate.update(
             {
-                pay_type: 'TERMINATED',
                 is_active: false,
-                effective_date: new Date(),
             },
-            { where: { employee_id: employeeId }, transaction: t }
+            { where: { employee_id: employeeId, is_active: true }, transaction: t }
         );
+
+        await PayRate.create({
+            employee_id: employeeId,
+            pay_rate: Number(currentRate?.pay_rate || 0),
+            pay_type: 'TERMINATED',
+            effective_date: new Date(),
+            is_active: false,
+        }, { transaction: t });
     }
 
     async healthCheck() {

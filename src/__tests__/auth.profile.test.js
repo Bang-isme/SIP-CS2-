@@ -12,6 +12,8 @@ jest.unstable_mockModule("../middlewares/authJwt.js", () => ({
     req.userId = "507f1f77bcf86cd799439011";
     return next();
   },
+  canManageAlerts: (req, res, next) => next(),
+  canManageProducts: (req, res, next) => next(),
   isAdmin: (req, res, next) => next(),
   isSuperAdmin: (req, res, next) => next(),
   isModerator: (req, res, next) => next(),
@@ -64,6 +66,7 @@ describe("Auth Profile Endpoint - /api/auth/me", () => {
   it("should return sanitized user profile with roles", async () => {
     const res = await request(app)
       .get("/api/auth/me")
+      .set("x-request-id", "req-auth-me-1")
       .set("x-access-token", "valid-token")
       .expect("Content-Type", /json/);
 
@@ -77,6 +80,10 @@ describe("Auth Profile Endpoint - /api/auth/me", () => {
       createdAt: "2026-02-16T08:00:00.000Z",
       updatedAt: "2026-02-16T08:30:00.000Z",
     });
+    expect(res.body.meta).toEqual(expect.objectContaining({
+      dataset: "authProfile",
+      requestId: "req-auth-me-1",
+    }));
     expect(res.body.data).not.toHaveProperty("password");
     expect(res.body.data).not.toHaveProperty("tokens");
   });

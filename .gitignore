@@ -6,3 +6,7 @@ build
 
 # environment variables
 .env
+.env.atlas.backup
+
+# local runtime artifacts
+run/

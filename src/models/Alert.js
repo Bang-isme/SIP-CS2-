@@ -30,6 +30,24 @@ const AlertSchema = new mongoose.Schema(
         lastTriggered: {
             type: Date,
         },
+        acknowledgedAt: {
+            type: Date,
+        },
+        acknowledgedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        },
+        acknowledgementNote: {
+            type: String,
+            trim: true,
+            maxlength: 280,
+        },
+        acknowledgedCount: {
+            type: Number,
+        },
+        acknowledgedSummaryAt: {
+            type: Date,
+        },
     },
     {
         timestamps: true,
@@ -66,22 +84,27 @@ AlertSchema.pre('save', async function (next) {
  */
 AlertSchema.pre('findOneAndUpdate', async function (next) {
     const update = this.getUpdate();
-    if (update.isActive === true || update.$set?.isActive === true) {
-        const docToUpdate = await this.model.findOne(this.getQuery());
-        if (docToUpdate) {
-            const existingActive = await this.model.findOne({
-                type: docToUpdate.type,
-                isActive: true,
-                _id: { $ne: docToUpdate._id }
-            });
+    const docToUpdate = await this.model.findOne(this.getQuery());
+    if (!docToUpdate) {
+        return next();
+    }
 
-            if (existingActive) {
-                const error = new Error(
-                    `Cannot activate: An active alert of type "${docToUpdate.type}" already exists.`
-                );
-                error.code = 'DUPLICATE_ACTIVE_TYPE';
-                return next(error);
-            }
+    const nextType = update.type ?? update.$set?.type ?? docToUpdate.type;
+    const nextIsActive = update.isActive ?? update.$set?.isActive ?? docToUpdate.isActive;
+
+    if (nextIsActive === true) {
+        const existingActive = await this.model.findOne({
+            type: nextType,
+            isActive: true,
+            _id: { $ne: docToUpdate._id }
+        });
+
+        if (existingActive) {
+            const error = new Error(
+                `Cannot activate: An active alert of type "${nextType}" already exists.`
+            );
+            error.code = 'DUPLICATE_ACTIVE_TYPE';
+            return next(error);
         }
     }
     next();

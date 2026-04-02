@@ -10,11 +10,26 @@ const LOG_LEVELS = {
     INFO: 1,
     WARN: 2,
     ERROR: 3,
+    SILENT: 4,
 };
 
-const CURRENT_LEVEL = process.env.LOG_LEVEL
-    ? LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] || LOG_LEVELS.INFO
-    : LOG_LEVELS.INFO;
+const getDefaultLogLevel = () => {
+    if (process.env.NODE_ENV === 'test') {
+        return LOG_LEVELS.SILENT;
+    }
+
+    return LOG_LEVELS.INFO;
+};
+
+const getCurrentLogLevel = () => {
+    if (!process.env.LOG_LEVEL) {
+        return getDefaultLogLevel();
+    }
+
+    return LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] ?? getDefaultLogLevel();
+};
+
+const shouldLog = (level) => getCurrentLogLevel() <= level;
 
 const formatMessage = (level, context, message, data = null) => {
     const timestamp = new Date().toISOString();
@@ -34,26 +49,29 @@ const formatMessage = (level, context, message, data = null) => {
 
 const logger = {
     debug: (context, message, data) => {
-        if (CURRENT_LEVEL <= LOG_LEVELS.DEBUG) {
+        if (shouldLog(LOG_LEVELS.DEBUG)) {
             console.log(JSON.stringify(formatMessage('DEBUG', context, message, data)));
         }
     },
 
     info: (context, message, data) => {
-        if (CURRENT_LEVEL <= LOG_LEVELS.INFO) {
+        if (shouldLog(LOG_LEVELS.INFO)) {
             console.log(JSON.stringify(formatMessage('INFO', context, message, data)));
         }
     },
 
     warn: (context, message, data) => {
-        if (CURRENT_LEVEL <= LOG_LEVELS.WARN) {
+        if (shouldLog(LOG_LEVELS.WARN)) {
             console.warn(JSON.stringify(formatMessage('WARN', context, message, data)));
         }
     },
 
-    error: (context, message, error) => {
-        if (CURRENT_LEVEL <= LOG_LEVELS.ERROR) {
+    error: (context, message, error, data) => {
+        if (shouldLog(LOG_LEVELS.ERROR)) {
             const logEntry = formatMessage('ERROR', context, message);
+            if (data && process.env.NODE_ENV !== 'production') {
+                logEntry.data = data;
+            }
             if (error) {
                 logEntry.error = {
                     message: error.message,

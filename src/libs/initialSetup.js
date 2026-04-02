@@ -1,6 +1,7 @@
 import Role from "../models/Role.js";
 import User from "../models/User.js";
 import { ADMIN_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD } from "../config.js";
+import logger from "../utils/logger.js";
 
 const ALL_ROLE_NAMES = ["user", "moderator", "admin", "super_admin"];
 const ROOT_ADMIN_ROLE_NAMES = ["user", "super_admin"];
@@ -47,12 +48,14 @@ export const createAdmin = async () => {
     roles: roleIds,
   });
 
-  console.log(`new user created: ${newUser.email}`);
+  logger.info("InitialSetup", "Created root admin user", {
+    email: newUser.email,
+  });
 };
 
 export const initializeAuthSeed = async () => {
   if (SHOULD_SKIP_AUTH_SEED) {
-    console.log("[initialSetup] SKIP_AUTH_SEED=1 -> auth seed skipped.");
+    logger.info("InitialSetup", "SKIP_AUTH_SEED=1 -> auth seed skipped.");
     return;
   }
 
@@ -61,7 +64,7 @@ export const initializeAuthSeed = async () => {
     await createAdmin();
   } catch (error) {
     if (isMongoQuotaError(error)) {
-      console.warn("[initialSetup] Mongo space quota reached. Running without auth seed updates.");
+      logger.warn("InitialSetup", "Mongo space quota reached. Running without auth seed updates.");
       return;
     }
     throw error;
@@ -69,5 +72,5 @@ export const initializeAuthSeed = async () => {
 };
 
 initializeAuthSeed().catch((error) => {
-  console.error("[initialSetup] failed:", error.message);
+  logger.error("InitialSetup", "Auth seed initialization failed", error);
 });

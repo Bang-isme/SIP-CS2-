@@ -22,6 +22,8 @@ import {
     VacationRecord,
     EmployeeBenefit,
     EarningsEmployeeYear,
+    PayRate,
+    AlertEmployee,
 } from "../src/models/sql/index.js";
 
 const DEPARTMENT_SEED_ORDER = [
@@ -133,12 +135,15 @@ async function main() {
         results.push(await deleteOrphansForModel(Earning, "earnings", validIdSet));
         results.push(await deleteOrphansForModel(VacationRecord, "vacation_records", validIdSet));
         results.push(await deleteOrphansForModel(EmployeeBenefit, "employee_benefits", validIdSet));
+        results.push(await deleteOrphansForModel(PayRate, "pay_rates", validIdSet));
         results.push(await deleteOrphansForModel(EarningsEmployeeYear, "earnings_employee_year", validIdSet));
+        results.push(await deleteOrphansForModel(AlertEmployee, "alert_employees", validIdSet));
 
         const totalDeleted = results.reduce((sum, r) => sum + r.deletedRows, 0);
         console.log("[repair] Summary:");
         console.log(`  departments_rebuilt: ${deptResult.rebuilt ? "yes" : "no"} (${deptResult.inserted})`);
         console.log(`  total_deleted_orphan_rows: ${totalDeleted}`);
+        console.log("  follow_up: rerun `node scripts/aggregate-dashboard.js` after repairs to rebuild derived summaries.");
     } catch (error) {
         console.error("[repair] Failed:", error);
         process.exitCode = 1;

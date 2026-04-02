@@ -4,6 +4,8 @@
  * Cache is invalidated on server restart or manually via API.
  */
 
+import logger from "./logger.js";
+
 class DashboardCache {
     constructor() {
         this.cache = new Map();
@@ -26,7 +28,7 @@ class DashboardCache {
             return null;
         }
 
-        console.log(`[CACHE HIT] ${endpoint}`);
+        logger.debug("DashboardCache", "Cache hit", { endpoint });
         return cached.data;
     }
 
@@ -36,12 +38,12 @@ class DashboardCache {
             data,
             timestamp: Date.now()
         });
-        console.log(`[CACHE SET] ${endpoint}`);
+        logger.debug("DashboardCache", "Cache set", { endpoint });
     }
 
     clear() {
         this.cache.clear();
-        console.log('[CACHE CLEARED]');
+        logger.info("DashboardCache", "Cache cleared");
     }
 
     // Stats for debugging

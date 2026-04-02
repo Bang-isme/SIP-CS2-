@@ -102,6 +102,169 @@
 }
 
 /* ── Earnings Filter ── */
+.preset-workbench {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.96) 100%);
+}
+
+.preset-section {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
+
+.preset-section-header {
+    display: grid;
+    gap: 2px;
+}
+
+.preset-section-label {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+}
+
+.preset-section-caption {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    line-height: 1.45;
+}
+
+.preset-chip-row,
+.saved-preset-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.preset-chip,
+.saved-preset-button {
+    min-height: 34px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-primary-200);
+    background: var(--color-primary-50);
+    color: var(--color-primary-700);
+    padding: 0 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    font-family: inherit;
+}
+
+.preset-chip:hover,
+.saved-preset-button:hover {
+    border-color: var(--color-primary-400);
+    background: var(--color-primary-100);
+}
+
+.saved-preset-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+    background: #fff;
+}
+
+.saved-preset-delete {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    transition: all var(--duration-fast);
+}
+
+.saved-preset-delete:hover {
+    color: var(--danger);
+    background: var(--danger-bg);
+    border-color: rgba(220, 38, 38, 0.15);
+}
+
+.preset-empty {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.preset-save-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.preset-name-input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    outline: none;
+    font-size: 0.8125rem;
+    background: var(--bg-card);
+    font-family: inherit;
+    transition: all var(--duration-fast);
+}
+
+.preset-name-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.preset-save-button {
+    min-height: 36px;
+    border-radius: var(--radius-md);
+    border: 1px solid #c8d0fb;
+    background: linear-gradient(180deg, #eef0ff 0%, #e8ecff 100%);
+    color: #4338ca;
+    padding: 0 14px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all var(--duration-fast);
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.preset-save-button:hover {
+    border-color: #aab6f5;
+    background: linear-gradient(180deg, #e6ebff 0%, #dfe7ff 100%);
+}
+
+.preset-feedback {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+}
+
+.preset-feedback--success {
+    color: var(--success);
+    background: var(--success-bg);
+    border-color: rgba(5, 150, 105, 0.15);
+}
+
+.preset-feedback--error {
+    color: var(--danger);
+    background: var(--danger-bg);
+    border-color: rgba(220, 38, 38, 0.15);
+}
+
 .earnings-filter-group {
     display: flex;
     align-items: center;
@@ -387,6 +550,10 @@
     align-items: flex-start;
 }
 
+.filter-row-secondary {
+    align-items: flex-start;
+}
+
 .search-group {
     position: relative;
     flex: 1;
@@ -421,6 +588,11 @@
 .search-input:focus-visible,
 .filter-select:focus-visible,
 .earnings-input:focus-visible,
+.preset-chip:focus-visible,
+.saved-preset-button:focus-visible,
+.saved-preset-delete:focus-visible,
+.preset-name-input:focus-visible,
+.preset-save-button:focus-visible,
 .page-input-field:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 1px;
@@ -436,6 +608,20 @@
     display: flex;
     gap: var(--space-3);
     flex-wrap: wrap;
+}
+
+.benefit-plan-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-subtle);
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.benefit-plan-select {
+    min-width: 180px;
 }
 
 .filter-select {
@@ -802,12 +988,31 @@
 }
 
 @media (max-width: 1100px) {
+    .preset-workbench {
+        grid-template-columns: 1fr;
+    }
+
     .summary-metric-count {
         margin-left: 0;
     }
 
     .financial-summary-header {
         margin: 0 12px 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .preset-save-row,
+    .filter-row-secondary,
+    .earnings-filter-group,
+    .benefit-plan-filter-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .preset-save-button,
+    .benefit-plan-select {
+        width: 100%;
     }
 }
 

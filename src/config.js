@@ -62,3 +62,4 @@ export const OUTBOX_ENABLED = process.env.OUTBOX_ENABLED
 export const OUTBOX_POLL_INTERVAL_MS = parseInt(process.env.OUTBOX_POLL_INTERVAL_MS, 10) || 5000;
 export const OUTBOX_BATCH_SIZE = parseInt(process.env.OUTBOX_BATCH_SIZE, 10) || 50;
 export const OUTBOX_MAX_ATTEMPTS = parseInt(process.env.OUTBOX_MAX_ATTEMPTS, 10) || 5;
+export const OUTBOX_PROCESSING_TIMEOUT_MS = parseInt(process.env.OUTBOX_PROCESSING_TIMEOUT_MS, 10) || (15 * 60 * 1000);

@@ -14,6 +14,17 @@ jest.unstable_mockModule("../middlewares/authJwt.js", () => ({
     req.userId = req.headers["x-user-id"] || "mock-super-admin-id";
     return next();
   },
+  canManageAlerts: (req, res, next) => {
+    if (
+      req.headers["x-user-role"] === "moderator" ||
+      req.headers["x-user-role"] === "admin" ||
+      req.headers["x-user-role"] === "super_admin"
+    ) {
+      return next();
+    }
+    return res.status(403).json({ message: "Require Moderator, Admin, or Super Admin Role!" });
+  },
+  canManageProducts: (req, res, next) => next(),
   isAdmin: (req, res, next) => {
     if (req.headers["x-user-role"] === "admin" || req.headers["x-user-role"] === "super_admin") {
       return next();
@@ -49,6 +60,11 @@ jest.unstable_mockModule("../models/Role.js", () => ({
 const { default: app } = await import("../app.js");
 
 describe("Admin role management endpoints", () => {
+  const rootUserId = "507f1f77bcf86cd7994390aa";
+  const targetNonAdminId = "507f1f77bcf86cd7994390ab";
+  const targetAdminId = "507f1f77bcf86cd7994390ac";
+  const mockSuperAdminId = "507f1f77bcf86cd7994390ad";
+
   beforeEach(() => {
     mockFindById.mockReset();
     mockFindByIdAndUpdate.mockReset();
@@ -60,7 +76,7 @@ describe("Admin role management endpoints", () => {
     const adminRoleId = "admin-role-id";
 
     mockFindById.mockImplementation(async (id) => {
-      if (id === "root-user-id") {
+      if (id === rootUserId) {
         return {
           _id: id,
           username: "admin",
@@ -69,7 +85,7 @@ describe("Admin role management endpoints", () => {
         };
       }
 
-      if (id === "target-non-admin-id") {
+      if (id === targetNonAdminId) {
         return {
           _id: id,
           username: "target-user",
@@ -78,7 +94,7 @@ describe("Admin role management endpoints", () => {
         };
       }
 
-      if (id === "target-admin-id") {
+      if (id === targetAdminId) {
         return {
           _id: id,
           username: "target-admin",
@@ -93,8 +109,8 @@ describe("Admin role management endpoints", () => {
     mockFindByIdAndUpdate.mockImplementation((id, update) => ({
       populate: jest.fn(async () => ({
         _id: id,
-        username: id === "target-admin-id" ? "target-admin" : "target-user",
-        email: id === "root-user-id" ? "admin@localhost" : "target@example.com",
+        username: id === targetAdminId ? "target-admin" : "target-user",
+        email: id === rootUserId ? "admin@localhost" : "target@example.com",
         roles: update?.$pull
           ? [{ name: "user" }]
           : [{ name: "user" }, { name: "admin" }],
@@ -103,9 +119,10 @@ describe("Admin role management endpoints", () => {
   });
 
   it("should add admin role when called by super admin token", async () => {
-    const targetUserId = "target-non-admin-id";
+    const targetUserId = targetNonAdminId;
     const res = await request(app)
       .put(`/api/users/${targetUserId}/promote-admin`)
+      .set("x-request-id", "req-promote-1")
       .set("x-access-token", "valid-super-admin-token")
       .set("x-user-role", "super_admin")
       .expect("Content-Type", /json/);
@@ -114,6 +131,12 @@ describe("Admin role management endpoints", () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data._id).toBe(targetUserId);
     expect(res.body.data.roles).toEqual(expect.arrayContaining(["user", "admin"]));
+    expect(res.body.meta).toEqual(expect.objectContaining({
+      dataset: "userRoleMutation",
+      action: "PROMOTE_ADMIN",
+      targetUserId,
+      requestId: "req-promote-1",
+    }));
     expect(mockRoleFindOne).toHaveBeenCalledWith({ name: "admin" });
     expect(mockFindByIdAndUpdate).toHaveBeenCalledWith(
       targetUserId,
@@ -124,7 +147,7 @@ describe("Admin role management endpoints", () => {
 
   it("should reject promote request without token", async () => {
     const res = await request(app)
-      .put("/api/users/target-non-admin-id/promote-admin")
+      .put(`/api/users/${targetNonAdminId}/promote-admin`)
       .expect("Content-Type", /json/);
 
     expect(res.status).toBe(403);
@@ -133,7 +156,7 @@ describe("Admin role management endpoints", () => {
 
   it("should reject promote request from non-super-admin token", async () => {
     const res = await request(app)
-      .put("/api/users/target-non-admin-id/promote-admin")
+      .put(`/api/users/${targetNonAdminId}/promote-admin`)
       .set("x-access-token", "valid-user-token")
       .set("x-user-role", "admin")
       .expect("Content-Type", /json/);
@@ -143,17 +166,24 @@ describe("Admin role management endpoints", () => {
   });
 
   it("should demote admin role when called by super admin token", async () => {
-    const targetUserId = "target-admin-id";
+    const targetUserId = targetAdminId;
     const res = await request(app)
       .put(`/api/users/${targetUserId}/demote-admin`)
+      .set("x-request-id", "req-demote-1")
       .set("x-access-token", "valid-super-admin-token")
       .set("x-user-role", "super_admin")
-      .set("x-user-id", "mock-super-admin-id")
+      .set("x-user-id", mockSuperAdminId)
       .expect("Content-Type", /json/);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.roles).toEqual(["user"]);
+    expect(res.body.meta).toEqual(expect.objectContaining({
+      dataset: "userRoleMutation",
+      action: "DEMOTE_ADMIN",
+      targetUserId,
+      requestId: "req-demote-1",
+    }));
     expect(mockFindByIdAndUpdate).toHaveBeenCalledWith(
       targetUserId,
       { $pull: { roles: "admin-role-id" } },
@@ -163,10 +193,10 @@ describe("Admin role management endpoints", () => {
 
   it("should reject demoting root admin account", async () => {
     const res = await request(app)
-      .put("/api/users/root-user-id/demote-admin")
+      .put(`/api/users/${rootUserId}/demote-admin`)
       .set("x-access-token", "valid-super-admin-token")
       .set("x-user-role", "super_admin")
-      .set("x-user-id", "mock-super-admin-id")
+      .set("x-user-id", mockSuperAdminId)
       .expect("Content-Type", /json/);
 
     expect(res.status).toBe(403);
@@ -175,10 +205,10 @@ describe("Admin role management endpoints", () => {
 
   it("should reject self-demotion", async () => {
     const res = await request(app)
-      .put("/api/users/mock-super-admin-id/demote-admin")
+      .put(`/api/users/${mockSuperAdminId}/demote-admin`)
       .set("x-access-token", "valid-super-admin-token")
       .set("x-user-role", "super_admin")
-      .set("x-user-id", "mock-super-admin-id")
+      .set("x-user-id", mockSuperAdminId)
       .expect("Content-Type", /json/);
 
     expect(res.status).toBe(400);
@@ -187,10 +217,10 @@ describe("Admin role management endpoints", () => {
 
   it("should reject demote when target user is not admin", async () => {
     const res = await request(app)
-      .put("/api/users/target-non-admin-id/demote-admin")
+      .put(`/api/users/${targetNonAdminId}/demote-admin`)
       .set("x-access-token", "valid-super-admin-token")
       .set("x-user-role", "super_admin")
-      .set("x-user-id", "mock-super-admin-id")
+      .set("x-user-id", mockSuperAdminId)
       .expect("Content-Type", /json/);
 
     expect(res.status).toBe(400);

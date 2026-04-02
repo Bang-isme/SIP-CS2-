@@ -3,6 +3,87 @@ import Employee from "../models/Employee.js";
 import { EmployeeBenefit, AlertsSummary } from "../models/sql/index.js";
 import { Op } from "sequelize";
 import dashboardCache from "../utils/cache.js";
+import { refreshAlertAggregates } from "../services/alertAggregationService.js";
+import {
+    buildAlertAcknowledgement,
+    buildLatestAlertSummaryMap,
+} from "../utils/alertDashboard.js";
+import {
+    buildAlertEmployeesResponse,
+    buildDashboardMeta,
+    DashboardContractError,
+    escapeLikePattern,
+    normalizeAlertConfigPayload,
+    normalizeAlertEmployeesQuery,
+    normalizeMongoIdParam,
+    sendContractError,
+} from "../utils/dashboardContracts.js";
+import {
+    createBadRequestError,
+    createConflictError,
+    createNotFoundError,
+    respondWithApiError,
+    sendApiError,
+} from "../utils/apiErrors.js";
+import logger from "../utils/logger.js";
+import { buildRequestLogData } from "../utils/requestTracking.js";
+
+const buildAlertMutationMeta = async () => {
+    try {
+        const result = await refreshAlertAggregates();
+        dashboardCache.clear();
+        return {
+            alertSummariesRefreshed: true,
+            result,
+        };
+    } catch (refreshError) {
+        dashboardCache.clear();
+        return {
+            alertSummariesRefreshed: false,
+            warning: `Alert configuration saved, but summary refresh failed: ${refreshError.message}`,
+        };
+    }
+};
+
+const handleAlertMutationError = (req, res, error) => {
+    if (error?.code === "DUPLICATE_ACTIVE_TYPE") {
+        return sendApiError(res, createConflictError(
+            error.message,
+            "ALERT_DUPLICATE_ACTIVE_TYPE",
+        ));
+    }
+    if (error?.name === "ValidationError") {
+        return sendApiError(res, createBadRequestError(
+            error.message,
+            "ALERT_MODEL_VALIDATION_FAILED",
+        ));
+    }
+    return respondWithApiError({
+        req,
+        res,
+        error,
+        context: "AlertsController",
+        defaultCode: "ALERT_UNEXPECTED_ERROR",
+    });
+};
+
+const pickAlertConfigUpdates = (payload = {}) => {
+    const allowedFields = ["name", "type", "threshold", "description", "isActive"];
+    return allowedFields.reduce((acc, field) => {
+        if (Object.prototype.hasOwnProperty.call(payload, field)) {
+            acc[field] = payload[field];
+        }
+        return acc;
+    }, {});
+};
+
+const findLatestAlertSummary = async (alertType) => {
+    return AlertsSummary.findOne({
+        where: { alert_type: alertType },
+        order: [["computed_at", "DESC"]],
+        raw: true,
+    });
+};
 
 /**
  * Alerts Controller
@@ -15,10 +96,16 @@ import dashboardCache from "../utils/cache.js";
  */
 export const getAlerts = async (req, res) => {
     try {
-        const alerts = await Alert.find().populate("createdBy", "username email");
+        const alerts = await Alert.find().populate("createdBy", "username email").populate("acknowledgedBy", "username email");
         res.json({ success: true, data: alerts });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "AlertsController",
+            defaultCode: "ALERT_LIST_FAILED",
+        });
     }
 };
 
@@ -28,7 +115,10 @@ export const getAlerts = async (req, res) => {
  */
 export const createAlert = async (req, res) => {
     try {
-        const { name, type, threshold, description } = req.body;
+        const { name, type, threshold, description, isActive } = normalizeAlertConfigPayload(
+            pickAlertConfigUpdates(req.body),
+            { partial: false },
+        );
 
         const alert = new Alert({
             name,
@@ -36,13 +126,17 @@ export const createAlert = async (req, res) => {
             threshold,
             description,
             createdBy: req.userId, // From auth middleware
-            isActive: true,
+            isActive: typeof isActive === "boolean" ? isActive : true,
         });
 
         await alert.save();
-        res.status(201).json({ success: true, data: alert });
+        const meta = await buildAlertMutationMeta();
+        res.status(201).json({ success: true, data: alert, meta });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return handleAlertMutationError(req, res, error);
     }
 };
 
@@ -52,17 +146,130 @@ export const createAlert = async (req, res) => {
  */
 export const updateAlert = async (req, res) => {
     try {
-        const { id } = req.params;
-        const updates = req.body;
+        const id = normalizeMongoIdParam(req.params.id);
+        const rawUpdates = pickAlertConfigUpdates(req.body);
+        const existingAlert = await Alert.findById(id);
 
-        const alert = await Alert.findByIdAndUpdate(id, updates, { new: true });
-        if (!alert) {
-            return res.status(404).json({ success: false, message: "Alert not found" });
+        if (!existingAlert) {
+            return sendApiError(res, createNotFoundError("Alert not found", "ALERT_NOT_FOUND"));
         }
 
-        res.json({ success: true, data: alert });
+        const mergedAlertState = normalizeAlertConfigPayload({
+            name: Object.prototype.hasOwnProperty.call(rawUpdates, "name")
+                ? rawUpdates.name
+                : existingAlert.name,
+            type: Object.prototype.hasOwnProperty.call(rawUpdates, "type")
+                ? rawUpdates.type
+                : existingAlert.type,
+            threshold: Object.prototype.hasOwnProperty.call(rawUpdates, "threshold")
+                ? rawUpdates.threshold
+                : existingAlert.threshold,
+            description: Object.prototype.hasOwnProperty.call(rawUpdates, "description")
+                ? rawUpdates.description
+                : existingAlert.description,
+            isActive: Object.prototype.hasOwnProperty.call(rawUpdates, "isActive")
+                ? rawUpdates.isActive
+                : existingAlert.isActive,
+        }, {
+            partial: false,
+        });
+
+        const updates = Object.keys(rawUpdates).reduce((acc, field) => {
+            if (Object.prototype.hasOwnProperty.call(mergedAlertState, field)) {
+                acc[field] = mergedAlertState[field];
+            }
+            return acc;
+        }, {});
+
+        const alert = await Alert.findByIdAndUpdate(id, updates, {
+            new: true,
+            runValidators: true,
+            context: "query",
+        });
+
+        const meta = await buildAlertMutationMeta();
+        res.json({ success: true, data: alert, meta });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return handleAlertMutationError(req, res, error);
+    }
+};
+
+/**
+ * POST /api/alerts/:id/acknowledge
+ * Mark an active alert queue as owned/reviewed by a manager.
+ */
+export const acknowledgeAlert = async (req, res) => {
+    try {
+        const id = normalizeMongoIdParam(req.params.id);
+        const note = String(req.body?.note || "").trim();
+
+        if (note.length < 4) {
+            return sendApiError(
+                res,
+                createBadRequestError(
+                    "Acknowledgement note must be at least 4 characters.",
+                    "ALERT_ACKNOWLEDGEMENT_NOTE_INVALID",
+                ),
+            );
+        }
+
+        const alert = await Alert.findById(id);
+        if (!alert) {
+            return sendApiError(res, createNotFoundError("Alert not found", "ALERT_NOT_FOUND"));
+        }
+
+        if (!alert.isActive) {
+            return sendApiError(
+                res,
+                createConflictError(
+                    "Inactive alerts cannot be acknowledged.",
+                    "ALERT_INACTIVE_CANNOT_BE_ACKNOWLEDGED",
+                ),
+            );
+        }
+
+        const summaryRow = await findLatestAlertSummary(alert.type);
+        if (!summaryRow) {
+            return sendApiError(
+                res,
+                createConflictError(
+                    "No current alert snapshot available. Refresh aggregates first.",
+                    "ALERT_SUMMARY_NOT_READY",
+                ),
+            );
+        }
+
+        alert.acknowledgedAt = new Date();
+        alert.acknowledgedBy = req.userId;
+        alert.acknowledgementNote = note;
+        alert.acknowledgedCount = Number(summaryRow.employee_count || 0);
+        alert.acknowledgedSummaryAt = summaryRow.computed_at || new Date();
+
+        await alert.save();
+        dashboardCache.clear();
+
+        const acknowledgedAlert = await Alert.findById(id)
+            .populate("acknowledgedBy", "username email")
+            .lean();
+
+        return res.json({
+            success: true,
+            data: {
+                alertId: id,
+                acknowledgement: buildAlertAcknowledgement({
+                    alertConfig: acknowledgedAlert,
+                    summaryRow,
+                }),
+            },
+        });
+    } catch (error) {
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return handleAlertMutationError(req, res, error);
     }
 };
 
@@ -72,16 +279,26 @@ export const updateAlert = async (req, res) => {
  */
 export const deleteAlert = async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = normalizeMongoIdParam(req.params.id);
         const alert = await Alert.findByIdAndDelete(id);
 
         if (!alert) {
-            return res.status(404).json({ success: false, message: "Alert not found" });
+            return sendApiError(res, createNotFoundError("Alert not found", "ALERT_NOT_FOUND"));
         }
 
-        res.json({ success: true, message: "Alert deleted" });
+        const meta = await buildAlertMutationMeta();
+        res.json({ success: true, message: "Alert deleted", meta });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "AlertsController",
+            defaultCode: "ALERT_DELETE_FAILED",
+        });
     }
 };
 
@@ -94,11 +311,14 @@ export const deleteAlert = async (req, res) => {
  */
 export const getAlertEmployees = async (req, res) => {
     try {
-        const { type } = req.params;
-        const page = parseInt(req.query.page) || 1;
-        const limit = Math.min(parseInt(req.query.limit) || 100, 10000); // Max 10000
-        const search = (req.query.search || '').trim();
-        const offset = (page - 1) * limit;
+        const {
+            type,
+            pageNum,
+            limitNum,
+            search,
+            offset,
+        } = normalizeAlertEmployeesQuery(req.params, req.query);
+        const escapedSearch = escapeLikePattern(search);
 
         // Import AlertEmployee model
         const { AlertEmployee } = await import("../models/sql/index.js");
@@ -107,8 +327,8 @@ export const getAlertEmployees = async (req, res) => {
         const whereClause = { alert_type: type };
         if (search) {
             whereClause[Op.or] = [
-                { name: { [Op.like]: `%${search}%` } },
-                { employee_id: { [Op.like]: `%${search}%` } }
+                { name: { [Op.like]: `%${escapedSearch}%` } },
+                { employee_id: { [Op.like]: `%${escapedSearch}%` } }
             ];
         }
 
@@ -122,16 +342,16 @@ export const getAlertEmployees = async (req, res) => {
                 raw: true
             });
 
-            return res.json({
-                success: true,
+            return res.json(buildAlertEmployeesResponse({
+                alertType: type,
                 employees: [],
                 total: 0,
                 fullTotal: summary?.employee_count || 0,
-                page,
-                limit,
-                totalPages: 0,
-                message: summary ? "No matching employees found." : `No data. Run: node scripts/aggregate-dashboard.js`
-            });
+                page: pageNum,
+                limit: limitNum,
+                search,
+                message: summary ? "No matching employees found." : "No data. Run: node scripts/aggregate-dashboard.js",
+            }));
         }
 
         // Get paginated employees
@@ -139,7 +359,7 @@ export const getAlertEmployees = async (req, res) => {
             where: whereClause,
             order: [['days_until', 'ASC'], ['name', 'ASC'], ['employee_id', 'ASC']],
             offset,
-            limit,
+            limit: limitNum,
             raw: true
         });
 
@@ -156,26 +376,47 @@ export const getAlertEmployees = async (req, res) => {
             };
         });
 
-        const totalPages = Math.ceil(total / limit);
-
-        res.json({
-            success: true,
+        res.json(buildAlertEmployeesResponse({
+            alertType: type,
             employees: formattedEmployees,
             total,
-            page,
-            limit,
-            totalPages
-        });
+            page: pageNum,
+            limit: limitNum,
+            search,
+        }));
 
     } catch (error) {
-        console.error('getAlertEmployees error:', error);
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "AlertsController",
+            defaultCode: "ALERT_EMPLOYEES_LOOKUP_FAILED",
+            extraLogData: buildRequestLogData({ req, res }),
+        });
     }
 };
 
 
 export const getTriggeredAlerts = async (req, res) => {
     try {
+        const activeAlerts = await Alert.find({ isActive: true }).populate("acknowledgedBy", "username email").lean();
+        if (activeAlerts.length === 0) {
+            return res.json({
+                success: true,
+                data: [],
+                meta: buildDashboardMeta({
+                    dataset: "alerts",
+                    totalAlerts: 0,
+                    triggeredCount: 0,
+                    activeTypes: [],
+                }),
+            });
+        }
+
         // Check cache first
         const cacheParams = { date: new Date().toISOString().split('T')[0] };
         const cached = dashboardCache.get('alerts', cacheParams);
@@ -186,40 +427,32 @@ export const getTriggeredAlerts = async (req, res) => {
         // Read from pre-aggregated summary table
         let summaries = await AlertsSummary.findAll({ raw: true });
 
-        // Deduplicate summaries by alert_type (fix for potential duplicate aggregation rows)
-        const summaryMap = new Map();
-        summaries.forEach(row => {
-            summaryMap.set(row.alert_type, row);
-        });
+        // Deduplicate summaries by alert_type using the latest computed_at row.
+        const summaryMap = buildLatestAlertSummaryMap(summaries);
         summaries = Array.from(summaryMap.values());
 
+        const activeAlertMap = new Map(activeAlerts.map((alert) => [alert.type, alert]));
+        summaries = summaries.filter((row) => activeAlertMap.has(row.alert_type));
+
         if (summaries.length === 0) {
-            // No pre-aggregated data - check if alerts exist
-            const alertCount = await Alert.countDocuments({ isActive: true });
-            if (alertCount > 0) {
-                return res.status(404).json({
-                    success: false,
-                    message: "No pre-aggregated alerts data. Run: node scripts/aggregate-dashboard.js"
-                });
-            }
-            // No alerts configured
             return res.json({
                 success: true,
                 data: [],
-                meta: { totalAlerts: 0, triggeredCount: 0 }
+                meta: buildDashboardMeta({
+                    dataset: "alerts",
+                    totalAlerts: activeAlerts.length,
+                    triggeredCount: 0,
+                    activeTypes: activeAlerts.map((alert) => alert.type),
+                }),
             });
         }
-
-        // Get alert configurations for names
-        const activeAlerts = await Alert.find({ isActive: true }).lean();
-        const alertMap = new Map(activeAlerts.map(a => [a.type, a]));
 
         // Import AlertEmployee for preview data
         const { AlertEmployee } = await import("../models/sql/index.js");
 
         // Transform summaries to expected format - fetch preview employees
         const triggeredAlerts = await Promise.all(summaries.map(async (row) => {
-            const alertConfig = alertMap.get(row.alert_type);
+            const alertConfig = activeAlertMap.get(row.alert_type);
 
             // Fetch first 5 employees for preview display on cards
             const previewEmployees = await AlertEmployee.findAll({
@@ -251,6 +484,10 @@ export const getTriggeredAlerts = async (req, res) => {
                     name: alertConfig?.name || row.alert_type,
                     type: row.alert_type,
                     threshold: row.threshold,
+                    acknowledgement: buildAlertAcknowledgement({
+                        alertConfig,
+                        summaryRow: row,
+                    }),
                 },
                 matchingEmployees: matchingEmployees,
                 count: row.employee_count,
@@ -260,17 +497,33 @@ export const getTriggeredAlerts = async (req, res) => {
         // Cache the result
         const responseData = {
             data: triggeredAlerts,
-            meta: { totalAlerts: activeAlerts.length, triggeredCount: triggeredAlerts.length }
+            meta: buildDashboardMeta({
+                dataset: "alerts",
+                totalAlerts: activeAlerts.length,
+                triggeredCount: triggeredAlerts.length,
+                activeTypes: activeAlerts.map((alert) => alert.type),
+            }),
         };
         dashboardCache.set('alerts', cacheParams, responseData);
 
         res.json({
             success: true,
             data: triggeredAlerts,
-            meta: { totalAlerts: activeAlerts.length, triggeredCount: triggeredAlerts.length },
+            meta: buildDashboardMeta({
+                dataset: "alerts",
+                totalAlerts: activeAlerts.length,
+                triggeredCount: triggeredAlerts.length,
+                activeTypes: activeAlerts.map((alert) => alert.type),
+            }),
         });
     } catch (error) {
-        console.error("getTriggeredAlerts error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "AlertsController",
+            defaultCode: "ALERT_TRIGGER_LOOKUP_FAILED",
+            extraLogData: buildRequestLogData({ req, res, actorId: req.userId }),
+        });
     }
 };

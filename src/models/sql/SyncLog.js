@@ -24,6 +24,11 @@ const SyncLog = sequelize.define(
             allowNull: false,
             comment: "MongoDB _id or employeeId",
         },
+        correlation_id: {
+            type: DataTypes.STRING(120),
+            allowNull: true,
+            comment: "Request or workflow correlation ID propagated across async sync hops",
+        },
         action: {
             type: DataTypes.ENUM("CREATE", "UPDATE", "DELETE"),
             allowNull: false,
@@ -51,6 +56,7 @@ const SyncLog = sequelize.define(
         timestamps: true,
         indexes: [
             { fields: ["entity_type", "entity_id"] },
+            { fields: ["correlation_id"] },
             { fields: ["status"] },
             { fields: ["createdAt"] },
         ],

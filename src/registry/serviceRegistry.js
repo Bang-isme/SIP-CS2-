@@ -1,17 +1,18 @@
 /**
  * Service Registry
  * Case Study 4: Centralized Integration Management
- * 
+ *
  * Dynamically loads adapters based on config/integrations.js.
  * Provides a single entry point for the SyncService.
  */
 
-import activeIntegrations from '../config/integrations.js';
+import activeIntegrations from "../config/integrations.js";
+import logger from "../utils/logger.js";
 
 // Adapter map - add new adapters here
 const adapterMap = {
-    payroll: () => import('../adapters/payroll.adapter.js').then(m => new m.PayrollAdapter()),
-    securityMock: () => import('../adapters/security.mock.adapter.js').then(m => new m.SecurityMockAdapter()),
+    payroll: () => import("../adapters/payroll.adapter.js").then((m) => new m.PayrollAdapter()),
+    securityMock: () => import("../adapters/security.mock.adapter.js").then((m) => new m.SecurityMockAdapter()),
 };
 
 class ServiceRegistry {
@@ -27,7 +28,9 @@ class ServiceRegistry {
     async initialize() {
         if (this.initialized) return;
 
-        console.log('[ServiceRegistry] Initializing with integrations:', activeIntegrations);
+        logger.info("ServiceRegistry", "Initializing integration adapters", {
+            integrations: activeIntegrations,
+        });
 
         for (const name of activeIntegrations) {
             const loader = adapterMap[name];
@@ -35,17 +38,25 @@ class ServiceRegistry {
                 try {
                     const adapter = await loader();
                     this.adapters.push(adapter);
-                    console.log(`[ServiceRegistry] ✓ Loaded adapter: ${adapter.name}`);
+                    logger.info("ServiceRegistry", "Loaded integration adapter", {
+                        adapter: adapter.name,
+                    });
                 } catch (error) {
-                    console.error(`[ServiceRegistry] ✗ Failed to load adapter '${name}':`, error.message);
+                    logger.error("ServiceRegistry", `Failed to load adapter '${name}'`, error, {
+                        adapter: name,
+                    });
                 }
             } else {
-                console.warn(`[ServiceRegistry] ⚠ Unknown integration: '${name}' (no adapter found)`);
+                logger.warn("ServiceRegistry", `Unknown integration '${name}' (no adapter found)`, {
+                    adapter: name,
+                });
             }
         }
 
         this.initialized = true;
-        console.log(`[ServiceRegistry] Ready with ${this.adapters.length} active integrations.`);
+        logger.info("ServiceRegistry", "Integration registry ready", {
+            activeIntegrationCount: this.adapters.length,
+        });
     }
 
     /**

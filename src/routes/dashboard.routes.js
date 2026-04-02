@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+    getExecutiveBrief,
     getEarningsSummary,
     getVacationSummary,
     getBenefitsSummary,
@@ -15,6 +16,7 @@ const router = Router();
 router.use(verifyToken);
 
 // Summary endpoints
+router.get("/executive-brief", getExecutiveBrief);
 router.get("/earnings", getEarningsSummary);
 router.get("/vacation", getVacationSummary);
 router.get("/benefits", getBenefitsSummary);

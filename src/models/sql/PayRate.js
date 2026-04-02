@@ -12,7 +12,6 @@ const PayRate = sequelize.define(
         employee_id: {
             type: DataTypes.STRING(50),
             allowNull: false,
-            unique: true,
             comment: "Links to MongoDB Employee.employeeId",
         },
         pay_rate: {
@@ -40,7 +39,7 @@ const PayRate = sequelize.define(
         tableName: "pay_rates",
         timestamps: true,
         indexes: [
-            { unique: true, fields: ["employee_id"] },
+            { fields: ["employee_id", "is_active", "effective_date"] },
             { fields: ["pay_type"] },
         ],
     }

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import logger from "../utils/logger.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -54,7 +55,7 @@ userSchema.methods.comparePassword = async function (password) {
     const result = await bcrypt.compare(password, this.password);
     return result;
   } catch (error) {
-    console.log('Error while comparing password!', error.message);
+    logger.error("UserModel", "Instance password comparison failed", error);
   }
 };
 

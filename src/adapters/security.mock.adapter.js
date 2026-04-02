@@ -4,29 +4,30 @@
  * In a real scenario, this would call an external API.
  */
 
-import BaseAdapter from './base.adapter.js';
+import BaseAdapter from "./base.adapter.js";
+import logger from "../utils/logger.js";
 
 export class SecurityMockAdapter extends BaseAdapter {
     constructor() {
-        super('SecurityMockAdapter');
+        super("SecurityMockAdapter");
     }
 
     async sync(employeeData, action) {
         const employeeId = employeeData.employeeId || employeeData._id?.toString();
-        const employeeName = `${employeeData.firstName || ''} ${employeeData.lastName || ''}`.trim();
+        const employeeName = `${employeeData.firstName || ""} ${employeeData.lastName || ""}`.trim();
 
         // Simulate async operation
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
         switch (action) {
-            case 'CREATE':
-                console.log(`[${this.name}] 🪪 Badge PROVISIONED for ${employeeName} (ID: ${employeeId})`);
+            case "CREATE":
+                logger.info(this.name, "Badge provisioned (mock)", { employeeId, employeeName, action });
                 break;
-            case 'UPDATE':
-                console.log(`[${this.name}] 🔄 Badge DATA UPDATED for ${employeeName} (ID: ${employeeId})`);
+            case "UPDATE":
+                logger.info(this.name, "Badge data updated (mock)", { employeeId, employeeName, action });
                 break;
-            case 'DELETE':
-                console.log(`[${this.name}] 🚫 Badge REVOKED for ${employeeName} (ID: ${employeeId})`);
+            case "DELETE":
+                logger.info(this.name, "Badge revoked (mock)", { employeeId, employeeName, action });
                 break;
         }
 
@@ -35,7 +36,7 @@ export class SecurityMockAdapter extends BaseAdapter {
 
     async healthCheck() {
         // Mock system is always "healthy"
-        return { healthy: true, message: 'Security Badge System (Mock) OK' };
+        return { healthy: true, message: "Security Badge System (Mock) OK" };
     }
 }
 

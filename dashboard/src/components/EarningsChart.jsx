@@ -119,10 +119,16 @@ function EarningsChart({ data, onDrilldown }) {
         <div className="stat">
           <span className="stat-label">Shareholders</span>
           <span className="stat-value">{formatCurrency(data.byShareholder.shareholder.current)}</span>
+          <span className="stat-subvalue">
+            PY {formatCurrency(data.byShareholder.shareholder.previous)}
+          </span>
         </div>
         <div className="stat">
           <span className="stat-label">Non-Shareholders</span>
           <span className="stat-value">{formatCurrency(data.byShareholder.nonShareholder.current)}</span>
+          <span className="stat-subvalue">
+            PY {formatCurrency(data.byShareholder.nonShareholder.previous)}
+          </span>
         </div>
       </div>
 
@@ -351,7 +357,10 @@ function EarningsChart({ data, onDrilldown }) {
                     aria-label={`Filter by gender ${gender}`}
                   >
                     <span className="breakdown-label">{gender}</span>
-                    <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                    <span className="breakdown-values">
+                      <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                      <span className="breakdown-subvalue">PY {formatCurrency(values.previous)}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -380,7 +389,10 @@ function EarningsChart({ data, onDrilldown }) {
                     aria-label={`Filter by ethnicity ${ethnicity}`}
                   >
                     <span className="breakdown-label">{ethnicity}</span>
-                    <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                    <span className="breakdown-values">
+                      <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                      <span className="breakdown-subvalue">PY {formatCurrency(values.previous)}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -406,7 +418,10 @@ function EarningsChart({ data, onDrilldown }) {
                     aria-label={`Filter by employment type ${type}`}
                   >
                     <span className="breakdown-label">{type}</span>
-                    <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                    <span className="breakdown-values">
+                      <span className="breakdown-value">{formatCurrency(values.current)}</span>
+                      <span className="breakdown-subvalue">PY {formatCurrency(values.previous)}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -428,5 +443,4 @@ function EarningsChart({ data, onDrilldown }) {
 }
 
 export default EarningsChart;
-
 

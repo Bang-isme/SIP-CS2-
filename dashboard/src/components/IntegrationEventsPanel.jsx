@@ -5,11 +5,12 @@ import {
   getIntegrationMetrics,
   retryIntegrationEvent,
   retryDeadIntegrationEvents,
+  recoverStuckIntegrationEvents,
   replayIntegrationEvents,
 } from "../services/api";
 import "./IntegrationEventsPanel.css";
 
-const STATUS_OPTIONS = ["FAILED", "DEAD", "PENDING", "SUCCESS", "ALL"];
+const STATUS_OPTIONS = ["FAILED", "DEAD", "PROCESSING", "PENDING", "SUCCESS", "ALL"];
 const REPLAY_STATUS_OPTIONS = ["FAILED", "DEAD", "FAILED/DEAD"];
 const METRIC_THRESHOLDS = {
   backlog: { warning: 50, critical: 200 },
@@ -131,11 +132,28 @@ function IntegrationEventsPanel({ onErrorChange }) {
     try {
       setRefreshing(true);
       setNotice("");
-      await retryDeadIntegrationEvents();
+      const res = await retryDeadIntegrationEvents();
       await fetchEvents({ silent: true });
       await fetchMetrics();
+      setNotice(res?.message || "Dead events re-queued");
     } catch (err) {
       setError(err?.response?.data?.message || "Retry dead failed");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleRecoverStuck = async () => {
+    try {
+      setRefreshing(true);
+      setError("");
+      setNotice("");
+      const res = await recoverStuckIntegrationEvents();
+      await fetchEvents({ silent: true });
+      await fetchMetrics();
+      setNotice(res?.message || "Stale processing events recovered");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Recover stuck events failed");
     } finally {
       setRefreshing(false);
     }
@@ -153,9 +171,9 @@ function IntegrationEventsPanel({ onErrorChange }) {
         fromDays: replayDays ? Number(replayDays) : undefined,
       };
       const res = await replayIntegrationEvents(payload);
-      setNotice(res?.message || "Replay queued");
       await fetchEvents({ silent: true });
       await fetchMetrics();
+      setNotice(res?.message || "Replay queued");
     } catch (err) {
       setError(err?.response?.data?.message || "Replay failed");
     } finally {
@@ -172,6 +190,9 @@ function IntegrationEventsPanel({ onErrorChange }) {
   const metricCount = metrics?.counts || {};
   const backlog = metrics?.backlog ?? 0;
   const actionable = metrics?.actionable ?? 0;
+  const stuckProcessingCount = metrics?.stuckProcessingCount ?? 0;
+  const healthyProcessingCount = metrics?.healthyProcessingCount ?? (metricCount.PROCESSING ?? 0);
+  const processingTimeoutMinutes = metrics?.processingTimeoutMinutes ?? 15;
   const oldestPendingAgeMinutes = metrics?.oldestPendingAgeMinutes ?? 0;
   const oldestLabel = oldestPendingAgeMinutes > 0 ? `${oldestPendingAgeMinutes}m` : "--";
   const backlogSeverity = getSeverityLevel(backlog, METRIC_THRESHOLDS.backlog);
@@ -224,6 +245,15 @@ function IntegrationEventsPanel({ onErrorChange }) {
               <FiRotateCw size={14} />
               {refreshing ? "Working..." : "Retry DEAD (All)"}
             </button>
+            <button
+              className="retry-btn"
+              onClick={handleRecoverStuck}
+              disabled={refreshing || loading || stuckProcessingCount === 0}
+              aria-label="Recover stale processing events"
+            >
+              <FiRotateCw size={14} />
+              {refreshing ? "Working..." : "Recover Stuck"}
+            </button>
           </div>
           <button
             className="toggle-btn integration-replay-toggle"
@@ -251,6 +281,14 @@ function IntegrationEventsPanel({ onErrorChange }) {
       {notice && (
         <div className="integration-notice">
           <span>{notice}</span>
+        </div>
+      )}
+      {stuckProcessingCount > 0 && (
+        <div className="integration-warning">
+          <span>
+            {stuckProcessingCount} processing event{stuckProcessingCount > 1 ? "s are" : " is"} past the{" "}
+            {processingTimeoutMinutes}m recovery threshold.
+          </span>
         </div>
       )}
       {showReplay && (
@@ -312,7 +350,7 @@ function IntegrationEventsPanel({ onErrorChange }) {
             </button>
           </div>
           <div className="integration-hint">
-            Retry DEAD: only DEAD (ignores filters). Replay: apply FAILED/DEAD filters + entity/time.
+            Retry DEAD: only DEAD. Recover Stuck: move stale PROCESSING into FAILED/DEAD. Replay: apply FAILED/DEAD filters + entity/time.
           </div>
         </div>
       )}
@@ -332,7 +370,10 @@ function IntegrationEventsPanel({ onErrorChange }) {
         </div>
         <div className="integration-kpi-tags">
           <span className="status-badge warning">P {metricCount.PENDING ?? 0}</span>
-          <span className="status-badge info">PR {metricCount.PROCESSING ?? 0}</span>
+          <span className="status-badge info">PR {healthyProcessingCount}</span>
+          {stuckProcessingCount > 0 && (
+            <span className="status-badge danger">Stuck PR {stuckProcessingCount}</span>
+          )}
           <span className="status-badge danger">F {metricCount.FAILED ?? 0}</span>
           <span className="status-badge danger">D {metricCount.DEAD ?? 0}</span>
           <span className="status-badge success">S {metricCount.SUCCESS ?? 0}</span>

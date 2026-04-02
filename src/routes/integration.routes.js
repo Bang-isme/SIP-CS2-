@@ -2,9 +2,11 @@ import { Router } from "express";
 import { verifyToken, isAdmin } from "../middlewares/authJwt.js";
 import {
     listIntegrationEvents,
+    getIntegrationEventAudit,
     getIntegrationMetrics,
     retryIntegrationEvent,
     retryDeadIntegrationEvents,
+    recoverStuckIntegrationEvents,
     replayIntegrationEvents,
 } from "../controllers/integration.controller.js";
 
@@ -18,6 +20,7 @@ router.use(verifyToken);
  * Query: status, limit, page
  */
 router.get("/events", isAdmin, listIntegrationEvents);
+router.get("/events/:id/audit", isAdmin, getIntegrationEventAudit);
 
 /**
  * GET /api/integrations/events/metrics
@@ -36,6 +39,12 @@ router.post("/events/retry/:id", isAdmin, retryIntegrationEvent);
  * Admin only
  */
 router.post("/events/retry-dead", isAdmin, retryDeadIntegrationEvents);
+
+/**
+ * POST /api/integrations/events/recover-stuck
+ * Admin only
+ */
+router.post("/events/recover-stuck", isAdmin, recoverStuckIntegrationEvents);
 
 /**
  * POST /api/integrations/events/replay

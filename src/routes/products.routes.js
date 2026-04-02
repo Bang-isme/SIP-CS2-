@@ -7,25 +7,19 @@ import {
   getProductById,
   searchProduct
 } from "../controllers/products.controller.js";
-import { verifyToken, isModerator, isAdmin } from "../middlewares/authJwt.js";
+import { verifyToken, canManageProducts, isAdmin } from "../middlewares/authJwt.js";
 
 const router = Router();
 
+router.use(verifyToken);
 
-  
-// router.get("/", getProducts);
-// router.get("/:productId", getProductById);
-// // router.post("/", [verifyToken, isModerator], createProduct);
-// router.post("/", createProduct);
-// router.put("/:productId", [verifyToken, isModerator], updateProductById);
-// router.delete("/:productId", [verifyToken, isAdmin], deleteProductById);
-
-router.post("/", createProduct);
+router.get("/", getProducts);
+router.get("/search/:productName", searchProduct);
+router.post("/", canManageProducts, createProduct);
 router
-  .route('/:productId')
+  .route("/:productId")
   .get(getProductById)
-  .put(updateProductById)
-  .delete(deleteProductById)
+  .put(canManageProducts, updateProductById)
+  .delete(isAdmin, deleteProductById);
 
-router.get('/search/:productName', searchProduct);
 export default router;

@@ -1,6 +1,6 @@
 # Codebase Audit - CEO Memo + Case Study 1-5
 
-> Updated: 2026-02-07  
+> Updated: 2026-03-19  
 > Scope: `SIP_CS` codebase (backend, dashboard frontend, scripts, docs)
 
 ## 1) Muc tieu audit
@@ -34,8 +34,8 @@ Tai lieu nay xac nhan:
 |---|---|---|---|
 | Case 1 - Proposal | 2 phuong an + lifecycle + problem/solution framing | Da co docs | `docs/case_study_1_proposal.md` |
 | Case 2 - Dashboard | Presentation-style integration + alerts + drilldown | Hoan thanh | `dashboard/*`, `src/controllers/dashboard.controller.js`, `src/controllers/alerts.controller.js` |
-| Case 3 - Integrated System | Data entered once + consistency strategy | Hoan thanh o muc eventual consistency | `src/services/syncService.js`, `src/models/sql/SyncLog.js`, `src/routes/sync.routes.js` |
-| Case 4 - Fully Integrated | Middleware-centric integration | Hoan thanh mot phan (Outbox + Worker + monitor API/UI) | `src/services/integrationEventService.js`, `src/workers/integrationEventWorker.js`, `src/routes/integration.routes.js`, `dashboard/src/components/IntegrationEventsPanel.jsx` |
+| Case 3 - Integrated System | Data entered once + consistency strategy | Dat muc implementation practical theo eventual consistency, khong claim full ACID | `src/services/syncService.js`, `src/models/sql/SyncLog.js`, `src/routes/sync.routes.js` |
+| Case 4 - Fully Integrated | Middleware-centric integration | Hoan thanh mot phan (Outbox + Worker + monitor API/UI + stale-processing recovery) | `src/services/integrationEventService.js`, `src/workers/integrationEventWorker.js`, `src/routes/integration.routes.js`, `dashboard/src/components/IntegrationEventsPanel.jsx` |
 | Case 5 - Network Integration | Network, backup/recovery, security | Design complete, implementation pending | `docs/case_study_5_network_dr_security.md`, `docs/templates/*`, `scripts/dr-rehearsal-safe.js` |
 
 ## 5) Phan tich ky thuat quan trong
@@ -44,6 +44,7 @@ Tai lieu nay xac nhan:
 - Pre-aggregation + cache giai quyet van de toc do khi data lon.
 - Drilldown co bulk mode, fast/full summary mode va export stream.
 - Alert architecture tach summary va detail (`alerts_summary` + `alert_employees`) de scale.
+- `benefits_change` da duoc nang cap tu "recent change" thanh payroll-impact alert co explainable metadata (plan, paid amount, effective date, change date).
 - Case 4 da co outbox + worker + retry/dead handling, co monitor API + UI.
 
 ### 5.2 Gap can uu tien tiep
@@ -76,6 +77,6 @@ Tai lieu nay xac nhan:
 
 ## 7) Ket luan audit
 - Codebase hien tai phu hop huong CEO Memo va da dat phan lon yeu cau hoc phan.
-- Case 2/3 dat muc implementation.
+- Case 2 dat muc implementation manh; Case 3 dat muc implementation theo eventual consistency, khong full ACID.
 - Case 4 dat muc implementation mot phan (middleware-lite) + docs architecture.
 - Case 5 dat muc design va rehearsal-safe, chua phai production network implementation.

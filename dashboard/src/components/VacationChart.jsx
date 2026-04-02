@@ -8,14 +8,25 @@ function VacationChart({ data, onDrilldown }) {
 
     // 1. Prepare Donut Data (Shareholders)
     const shareholder = [
-        { name: 'Non-Shareholders', value: data.byShareholder.nonShareholder.current, fill: '#818cf8' },
-        { name: 'Shareholders', value: data.byShareholder.shareholder.current, fill: '#0d9488' },
+        {
+            name: 'Non-Shareholders',
+            value: data.byShareholder.nonShareholder.current,
+            previous: data.byShareholder.nonShareholder.previous,
+            fill: '#818cf8',
+        },
+        {
+            name: 'Shareholders',
+            value: data.byShareholder.shareholder.current,
+            previous: data.byShareholder.shareholder.previous,
+            fill: '#0d9488',
+        },
     ];
 
     const genderPalette = ['#0d9488', '#f59e0b', '#8b5cf6'];
     const gender = Object.entries(data.byGender).map(([name, values], index) => ({
         name,
         value: values.current,
+        previous: values.previous,
         fill: genderPalette[index % genderPalette.length],
     }));
 
@@ -23,6 +34,7 @@ function VacationChart({ data, onDrilldown }) {
     const employment = Object.entries(data.byEmploymentType).map(([name, values], index) => ({
         name,
         value: values.current,
+        previous: values.previous,
         fill: employmentPalette[index % employmentPalette.length],
     }));
 
@@ -30,6 +42,7 @@ function VacationChart({ data, onDrilldown }) {
     const ethnicity = Object.entries(data.byEthnicity).map(([name, values], index) => ({
         name,
         value: values.current,
+        previous: values.previous,
         fill: ethnicityPalette[index % ethnicityPalette.length],
     }));
 
@@ -43,10 +56,15 @@ function VacationChart({ data, onDrilldown }) {
     const activeView = viewConfig[view];
     const donutData = activeView?.data || [];
     const totalValue = donutData.reduce((acc, curr) => acc + (curr.value || 0), 0);
+    const previousTotalValue = donutData.reduce((acc, curr) => acc + (curr.previous || 0), 0);
     const rankedSegments = [...donutData].sort((a, b) => b.value - a.value);
     const topSegment = rankedSegments[0];
     const secondSegment = rankedSegments[1];
     const topPercent = totalValue > 0 && topSegment ? (topSegment.value / totalValue) * 100 : null;
+    const totalDelta = totalValue - previousTotalValue;
+    const totalDeltaLabel = previousTotalValue > 0
+        ? `${totalDelta >= 0 ? '+' : '-'}${Math.abs((totalDelta / previousTotalValue) * 100).toFixed(1)}% vs PY`
+        : 'No PY baseline';
     const gapAbsolute =
         topSegment && secondSegment
             ? topSegment.value - secondSegment.value
@@ -139,6 +157,7 @@ function VacationChart({ data, onDrilldown }) {
                         <div className="donut-label">
                             <span className="total-days">{formatNum(totalValue)}</span>
                             <span className="unit">days</span>
+                            <span className="donut-subtext">PY {formatNum(previousTotalValue)} days</span>
                         </div>
                     </div>
                 </div>
@@ -160,7 +179,10 @@ function VacationChart({ data, onDrilldown }) {
                                         <span className="dot" style={{ background: item.fill }}></span>
                                         <span className="label">{item.name}</span>
                                     </div>
-                                    <span className="value">{formatNum(item.value)} days</span>
+                                    <span className="value-stack">
+                                        <span className="value">{formatNum(item.value)} days</span>
+                                        <span className="value-subtext">PY {formatNum(item.previous || 0)} days</span>
+                                    </span>
                                 </button>
                             ))}
                         </div>
@@ -177,9 +199,10 @@ function VacationChart({ data, onDrilldown }) {
                             <div className="highlight-card">
                                 <span className="highlight-icon" aria-hidden="true"><FiTrendingUp size={14} /></span>
                                 <div className="highlight-content">
-                                    <span className="highlight-label">Gap to #2</span>
-                                    <span className="highlight-value">
-                                        {gapAbsolute !== null ? `${formatNum(Math.abs(gapAbsolute))} days` : '--'}
+                                    <span className="highlight-label">YoY Delta</span>
+                                    <span className="highlight-value">{totalDeltaLabel}</span>
+                                    <span className="highlight-meta">
+                                        {gapAbsolute !== null ? `Gap to #2: ${formatNum(Math.abs(gapAbsolute))} days` : 'Only one segment in this view'}
                                     </span>
                                 </div>
                             </div>

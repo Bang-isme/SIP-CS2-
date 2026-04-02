@@ -15,6 +15,8 @@ describe('Health Endpoints', () => {
 
             expect(res.body).toHaveProperty('alive', true);
             expect(res.body).toHaveProperty('uptime');
+            expect(res.body).toHaveProperty('requestId');
+            expect(res.body).toHaveProperty('version');
         });
     });
 
@@ -27,6 +29,8 @@ describe('Health Endpoints', () => {
             expect(res.body).toHaveProperty('status');
             expect(res.body).toHaveProperty('timestamp');
             expect(res.body).toHaveProperty('services');
+            expect(res.body).toHaveProperty('requestId');
+            expect(res.body.services).toHaveProperty('mysql');
         });
     });
 });

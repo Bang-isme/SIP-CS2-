@@ -43,7 +43,7 @@ function App() {
         }
       } catch {
         if (active) {
-          logout();
+          void logout({ revoke: false });
           setCurrentUser(null);
           setAuthenticated(false);
           setAuthNotice('Session expired. Please sign in again.');
@@ -66,10 +66,13 @@ function App() {
     setAuthenticated(true);
   };
 
-  const handleLogout = () => {
-    logout();
-    setCurrentUser(null);
-    setAuthenticated(false);
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      setCurrentUser(null);
+      setAuthenticated(false);
+    }
   };
 
   if (!authenticated) {

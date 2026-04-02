@@ -4,6 +4,21 @@ import { Earning, VacationRecord, BenefitPlan, EmployeeBenefit, EarningsSummary,
 import { Op, fn, col } from "sequelize";
 import dashboardCache from "../utils/cache.js";
 import { buildDepartmentNameMap, listDepartmentNames, resolveDepartmentIdByName } from "../utils/departmentMapping.js";
+import { buildExecutiveBriefSnapshot } from "../services/dashboardExecutiveService.js";
+import {
+    buildDashboardMeta,
+    buildDrilldownEmptyResponse,
+    DashboardContractError,
+    escapeRegexLiteral,
+    normalizeDrilldownQuery,
+    normalizeSummaryQuery,
+    sendContractError,
+} from "../utils/dashboardContracts.js";
+import {
+    createNotFoundError,
+    respondWithApiError,
+    sendApiError,
+} from "../utils/apiErrors.js";
 
 
 /**
@@ -39,15 +54,74 @@ const getFilteredEmployeeIds = async (filters) => {
     return employees.map((e) => e.employeeId || e._id.toString());
 };
 
+const buildBenefitLookup = async ({ employeeIds, benefitPlanName }) => {
+    if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+        return { benefitMap: new Map(), planId: null };
+    }
+
+    const where = {
+        employee_id: { [Op.in]: employeeIds },
+    };
+
+    let planId = null;
+    if (benefitPlanName) {
+        const plan = await BenefitPlan.findOne({ where: { name: benefitPlanName } });
+        if (!plan) {
+            return { benefitMap: new Map(), planId: "__missing__" };
+        }
+        planId = plan.id;
+        where.plan_id = plan.id;
+    }
+
+    const benefitRows = await EmployeeBenefit.findAll({
+        where,
+        attributes: [
+            "employee_id",
+            [fn("SUM", col("amount_paid")), "total"],
+        ],
+        group: ["employee_id"],
+        raw: true,
+    });
+
+    return {
+        planId,
+        benefitMap: new Map(
+            benefitRows.map((row) => [row.employee_id, parseFloat(row.total) || 0])
+        ),
+    };
+};
+
+const buildDrilldownFilterMeta = ({
+    year,
+    context,
+    department,
+    gender,
+    ethnicity,
+    employmentType,
+    isShareholder,
+    benefitPlanName,
+    minEarnings,
+    search,
+}) => ({
+    year,
+    context,
+    department: department || null,
+    gender: gender || null,
+    ethnicity: ethnicity || null,
+    employmentType: employmentType || null,
+    isShareholder: typeof isShareholder === "boolean" ? isShareholder : null,
+    benefitPlan: benefitPlanName || null,
+    minEarnings: Number.isFinite(minEarnings) ? minEarnings : null,
+    search: search || null,
+});
+
 /**
  * GET /api/dashboard/earnings
  * Reads from pre-aggregated EarningsSummary table
  */
 export const getEarningsSummary = async (req, res) => {
     try {
-        const { year } = req.query;
-        const currentYear = parseInt(year) || new Date().getFullYear();
-        const previousYear = currentYear - 1;
+        const { year: currentYear, previousYear } = normalizeSummaryQuery(req.query);
 
         // Check cache first
         const cacheParams = { year: currentYear };
@@ -63,10 +137,13 @@ export const getEarningsSummary = async (req, res) => {
         });
 
         if (summaries.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: `No pre-aggregated data for ${currentYear}. Run: node scripts/aggregate-dashboard.js ${currentYear}`
-            });
+            return sendApiError(
+                res,
+                createNotFoundError(
+                    `No pre-aggregated data for ${currentYear}. Run: node scripts/aggregate-dashboard.js ${currentYear}`,
+                    "DASHBOARD_EARNINGS_SUMMARY_NOT_READY",
+                ),
+            );
         }
 
         // Transform flat rows to nested structure expected by frontend
@@ -118,17 +195,42 @@ export const getEarningsSummary = async (req, res) => {
         }
 
         // Cache the small result
-        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null } };
+        const responseData = {
+            data: summary,
+            meta: buildDashboardMeta({
+                dataset: "earnings",
+                currentYear,
+                previousYear,
+                employeeCount,
+                updatedAt: updatedAt ? updatedAt.toISOString() : null,
+                filters: { year: currentYear },
+            }),
+        };
         dashboardCache.set('earnings', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { currentYear, previousYear, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null },
+            meta: buildDashboardMeta({
+                dataset: "earnings",
+                currentYear,
+                previousYear,
+                employeeCount,
+                updatedAt: updatedAt ? updatedAt.toISOString() : null,
+                filters: { year: currentYear },
+            }),
         });
     } catch (error) {
-        console.error("getEarningsSummary error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "DashboardController",
+            defaultCode: "DASHBOARD_EARNINGS_SUMMARY_FAILED",
+        });
     }
 };
 
@@ -138,9 +240,7 @@ export const getEarningsSummary = async (req, res) => {
  */
 export const getVacationSummary = async (req, res) => {
     try {
-        const { year } = req.query;
-        const currentYear = parseInt(year) || new Date().getFullYear();
-        const previousYear = currentYear - 1;
+        const { year: currentYear, previousYear } = normalizeSummaryQuery(req.query);
 
         // Check cache first
         const cacheParams = { year: currentYear };
@@ -156,10 +256,13 @@ export const getVacationSummary = async (req, res) => {
         });
 
         if (summaries.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: `No pre-aggregated data for ${currentYear}. Run: node scripts/aggregate-dashboard.js ${currentYear}`
-            });
+            return sendApiError(
+                res,
+                createNotFoundError(
+                    `No pre-aggregated data for ${currentYear}. Run: node scripts/aggregate-dashboard.js ${currentYear}`,
+                    "DASHBOARD_VACATION_SUMMARY_NOT_READY",
+                ),
+            );
         }
 
         // Transform flat rows to nested structure
@@ -211,17 +314,42 @@ export const getVacationSummary = async (req, res) => {
         }
 
         // Cache the small result
-        const responseData = { data: summary, meta: { currentYear, previousYear, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null } };
+        const responseData = {
+            data: summary,
+            meta: buildDashboardMeta({
+                dataset: "vacation",
+                currentYear,
+                previousYear,
+                employeeCount,
+                updatedAt: updatedAt ? updatedAt.toISOString() : null,
+                filters: { year: currentYear },
+            }),
+        };
         dashboardCache.set('vacation', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { currentYear, previousYear, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null },
+            meta: buildDashboardMeta({
+                dataset: "vacation",
+                currentYear,
+                previousYear,
+                employeeCount,
+                updatedAt: updatedAt ? updatedAt.toISOString() : null,
+                filters: { year: currentYear },
+            }),
         });
     } catch (error) {
-        console.error("getVacationSummary error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "DashboardController",
+            defaultCode: "DASHBOARD_VACATION_SUMMARY_FAILED",
+        });
     }
 };
 
@@ -242,10 +370,13 @@ export const getBenefitsSummary = async (req, res) => {
         const summaries = await BenefitsSummary.findAll({ raw: true });
 
         if (summaries.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "No pre-aggregated benefits data. Run: node scripts/aggregate-dashboard.js"
-            });
+            return sendApiError(
+                res,
+                createNotFoundError(
+                    "No pre-aggregated benefits data. Run: node scripts/aggregate-dashboard.js",
+                    "DASHBOARD_BENEFITS_SUMMARY_NOT_READY",
+                ),
+            );
         }
 
         // Transform to expected format
@@ -289,17 +420,73 @@ export const getBenefitsSummary = async (req, res) => {
         }
 
         // Cache the small result
-        const responseData = { data: summary, meta: { planCount: planCount / 2, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null } };
+        const responseData = {
+            data: summary,
+            meta: buildDashboardMeta({
+                dataset: "benefits",
+                planCount: planCount / 2,
+                employeeCount,
+                updatedAt: updatedAt ? updatedAt.toISOString() : null,
+                filters: {},
+            }),
+        };
         dashboardCache.set('benefits', cacheParams, responseData);
 
         res.json({
             success: true,
             data: summary,
-            meta: { planCount: planCount / 2, employeeCount, updatedAt: updatedAt ? updatedAt.toISOString() : null },
+            meta: buildDashboardMeta({
+                dataset: "benefits",
+                planCount: planCount / 2,
+                employeeCount,
+                updatedAt: updatedAt ? updatedAt.toISOString() : null,
+                filters: {},
+            }),
         });
     } catch (error) {
-        console.error("getBenefitsSummary error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "DashboardController",
+            defaultCode: "DASHBOARD_BENEFITS_SUMMARY_FAILED",
+        });
+    }
+};
+
+/**
+ * GET /api/dashboard/executive-brief
+ * Backend-owned executive snapshot for action center and follow-up queue.
+ */
+export const getExecutiveBrief = async (req, res) => {
+    try {
+        const { year } = normalizeSummaryQuery(req.query);
+        const snapshot = await buildExecutiveBriefSnapshot({
+            userId: req.userId,
+            year,
+        });
+
+        res.json({
+            success: true,
+            data: snapshot,
+            meta: buildDashboardMeta({
+                dataset: "executiveBrief",
+                year,
+                generatedAt: new Date().toISOString(),
+                filters: { year },
+            }),
+        });
+    } catch (error) {
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "DashboardController",
+            defaultCode: "DASHBOARD_EXECUTIVE_BRIEF_FAILED",
+        });
     }
 };
 
@@ -309,13 +496,38 @@ export const getBenefitsSummary = async (req, res) => {
  */
 export const getDrilldown = async (req, res) => {
     try {
-        const { department, gender, ethnicity, employmentType, isShareholder, page = 1, limit = 20 } = req.query;
-        const currentYear = new Date().getFullYear();
-        const earningsYear = parseInt(req.query.year) || currentYear;
-        const pageNum = Math.max(parseInt(page) || 1, 1);
-        const limitNum = Math.min(parseInt(limit) || 20, 10000);
-        const bulkMode = req.query.bulk === "1" || limitNum >= 1000;
-        const requestedSummaryMode = req.query.summary || (bulkMode ? "fast" : "full");
+        const {
+            department,
+            gender,
+            ethnicity,
+            employmentType,
+            isShareholder,
+            pageNum,
+            limitNum,
+            year: earningsYear,
+            requestedSummaryMode,
+            context,
+            benefitPlanName,
+            search,
+            minEarnings,
+            hasMinEarnings,
+        } = normalizeDrilldownQuery(req.query);
+        let resolvedBenefitPlanId = null;
+        const summaryMode = (hasMinEarnings && requestedSummaryMode === "full")
+            ? "fast"
+            : requestedSummaryMode;
+        const contractFilters = buildDrilldownFilterMeta({
+            year: earningsYear,
+            context,
+            department,
+            gender,
+            ethnicity,
+            employmentType,
+            isShareholder,
+            benefitPlanName,
+            minEarnings,
+            search,
+        });
         const { map: departmentMap } = await buildDepartmentNameMap({
             DepartmentModel: Department,
             EmployeeModel: Employee,
@@ -350,18 +562,21 @@ export const getDrilldown = async (req, res) => {
                     query.departmentId = deptId;
                     resolvedDepartmentName = departmentMap.get(deptId) || null;
                 } else {
-                    return res.json({
-                        success: true,
-                        data: [],
-                        meta: { total: 0, page: parseInt(page), limit: parseInt(limit), pages: 0 }
-                    });
+                    return res.json(buildDrilldownEmptyResponse({
+                        pageNum,
+                        limitNum,
+                        summaryMode,
+                        context,
+                        filters: contractFilters,
+                    }));
                 }
             }
         }
 
-        if (req.query.benefitPlan) {
-            const plan = await BenefitPlan.findOne({ where: { name: req.query.benefitPlan } });
+        if (benefitPlanName) {
+            const plan = await BenefitPlan.findOne({ where: { name: benefitPlanName } });
             if (plan) {
+                resolvedBenefitPlanId = plan.id;
                 const enrollments = await EmployeeBenefit.findAll({
                     where: { plan_id: plan.id },
                     attributes: ['employee_id'],
@@ -371,52 +586,41 @@ export const getDrilldown = async (req, res) => {
                 // Filter by employeeId (assuming sync uses logical ID)
                 const ok = applyEmployeeIdFilter(empIds);
                 if (!ok) {
-                    return res.json({
-                        success: true,
-                        data: [],
-                        meta: { total: 0, page: parseInt(page), limit: parseInt(limit), pages: 0 }
-                    });
+                    return res.json(buildDrilldownEmptyResponse({
+                        pageNum,
+                        limitNum,
+                        summaryMode,
+                        context,
+                        filters: contractFilters,
+                    }));
                 }
             } else {
                 // Plan not found -> return empty
-                return res.json({
-                    success: true,
-                    data: [],
-                    meta: { total: 0, page: parseInt(page), limit: parseInt(limit), pages: 0 }
-                });
+                return res.json(buildDrilldownEmptyResponse({
+                    pageNum,
+                    limitNum,
+                    summaryMode,
+                    context,
+                    filters: contractFilters,
+                }));
             }
         }
 
 
 
-        if (req.query.search) {
-            const searchTerm = req.query.search.trim();
-            if (searchTerm) {
-                const searchRegex = new RegExp(searchTerm, 'i');
-                query.$or = [
-                    { firstName: searchRegex },
-                    { lastName: searchRegex },
-                    { employeeId: searchRegex },
-                    // Allow searching "First Last" space separated
-                    ...(searchTerm.includes(' ') ? [] : [])
-                ];
-                // If search term has space, simple split logic or just rely on individual regex (simpler for now)
-                // But let's handle full name search properly if needed.
-                // For now, simpler regex is robust enough for "Amy", "A01", etc.
-            }
+        if (search) {
+            const searchRegex = new RegExp(escapeRegexLiteral(search), 'i');
+            query.$or = [
+                { firstName: searchRegex },
+                { lastName: searchRegex },
+                { employeeId: searchRegex },
+            ];
         }
 
         if (gender) query.gender = gender;
         if (ethnicity) query.ethnicity = ethnicity;
         if (employmentType) query.employmentType = employmentType;
-        if (isShareholder !== undefined) query.isShareholder = isShareholder === "true";
-
-        // CEO Query: "Employees earning over $X" - SQL filter using earnings_employee_year
-        const minEarnings = parseFloat(req.query.minEarnings);
-        const hasMinEarnings = Number.isFinite(minEarnings) && minEarnings > 0;
-        const summaryMode = (hasMinEarnings && requestedSummaryMode === "full")
-            ? "fast"
-            : requestedSummaryMode;
+        if (typeof isShareholder === "boolean") query.isShareholder = isShareholder;
 
         if (hasMinEarnings) {
             const matchingEarnings = await EarningsEmployeeYear.findAll({
@@ -431,11 +635,13 @@ export const getDrilldown = async (req, res) => {
             const employeeIds = matchingEarnings.map((row) => row.employee_id).filter(Boolean);
             const ok = applyEmployeeIdFilter(employeeIds);
             if (!ok) {
-                return res.json({
-                    success: true,
-                    data: [],
-                    meta: { total: 0, page: parseInt(page), limit: parseInt(limit), pages: 0 }
-                });
+                return res.json(buildDrilldownEmptyResponse({
+                    pageNum,
+                    limitNum,
+                    summaryMode,
+                    context,
+                    filters: contractFilters,
+                }));
             }
         }
 
@@ -475,20 +681,24 @@ export const getDrilldown = async (req, res) => {
             }
         }
 
-        // Fetch Benefit info if context is relevant
+        // Fetch benefits per employee when benefits context is active or a plan filter is applied
         let benefitMap = new Map();
-        if (req.query.benefitPlan) {
-            const plan = await BenefitPlan.findOne({ where: { name: req.query.benefitPlan } });
-            if (plan) {
-                const benefits = await EmployeeBenefit.findAll({
-                    where: {
-                        employee_id: { [Op.in]: employeeIds },
-                        plan_id: plan.id
-                    },
-                    attributes: ["employee_id", "amount_paid"],
-                    raw: true
-                });
-                benefitMap = new Map(benefits.map(b => [b.employee_id, parseFloat(b.amount_paid) || 0]));
+        let selectedPlanId = null;
+        if (context === "benefits" || benefitPlanName) {
+            const benefitLookup = await buildBenefitLookup({
+                employeeIds,
+                benefitPlanName,
+            });
+            benefitMap = benefitLookup.benefitMap;
+            selectedPlanId = benefitLookup.planId || resolvedBenefitPlanId;
+            if (selectedPlanId === "__missing__") {
+                return res.json(buildDrilldownEmptyResponse({
+                    pageNum,
+                    limitNum,
+                    summaryMode,
+                    context,
+                    filters: contractFilters,
+                }));
             }
         }
 
@@ -510,9 +720,16 @@ export const getDrilldown = async (req, res) => {
         }
 
         // Calculate Summary Totals for the entire filtered set (not just paginated page)
-        const hasShareholderFilter = isShareholder !== undefined && isShareholder !== '';
-        const hasActiveFilter = Boolean(department || gender || ethnicity || employmentType || hasShareholderFilter || hasMinEarnings);
-        const context = req.query.context || 'earnings';
+        const hasShareholderFilter = typeof isShareholder === "boolean";
+        const hasActiveFilter = Boolean(
+            department
+            || gender
+            || ethnicity
+            || employmentType
+            || hasShareholderFilter
+            || hasMinEarnings
+            || benefitPlanName
+        );
 
         let summaryTotalEarnings = 0;
         let summaryTotalBenefits = 0;
@@ -528,7 +745,7 @@ export const getDrilldown = async (req, res) => {
             // =====================================================
             const [earningsTotal, benefitsTotal, vacationTotal] = await Promise.all([
                 EarningsSummary.findOne({
-                    where: { year: currentYear, group_type: 'total', group_value: 'all' },
+                    where: { year: earningsYear, group_type: 'total', group_value: 'all' },
                     raw: true
                 }),
                 BenefitsSummary.findOne({
@@ -544,7 +761,7 @@ export const getDrilldown = async (req, res) => {
                     };
                 }),
                 VacationSummary.findOne({
-                    where: { year: currentYear, group_type: 'total', group_value: 'all' },
+                    where: { year: earningsYear, group_type: 'total', group_value: 'all' },
                     raw: true
                 })
             ]);
@@ -569,7 +786,7 @@ export const getDrilldown = async (req, res) => {
                 department ? { type: 'department', value: resolvedDepartmentName || department } : null,
                 ethnicity ? { type: 'ethnicity', value: ethnicity } : null,
                 employmentType ? { type: 'employmentType', value: employmentType } : null,
-                hasShareholderFilter ? { type: 'shareholder', value: isShareholder === 'true' ? 'shareholder' : 'nonShareholder' } : null
+                hasShareholderFilter ? { type: 'shareholder', value: isShareholder ? 'shareholder' : 'nonShareholder' } : null
             ].filter(Boolean);
 
             // If SINGLE dimension filter, try pre-aggregated path
@@ -577,11 +794,11 @@ export const getDrilldown = async (req, res) => {
                 const filter = activeFilters[0];
                 const [earningsAgg, vacationAgg] = await Promise.all([
                     EarningsSummary.findOne({
-                        where: { year: currentYear, group_type: filter.type, group_value: filter.value },
+                        where: { year: earningsYear, group_type: filter.type, group_value: filter.value },
                         raw: true
                     }),
                     VacationSummary.findOne({
-                        where: { year: currentYear, group_type: filter.type, group_value: filter.value },
+                        where: { year: earningsYear, group_type: filter.type, group_value: filter.value },
                         raw: true
                     })
                 ]);
@@ -604,8 +821,12 @@ export const getDrilldown = async (req, res) => {
                             if (batchIdsBuffer.length >= 50000) {
                                 const currentBatchIds = [...batchIdsBuffer];
                                 batchIdsBuffer = [];
+                                const benefitWhere = { employee_id: { [Op.in]: currentBatchIds } };
+                                if (selectedPlanId && selectedPlanId !== "__missing__") {
+                                    benefitWhere.plan_id = selectedPlanId;
+                                }
                                 const batchBenefits = await EmployeeBenefit.findOne({
-                                    where: { employee_id: { [Op.in]: currentBatchIds } },
+                                    where: benefitWhere,
                                     attributes: [[fn("SUM", col("amount_paid")), "total"]],
                                     raw: true
                                 });
@@ -614,8 +835,12 @@ export const getDrilldown = async (req, res) => {
                         }
                         // Process remaining
                         if (batchIdsBuffer.length > 0) {
+                            const benefitWhere = { employee_id: { [Op.in]: batchIdsBuffer } };
+                            if (selectedPlanId && selectedPlanId !== "__missing__") {
+                                benefitWhere.plan_id = selectedPlanId;
+                            }
                             const batchBenefits = await EmployeeBenefit.findOne({
-                                where: { employee_id: { [Op.in]: batchIdsBuffer } },
+                                where: benefitWhere,
                                 attributes: [[fn("SUM", col("amount_paid")), "total"]],
                                 raw: true
                             });
@@ -660,8 +885,12 @@ export const getDrilldown = async (req, res) => {
 
                             // Benefits - Only needed for 'benefits' context or generic
                             if (context === 'benefits' || !context) {
+                                const benefitWhere = { employee_id: { [Op.in]: currentBatchIds } };
+                                if (selectedPlanId && selectedPlanId !== "__missing__") {
+                                    benefitWhere.plan_id = selectedPlanId;
+                                }
                                 subPromises.push(EmployeeBenefit.findOne({
-                                    where: { employee_id: { [Op.in]: currentBatchIds } },
+                                    where: benefitWhere,
                                     attributes: [[fn("SUM", col("amount_paid")), "total"]],
                                     raw: true
                                 }));
@@ -695,7 +924,13 @@ export const getDrilldown = async (req, res) => {
                         // Earnings - context-aware
                         if (context === 'earnings' || !context) { subPromises.push(EarningsEmployeeYear.findOne({ where: { year: earningsYear, employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("total")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
                         // Benefits - context-aware
-                        if (context === 'benefits' || !context) { subPromises.push(EmployeeBenefit.findOne({ where: { employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("amount_paid")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
+                        if (context === 'benefits' || !context) {
+                            const benefitWhere = { employee_id: { [Op.in]: currentBatchIds } };
+                            if (selectedPlanId && selectedPlanId !== "__missing__") {
+                                benefitWhere.plan_id = selectedPlanId;
+                            }
+                            subPromises.push(EmployeeBenefit.findOne({ where: benefitWhere, attributes: [[fn("SUM", col("amount_paid")), "total"]], raw: true }));
+                        } else { subPromises.push(Promise.resolve({ total: 0 })); }
                         // Vacation - context-aware
                         if (context === 'vacation' || !context) { subPromises.push(VacationRecord.findOne({ where: { employee_id: { [Op.in]: currentBatchIds } }, attributes: [[fn("SUM", col("days_taken")), "total"]], raw: true })); } else { subPromises.push(Promise.resolve({ total: 0 })); }
 
@@ -731,6 +966,9 @@ export const getDrilldown = async (req, res) => {
                 page: pageNum,
                 limit: limitNum,
                 pages: Math.ceil(total / limitNum),
+                totalPages: Math.ceil(total / limitNum),
+                dataset: context,
+                filters: contractFilters,
                 minEarningsApplied: hasMinEarnings ? minEarnings : null
             },
             summary: {
@@ -745,8 +983,16 @@ export const getDrilldown = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("getDrilldown error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "DashboardController",
+            defaultCode: "DASHBOARD_DRILLDOWN_FAILED",
+        });
     }
 };
 
@@ -756,29 +1002,26 @@ export const getDrilldown = async (req, res) => {
  */
 export const exportDrilldownCsv = async (req, res) => {
     try {
-        const { department, gender, ethnicity, employmentType, isShareholder } = req.query;
-        const currentYear = new Date().getFullYear();
-        const earningsYear = parseInt(req.query.year) || currentYear;
+        const {
+            department,
+            gender,
+            ethnicity,
+            employmentType,
+            isShareholder,
+            year: earningsYear,
+            context,
+            benefitPlanName,
+            search,
+            minEarnings,
+            hasMinEarnings,
+        } = normalizeDrilldownQuery(req.query);
+        const exportBatchSize = 1000;
         const { map: departmentMap } = await buildDepartmentNameMap({
             DepartmentModel: Department,
             EmployeeModel: Employee,
         });
 
         const query = {};
-        const applyEmployeeIdFilter = (ids) => {
-            if (!Array.isArray(ids) || ids.length === 0) return false;
-            if (!query.employeeId) {
-                query.employeeId = { $in: ids };
-                return true;
-            }
-            if (query.employeeId?.$in) {
-                const idSet = new Set(query.employeeId.$in);
-                const intersection = ids.filter((id) => idSet.has(id));
-                query.employeeId = { $in: intersection };
-                return intersection.length > 0;
-            }
-            return true;
-        };
 
         if (department) {
             const isObjectId = /^[0-9a-fA-F]{24}$/.test(department);
@@ -789,58 +1032,40 @@ export const exportDrilldownCsv = async (req, res) => {
                 if (deptId) {
                     query.departmentId = deptId;
                 } else {
-                    return res.status(404).json({ success: false, message: "Department not found." });
+                    return sendContractError(
+                        res,
+                        new DashboardContractError("Department filter did not match a known department."),
+                    );
                 }
             }
         }
 
-        if (req.query.search) {
-            const searchTerm = req.query.search.trim();
-            if (searchTerm) {
-                const searchRegex = new RegExp(searchTerm, 'i');
-                query.$or = [
-                    { firstName: searchRegex },
-                    { lastName: searchRegex },
-                    { employeeId: searchRegex }
-                ];
-            }
+        if (search) {
+            const searchRegex = new RegExp(escapeRegexLiteral(search), 'i');
+            query.$or = [
+                { firstName: searchRegex },
+                { lastName: searchRegex },
+                { employeeId: searchRegex }
+            ];
         }
 
         if (gender) query.gender = gender;
         if (ethnicity) query.ethnicity = ethnicity;
         if (employmentType) query.employmentType = employmentType;
-        if (isShareholder !== undefined) query.isShareholder = isShareholder === "true";
+        if (typeof isShareholder === "boolean") query.isShareholder = isShareholder;
+        const isVacation = context === 'vacation';
+        const isBenefits = context === 'benefits';
+        let selectedPlanId = null;
 
-        const minEarnings = parseFloat(req.query.minEarnings);
-        const hasMinEarnings = Number.isFinite(minEarnings) && minEarnings > 0;
-        const isVacation = req.query.context === 'vacation';
-        let earningsByEmployee = new Map();
-
-        if (!isVacation || hasMinEarnings) {
-            const earningsRows = await EarningsEmployeeYear.findAll({
-                where: { year: earningsYear },
-                attributes: ["employee_id", "total"],
-                raw: true,
-            });
-            earningsByEmployee = new Map(
-                earningsRows
-                    .map((row) => [row.employee_id, parseFloat(row.total) || 0])
-                    .filter(([employeeId]) => Boolean(employeeId))
-            );
-        }
-
-        if (hasMinEarnings) {
-            const employeeIds = [];
-            for (const [employeeId, total] of earningsByEmployee.entries()) {
-                if (total >= minEarnings) employeeIds.push(employeeId);
+        if (benefitPlanName) {
+            const plan = await BenefitPlan.findOne({ where: { name: benefitPlanName } });
+            if (!plan) {
+                return sendContractError(
+                    res,
+                    new DashboardContractError("Benefits plan filter did not match a known plan."),
+                );
             }
-            const ok = applyEmployeeIdFilter(employeeIds);
-            if (!ok) {
-                return res.status(404).json({
-                    success: false,
-                    message: `No employees found with earnings >= ${minEarnings} for ${earningsYear}`,
-                });
-            }
+            selectedPlanId = plan.id;
         }
 
         const fileDate = new Date().toISOString().slice(0, 10);
@@ -856,7 +1081,7 @@ export const exportDrilldownCsv = async (req, res) => {
             "Ethnicity",
             "Type",
             "Shareholder",
-            isVacation ? "VacationDays" : "TotalEarnings"
+            isVacation ? "VacationDays" : isBenefits ? "BenefitsCost" : "TotalEarnings"
         ];
         res.write(headers.join(",") + "\n");
 
@@ -864,6 +1089,7 @@ export const exportDrilldownCsv = async (req, res) => {
             .select("employeeId firstName lastName departmentId gender ethnicity employmentType isShareholder vacationDays annualEarnings annualEarningsYear")
             .lean()
             .cursor();
+        let employeeBatch = [];
 
         const escapeCsv = (value) => {
             if (value === null || value === undefined) return "";
@@ -874,34 +1100,110 @@ export const exportDrilldownCsv = async (req, res) => {
             return str;
         };
 
-        for await (const emp of cursor) {
-            const deptName = departmentMap.get(emp.departmentId?.toString()) || "Unassigned";
-            const employeeId = emp.employeeId || emp._id.toString();
-            const hasSqlEarning = earningsByEmployee.has(employeeId);
-            const isSnapshotValid = emp.annualEarningsYear === earningsYear && Number.isFinite(emp.annualEarnings);
-            const totalEarnings = hasSqlEarning
-                ? earningsByEmployee.get(employeeId)
-                : (isSnapshotValid ? emp.annualEarnings : 0);
-            const row = [
-                escapeCsv(emp.employeeId || ""),
-                escapeCsv(`${emp.firstName || ""} ${emp.lastName || ""}`.trim()),
-                escapeCsv(deptName),
-                escapeCsv(emp.gender || ""),
-                escapeCsv(emp.ethnicity || ""),
-                escapeCsv(emp.employmentType || ""),
-                escapeCsv(emp.isShareholder ? "Yes" : "No"),
-                escapeCsv(isVacation ? (emp.vacationDays || 0) : totalEarnings)
-            ].join(",");
+        const flushEmployeeBatch = async (batch) => {
+            if (!Array.isArray(batch) || batch.length === 0) return;
 
-            if (!res.write(row + "\n")) {
-                await new Promise((resolve) => res.once("drain", resolve));
+            const employeeIds = batch
+                .map((emp) => emp.employeeId || emp._id?.toString())
+                .filter(Boolean);
+
+            let earningsMap = new Map();
+            if (!isVacation || hasMinEarnings) {
+                const earningsRows = await EarningsEmployeeYear.findAll({
+                    where: {
+                        year: earningsYear,
+                        employee_id: { [Op.in]: employeeIds },
+                    },
+                    attributes: ["employee_id", "total"],
+                    raw: true,
+                });
+                earningsMap = new Map(
+                    earningsRows.map((row) => [row.employee_id, parseFloat(row.total) || 0])
+                );
             }
+
+            let benefitMap = new Map();
+            if (isBenefits || selectedPlanId) {
+                const benefitWhere = {
+                    employee_id: { [Op.in]: employeeIds },
+                };
+                if (selectedPlanId) {
+                    benefitWhere.plan_id = selectedPlanId;
+                }
+
+                const benefitRows = await EmployeeBenefit.findAll({
+                    where: benefitWhere,
+                    attributes: [
+                        "employee_id",
+                        [fn("SUM", col("amount_paid")), "total"],
+                    ],
+                    group: ["employee_id"],
+                    raw: true,
+                });
+                benefitMap = new Map(
+                    benefitRows.map((row) => [row.employee_id, parseFloat(row.total) || 0])
+                );
+            }
+
+            for (const emp of batch) {
+                const deptName = departmentMap.get(emp.departmentId?.toString()) || "Unassigned";
+                const employeeId = emp.employeeId || emp._id.toString();
+                const isSnapshotValid = emp.annualEarningsYear === earningsYear && Number.isFinite(emp.annualEarnings);
+                const totalEarnings = earningsMap.has(employeeId)
+                    ? earningsMap.get(employeeId)
+                    : (isSnapshotValid ? emp.annualEarnings : 0);
+                const benefitCost = benefitMap.get(employeeId) || 0;
+
+                if (hasMinEarnings && totalEarnings < minEarnings) {
+                    continue;
+                }
+
+                if (selectedPlanId && !benefitMap.has(employeeId)) {
+                    continue;
+                }
+
+                const row = [
+                    escapeCsv(emp.employeeId || ""),
+                    escapeCsv(`${emp.firstName || ""} ${emp.lastName || ""}`.trim()),
+                    escapeCsv(deptName),
+                    escapeCsv(emp.gender || ""),
+                    escapeCsv(emp.ethnicity || ""),
+                    escapeCsv(emp.employmentType || ""),
+                    escapeCsv(emp.isShareholder ? "Yes" : "No"),
+                    escapeCsv(isVacation ? (emp.vacationDays || 0) : isBenefits ? benefitCost : totalEarnings)
+                ].join(",");
+
+                if (!res.write(row + "\n")) {
+                    await new Promise((resolve) => res.once("drain", resolve));
+                }
+            }
+        };
+
+        for await (const emp of cursor) {
+            employeeBatch.push(emp);
+
+            if (employeeBatch.length >= exportBatchSize) {
+                await flushEmployeeBatch(employeeBatch);
+                employeeBatch = [];
+            }
+        }
+
+        if (employeeBatch.length > 0) {
+            await flushEmployeeBatch(employeeBatch);
         }
 
         res.end();
     } catch (error) {
-        console.error("exportDrilldownCsv error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof DashboardContractError) {
+            return sendContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "DashboardController",
+            defaultCode: "DASHBOARD_DRILLDOWN_EXPORT_FAILED",
+        });
     }
 };
 
@@ -919,10 +1221,20 @@ export const getDepartments = async (req, res) => {
             .sort((a, b) => a.localeCompare(b));
         res.json({
             success: true,
-            data: departments
+            data: departments,
+            meta: buildDashboardMeta({
+                dataset: "departments",
+                count: departments.length,
+                filters: {},
+            }),
         });
     } catch (error) {
-        console.error("getDepartments error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "DashboardController",
+            defaultCode: "DASHBOARD_DEPARTMENT_LIST_FAILED",
+        });
     }
 };

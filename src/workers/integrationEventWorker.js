@@ -1,12 +1,13 @@
 import { processPendingIntegrationEvents } from "../services/integrationEventService.js";
 import { OUTBOX_ENABLED, OUTBOX_POLL_INTERVAL_MS } from "../config.js";
+import logger from "../utils/logger.js";
 
 let isRunning = false;
 let intervalId = null;
 
 export const startIntegrationEventWorker = () => {
     if (!OUTBOX_ENABLED) {
-        console.log("[OutboxWorker] OUTBOX_ENABLED=false. Worker not started.");
+        logger.info("OutboxWorker", "OUTBOX_ENABLED=false. Worker not started.");
         return;
     }
     if (intervalId) return;
@@ -17,7 +18,7 @@ export const startIntegrationEventWorker = () => {
         try {
             await processPendingIntegrationEvents();
         } catch (error) {
-            console.error("[OutboxWorker] error:", error.message);
+            logger.error("OutboxWorker", "Worker iteration failed", error);
         } finally {
             isRunning = false;
         }
@@ -25,7 +26,9 @@ export const startIntegrationEventWorker = () => {
 
     runOnce();
     intervalId = setInterval(runOnce, OUTBOX_POLL_INTERVAL_MS);
-    console.log(`[OutboxWorker] Started. Interval=${OUTBOX_POLL_INTERVAL_MS}ms`);
+    logger.info("OutboxWorker", "Started integration event worker", {
+        intervalMs: OUTBOX_POLL_INTERVAL_MS,
+    });
 };
 
 export default {

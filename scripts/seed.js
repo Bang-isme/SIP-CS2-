@@ -26,6 +26,12 @@ import {
     BenefitPlan,
     EmployeeBenefit,
     PayRate,
+    EarningsEmployeeYear,
+    EarningsSummary,
+    VacationSummary,
+    BenefitsSummary,
+    AlertsSummary,
+    AlertEmployee,
 } from "../src/models/sql/index.js";
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -387,6 +393,21 @@ function toIsoDate(date) {
     return date.toISOString().slice(0, 10);
 }
 
+function deriveCompensation({ employmentType, currentEarnings }) {
+    if (employmentType === "Part-time") {
+        const annualHours = 1040;
+        return {
+            payType: "HOURLY",
+            payRate: Number((currentEarnings / annualHours).toFixed(2)),
+        };
+    }
+
+    return {
+        payType: "SALARY",
+        payRate: currentEarnings,
+    };
+}
+
 function getRecentChangeDate(daysBack = 45) {
     const now = new Date();
     const start = new Date(now);
@@ -437,6 +458,15 @@ async function setupReferenceData() {
 
     // MySQL disallows TRUNCATE on parent tables referenced by FKs unless FK checks are disabled.
     const truncateTables = [
+        "integration_event_audits",
+        "integration_events",
+        "sync_log",
+        "alert_employees",
+        "alerts_summary",
+        "benefits_summary",
+        "vacation_summary",
+        "earnings_employee_year",
+        "earnings_summary",
         "employee_benefits",
         "vacation_records",
         "earnings",
@@ -454,8 +484,14 @@ async function setupReferenceData() {
         await EmployeeBenefit.destroy({ where: {} });
         await VacationRecord.destroy({ where: {} });
         await Earning.destroy({ where: {} });
-        await BenefitPlan.destroy({ where: {} });
         await PayRate.destroy({ where: {} });
+        await EarningsEmployeeYear.destroy({ where: {} });
+        await EarningsSummary.destroy({ where: {} });
+        await VacationSummary.destroy({ where: {} });
+        await BenefitsSummary.destroy({ where: {} });
+        await AlertsSummary.destroy({ where: {} });
+        await AlertEmployee.destroy({ where: {} });
+        await BenefitPlan.destroy({ where: {} });
     } finally {
         await sequelize.query("SET FOREIGN_KEY_CHECKS = 1");
     }
@@ -506,6 +542,7 @@ async function main() {
             const batchEarnings = [];
             const batchVacations = [];
             const batchEmployeeBenefits = [];
+            const batchPayRates = [];
 
             for (let j = 0; j < batchSize && (i + j) < totalRecords; j++) {
                 const empNum = currentId++;
@@ -527,6 +564,12 @@ async function main() {
                 const [prevFactorMin, prevFactorMax] = profileConfig.previousYearFactorRange || [0.85, 1.03];
                 const previousEarnings = Math.round(currentEarnings * randomFloat(prevFactorMin, prevFactorMax));
                 const hasPreviousYear = Math.random() < profileConfig.previousYearCoverage;
+                const hireDate = randomDate(profileConfig.hireDateRange[0], profileConfig.hireDateRange[1]);
+                const birthDate = randomDate(profileConfig.birthDateRange[0], profileConfig.birthDateRange[1]);
+                const vacationDays = randomInt(vacationBalanceRange[0], vacationBalanceRange[1]);
+                const vacationTaken = randomInt(vacationTakenRange[0], vacationTakenRange[1]);
+                const effectiveDate = toIsoDate(randomDate(new Date(currentYear - 4, 0, 1), new Date(currentYear, 0, 1)));
+                const compensation = deriveCompensation({ employmentType, currentEarnings });
 
                 const benefitPlanName = pickBenefitPlanName(profileConfig, employmentType);
                 const selectedPlan = planByName.get(benefitPlanName) || randomItem(createdPlans);
@@ -541,13 +584,15 @@ async function main() {
                     employmentType,
                     isShareholder,
                     departmentId: departmentDoc._id,
-                    hireDate: randomDate(profileConfig.hireDateRange[0], profileConfig.hireDateRange[1]),
-                    birthDate: randomDate(profileConfig.birthDateRange[0], profileConfig.birthDateRange[1]),
-                    vacationDays: randomInt(vacationBalanceRange[0], vacationBalanceRange[1]),
-                    paidToDate: 0,
-                    paidLastYear: 0,
-                    payRate: 0,
-                    payRateId: 1,
+                    hireDate,
+                    birthDate,
+                    vacationDays,
+                    paidToDate: currentEarnings,
+                    paidLastYear: hasPreviousYear ? previousEarnings : 0,
+                    payRate: compensation.payRate,
+                    payRateId: 0,
+                    annualEarnings: currentEarnings,
+                    annualEarningsYear: currentYear,
                 });
 
                 batchEarnings.push({
@@ -568,17 +613,24 @@ async function main() {
 
                 batchVacations.push({
                     employee_id: employeeId,
-                    days_taken: randomInt(vacationTakenRange[0], vacationTakenRange[1]),
+                    days_taken: vacationTaken,
                     year: currentYear,
                 });
 
-                const effectiveDate = toIsoDate(randomDate(new Date(currentYear - 4, 0, 1), new Date(currentYear, 0, 1)));
                 batchEmployeeBenefits.push({
                     employee_id: employeeId,
                     plan_id: selectedPlan.id,
                     amount_paid: selectedPlan.monthly_cost * 12,
                     effective_date: effectiveDate,
                     last_change_date: hasRecentBenefitChange ? getRecentChangeDate(45) : null,
+                });
+
+                batchPayRates.push({
+                    employee_id: employeeId,
+                    pay_rate: compensation.payRate,
+                    pay_type: compensation.payType,
+                    effective_date: effectiveDate,
+                    is_active: true,
                 });
             }
 
@@ -595,13 +647,33 @@ async function main() {
                 throw error;
             }
 
+            const sqlTransaction = await sequelize.transaction();
             try {
                 await Promise.all([
-                    Earning.bulkCreate(batchEarnings, { validate: false, logging: false }),
-                    VacationRecord.bulkCreate(batchVacations, { validate: false, logging: false }),
-                    EmployeeBenefit.bulkCreate(batchEmployeeBenefits, { validate: false, logging: false }),
+                    Earning.bulkCreate(batchEarnings, {
+                        validate: false,
+                        logging: false,
+                        transaction: sqlTransaction,
+                    }),
+                    VacationRecord.bulkCreate(batchVacations, {
+                        validate: false,
+                        logging: false,
+                        transaction: sqlTransaction,
+                    }),
+                    EmployeeBenefit.bulkCreate(batchEmployeeBenefits, {
+                        validate: false,
+                        logging: false,
+                        transaction: sqlTransaction,
+                    }),
+                    PayRate.bulkCreate(batchPayRates, {
+                        validate: false,
+                        logging: false,
+                        transaction: sqlTransaction,
+                    }),
                 ]);
+                await sqlTransaction.commit();
             } catch (error) {
+                await sqlTransaction.rollback();
                 // Best-effort rollback of just-inserted Mongo batch to reduce cross-DB inconsistency.
                 const insertedIds = batchEmployees.map((emp) => emp.employeeId);
                 try {

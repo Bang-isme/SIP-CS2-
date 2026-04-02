@@ -4,10 +4,11 @@ import {
     createAlert,
     updateAlert,
     deleteAlert,
+    acknowledgeAlert,
     getTriggeredAlerts,
     getAlertEmployees,
 } from "../controllers/alerts.controller.js";
-import { verifyToken } from "../middlewares/authJwt.js";
+import { verifyToken, canManageAlerts } from "../middlewares/authJwt.js";
 
 const router = Router();
 
@@ -15,10 +16,11 @@ const router = Router();
 router.use(verifyToken);
 
 // Alert configuration CRUD
-router.get("/", getAlerts);
-router.post("/", createAlert);
-router.put("/:id", updateAlert);
-router.delete("/:id", deleteAlert);
+router.get("/", canManageAlerts, getAlerts);
+router.post("/", canManageAlerts, createAlert);
+router.put("/:id", canManageAlerts, updateAlert);
+router.delete("/:id", canManageAlerts, deleteAlert);
+router.post("/:id/acknowledge", canManageAlerts, acknowledgeAlert);
 
 // Get triggered alerts
 router.get("/triggered", getTriggeredAlerts);

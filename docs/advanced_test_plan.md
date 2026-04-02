@@ -1,87 +1,78 @@
-# Test Plan - Advanced Quality Assurance
+﻿# Test Plan - Advanced Quality Assurance
 
-**Generated**: 2026-01-29
-
----
+> Last Updated: 2026-03-19
 
 ## Overview
-This document describes the advanced test suite created to verify:
-- **Availability** - System responsiveness and concurrency
-- **ACID Properties** - Data integrity and transaction safety
-- **Extensibility** - Adapter pattern and plugin architecture
-- **Maintainability** - Code structure and consistency
-- **Code Quality** - No code smells, proper separation of concerns
-- **Data Integrity** - Pagination and search consistency
+This document describes the advanced quality suite used to verify:
+- Availability
+- Local transaction and integrity behavior
+- Extensibility
+- Maintainability
+- Code quality
+- Data integrity
 
----
+Important scope note:
+- The suite does **not** prove full ACID across MongoDB + MySQL.
+- The `ACID1-ACID3` labels remain as legacy test IDs inside `tests/advanced/quality.test.js`, but their real scope is local `SyncLog` transaction/increment behavior.
 
 ## Test Categories
 
-### 🔒 AVAILABILITY TESTS (A1-A4)
+### Availability Tests
 | Test ID | Description | Criteria |
-|---------|-------------|----------|
-| A1 | Health endpoint response time | < 100ms |
-| A2 | Concurrent request handling | 10 parallel requests all succeed |
-| A3 | Empty filter handling | Returns success with empty data |
+|---|---|---|
+| A1 | Health endpoint response time | < 100ms in local test profile |
+| A2 | Concurrent request handling | 10 parallel requests succeed |
+| A3 | Empty filter handling | Returns success structure |
 | A4 | Health check structure | Returns message + version |
 
-### ⚛️ ACID PROPERTY TESTS (ACID1-ACID3)
-| Test ID | Description | Property Tested |
-|---------|-------------|-----------------|
-| ACID1 | Transaction rollback | **Atomicity** - Rollback prevents persistence |
-| ACID2 | Status update flow | **Consistency** - Valid state transitions |
-| ACID3 | Concurrent increments | **Isolation** - No data corruption |
+### Local Transaction / Integrity Tests
+| Legacy ID | Actual Scope | What is being checked |
+|---|---|---|
+| ACID1 | Local rollback behavior | Rollback prevents persisted `SyncLog` row |
+| ACID2 | Local status update flow | Valid create/update state transitions |
+| ACID3 | Local concurrent increment safety | `retry_count` increments are not corrupted |
 
-### 🔌 EXTENSIBILITY TESTS (E1-E4)
+### Extensibility Tests
 | Test ID | Description | Criteria |
-|---------|-------------|----------|
+|---|---|---|
 | E1 | Config lists integrations | Array of adapter names |
-| E2 | Adapter files exist | base.adapter.js, payroll.adapter.js |
-| E3 | Config-only extension | Only strings in config array |
-| E4 | BaseAdapter interface | sync(), healthCheck(), name defined |
+| E2 | Adapter files exist | Base + payroll adapters present |
+| E3 | Config-only extension pattern | Integration config remains string-based |
+| E4 | BaseAdapter interface | `sync()`, `healthCheck()`, `name` exist |
 
-### 🛠️ MAINTAINABILITY TESTS (M1-M4)
+### Maintainability Tests
 | Test ID | Description | Criteria |
-|---------|-------------|----------|
-| M1 | API response structure | success + data properties |
-| M2 | Error response structure | message property present |
-| M3 | Model timestamps | timestamps: true in schema |
-| M4 | Controller separation | Domain-specific controller files |
+|---|---|---|
+| M1 | API response structure | `success` + `data` shape present |
+| M2 | Validation responses | 4xx + message field on invalid mutation |
+| M3 | Model timestamps | Timestamp metadata exists |
+| M4 | Domain separation | Controllers remain separated by concern |
 
-### 🧹 CODE QUALITY TESTS (Q1-Q4)
+### Code Quality Tests
 | Test ID | Description | Criteria |
-|---------|-------------|----------|
-| Q1 | Config exports | PORT, SECRET, MONGODB_URI defined |
-| Q2 | SyncService isolation | No direct adapter imports |
-| Q3 | Registry pattern | Uses getIntegrations + Promise.allSettled |
-| Q4 | No debug statements | No debugger; or password logging |
+|---|---|---|
+| Q1 | Config exports | Required config values available |
+| Q2 | SyncService isolation | No direct adapter hard-coupling |
+| Q3 | Registry pattern | Registry-based integration handling |
+| Q4 | Debug hygiene | No banned debug artifacts in critical paths |
 
-### 📊 DATA INTEGRITY TESTS (D1-D3)
+### Data Integrity Tests
 | Test ID | Description | Criteria |
-|---------|-------------|----------|
-| D1 | Departments consistency | Same results on repeat calls |
-| D2 | Pagination support | page + limit in meta |
-| D3 | Search filtering | Filtered results ≤ total results |
-
----
+|---|---|---|
+| D1 | Departments consistency | Repeat calls stay consistent |
+| D2 | Pagination support | `page` + `limit` meta exists |
+| D3 | Search filtering | Filtered results do not exceed total |
 
 ## Running Tests
 
 ```bash
-# Run all advanced tests
 $env:NODE_OPTIONS='--experimental-vm-modules'; npx jest tests/advanced/quality.test.js -c tests/jest.config.js --forceExit
-
-# Run with verbose output
-$env:NODE_OPTIONS='--experimental-vm-modules'; npx jest tests/advanced/quality.test.js -c tests/jest.config.js --verbose --forceExit
 ```
 
----
-
-## Results Summary
-**Last Run**: 2026-01-29
-```
-Test Suites: 1 passed, 1 total
-Tests:       22 passed, 22 total
-```
-
-All tests pass ✅
+## Interpretation Guide
+- Passing this suite means the codebase has a healthy advanced quality baseline for coursework.
+- It should be presented as:
+  - availability checks
+  - local integrity checks
+  - extensibility and maintainability checks
+- It should **not** be presented as proof of distributed ACID guarantees.

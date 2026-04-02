@@ -10,23 +10,54 @@
 import serviceRegistry from '../registry/serviceRegistry.js';
 import { SyncLog } from "../models/sql/index.js";
 import logger from "../utils/logger.js";
+import { createRequestId, normalizeRequestId } from "../utils/requestTracking.js";
+
+const buildSyncContext = ({
+    correlationId = null,
+    source = "SYNC_SERVICE",
+    integrationEventId = null,
+} = {}) => ({
+    correlationId: normalizeRequestId(correlationId) || createRequestId(),
+    source,
+    integrationEventId,
+});
 
 /**
  * Sync employee data to all registered external systems.
  * @param {string} employeeId - Employee ID.
  * @param {string} action - 'CREATE' | 'UPDATE' | 'DELETE'.
  * @param {Object} employeeData - Employee data from MongoDB.
+ * @param {Object} syncContext - Correlation/source metadata for async tracing.
  * @returns {Promise<Object>} Aggregated result from all adapters.
  */
-export async function syncEmployeeToPayroll(employeeId, action, employeeData = {}) {
+export async function syncEmployeeToPayroll(employeeId, action, employeeData = {}, syncContext = {}) {
     const integrations = serviceRegistry.getIntegrations();
+    const resolvedSyncContext = buildSyncContext(syncContext);
 
     if (integrations.length === 0) {
-        logger.warn('[SyncService]', 'No active integrations found.');
-        return { success: true, message: 'No integrations configured', results: [] };
+        logger.warn("SyncService", "No active integrations found", {
+            employeeId,
+            action,
+            correlationId: resolvedSyncContext.correlationId,
+            source: resolvedSyncContext.source,
+            integrationEventId: resolvedSyncContext.integrationEventId,
+        });
+        return {
+            success: true,
+            message: "No integrations configured",
+            results: [],
+            correlationId: resolvedSyncContext.correlationId,
+        };
     }
 
-    logger.info('[SyncService]', `Broadcasting ${action} to ${integrations.length} integration(s)...`);
+    logger.info("SyncService", "Broadcasting employee sync to integrations", {
+        employeeId,
+        action,
+        integrationCount: integrations.length,
+        correlationId: resolvedSyncContext.correlationId,
+        source: resolvedSyncContext.source,
+        integrationEventId: resolvedSyncContext.integrationEventId,
+    });
 
     // Prepare data object for adapters
     const dataForSync = {
@@ -35,7 +66,7 @@ export async function syncEmployeeToPayroll(employeeId, action, employeeData = {
     };
 
     const results = await Promise.allSettled(
-        integrations.map(adapter => adapter.sync(dataForSync, action))
+        integrations.map((adapter) => adapter.sync(dataForSync, action, resolvedSyncContext))
     );
 
     const aggregatedResults = results.map((result, index) => ({
@@ -52,6 +83,7 @@ export async function syncEmployeeToPayroll(employeeId, action, employeeData = {
         success: allSucceeded,
         message: allSucceeded ? 'All integrations synced' : 'Some integrations failed',
         results: aggregatedResults,
+        correlationId: resolvedSyncContext.correlationId,
     };
 }
 
@@ -78,7 +110,7 @@ export async function checkIntegrationHealth() {
  * Retry failed sync operations (kept for backwards compatibility).
  * TODO: Could iterate through adapters that support retry.
  */
-export const retryFailedSyncs = async () => {
+export const retryFailedSyncs = async ({ fallbackCorrelationId = null } = {}) => {
     // 1. Fetch failed logs
     const failedLogs = await SyncLog.findAll({
         where: {
@@ -92,10 +124,17 @@ export const retryFailedSyncs = async () => {
         return { message: 'No failed syncs found.' };
     }
 
-    logger.info('[SyncService]', `Found ${failedLogs.length} failed syncs to retry.`);
+    logger.info("SyncService", "Retrying failed sync logs", {
+        failedLogCount: failedLogs.length,
+        fallbackCorrelationId: normalizeRequestId(fallbackCorrelationId),
+    });
 
-    // 2. Group by Entity ID (to prevent double-processing same employee)
-    const uniqueEntities = [...new Set(failedLogs.map(log => log.entity_id))];
+    // 2. Group by Entity ID and keep the latest failed action per entity.
+    const latestFailedLogByEntity = new Map();
+    failedLogs.forEach((log) => {
+        latestFailedLogByEntity.set(log.entity_id, log);
+    });
+    const retryTargets = Array.from(latestFailedLogByEntity.values());
     let successCount = 0;
     let failCount = 0;
 
@@ -103,32 +142,42 @@ export const retryFailedSyncs = async () => {
     const { default: Employee } = await import("../models/Employee.js"); // Dynamic import to avoid circular dep
 
     // 4. Process each unique entity
-    for (const employeeId of uniqueEntities) {
+    for (const failedLog of retryTargets) {
+        const employeeId = failedLog.entity_id;
+        const retryContext = buildSyncContext({
+            correlationId: failedLog.correlation_id || fallbackCorrelationId,
+            source: "SYNC_RETRY_MANUAL",
+        });
         try {
-            // Get fresh data from Source of Truth (MongoDB)
-            // We assume logical ID is stored in SyncLog, but let's check if it's _id or employeeId
-            // The adapters seem to use 'id' or 'employeeId' depending on context. 
-            // Ideally we need to find by correct field. 
-            // In createEmployee, we called sync with `employeeId` (string).
+            const action = failedLog.action || "UPDATE";
+            let payload = { employeeId };
 
-            const employee = await Employee.findOne({ employeeId: employeeId });
-
-            if (!employee) {
-                logger.warn('[SyncService]', `Retry skipped: Employee ${employeeId} not found in DB.`);
-                continue;
+            if (action !== "DELETE") {
+                const employee = await Employee.findOne({ employeeId });
+                if (!employee) {
+                    logger.warn("SyncService", "Retry skipped because employee no longer exists", {
+                        employeeId,
+                        action,
+                        correlationId: retryContext.correlationId,
+                        source: retryContext.source,
+                    });
+                    failCount++;
+                    continue;
+                }
+                payload = employee.toObject();
             }
 
-            // Determine appropriate action (default to UPDATE for retries to be safe)
-            // Ideally we should check the original action from SyncLog, 
-            // but fetching fresh data implies an "UPDATE" state synchronization.
-            const action = "UPDATE";
-
             // Retry sync
-            const result = await syncEmployeeToAll(employeeId, action, employee.toObject());
+            const result = await syncEmployeeToAll(employeeId, action, payload, retryContext);
 
             if (result.success) {
                 successCount++;
-                logger.info('[SyncService]', `Retry SUCCESS for ${employeeId}`);
+                logger.info("SyncService", "Retry sync succeeded", {
+                    employeeId,
+                    action,
+                    correlationId: retryContext.correlationId,
+                    source: retryContext.source,
+                });
 
                 // Keep status transition inside SyncLog enum contract (PENDING/SUCCESS/FAILED)
                 await SyncLog.update({ status: 'SUCCESS' }, {
@@ -139,7 +188,12 @@ export const retryFailedSyncs = async () => {
                 });
             } else {
                 failCount++;
-                logger.error('[SyncService]', `Retry FAILED for ${employeeId}`);
+                logger.warn("SyncService", "Retry sync returned failure", {
+                    employeeId,
+                    action,
+                    correlationId: retryContext.correlationId,
+                    source: retryContext.source,
+                });
                 // Increment retry count on logs
                 await SyncLog.update({ retry_count: SyncLog.sequelize.literal('retry_count + 1') }, {
                     where: {
@@ -151,13 +205,17 @@ export const retryFailedSyncs = async () => {
 
         } catch (err) {
             failCount++;
-            logger.error('[SyncService]', `Retry EXCEPTION for ${employeeId}: ${err.message}`);
+            logger.error(
+                "SyncService",
+                `Retry exception for ${employeeId} [correlationId=${retryContext.correlationId}]`,
+                err,
+            );
         }
     }
 
     return {
         total: failedLogs.length,
-        uniqueEntities: uniqueEntities.length,
+        uniqueEntities: retryTargets.length,
         retried: successCount + failCount,
         succeeded: successCount,
         failed: failCount,

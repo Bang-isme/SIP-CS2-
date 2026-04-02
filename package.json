@@ -13,6 +13,9 @@
     "test:integration": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config tests/jest.config.js tests/integration/dashboard.test.js --runInBand",
     "test:advanced": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config tests/jest.config.js tests/advanced/quality.test.js --runInBand",
     "seed:admin": "node scripts/seed-admin.js",
+    "mongo:local:start": "powershell -ExecutionPolicy Bypass -File scripts/start-local-mongo.ps1",
+    "mongo:local:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-local-mongo.ps1",
+    "mongo:local:clone": "node scripts/clone-mongo-to-local.js",
     "db:migrate:mysql": "node scripts/migrate-mysql.js",
     "db:migrate:mysql:status": "node scripts/migrate-mysql.js --status",
     "demo:queue:healthy": "node scripts/demo-integration-queue-scenario.js healthy",
@@ -28,6 +31,10 @@
   "keywords": [],
   "author": "ABC",
   "license": "AB",
+  "overrides": {
+    "lodash": "4.18.1",
+    "path-to-regexp": "0.1.13"
+  },
   "bugs": {
     "url": "https://github.com/"
   },
@@ -39,8 +46,8 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
     "compression": "^1.7.4",
+    "cors": "^2.8.5",
     "dotenv": "^16.0.1",
     "express": "^4.22.1",
     "helmet": "^5.1.1",
@@ -48,6 +55,7 @@
     "mongoose": "^8.19.2",
     "morgan": "^1.10.1",
     "mysql2": "^3.16.1",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.8",
+    "swagger-ui-dist": "^5.17.14"
   }
 }

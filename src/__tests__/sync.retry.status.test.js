@@ -42,7 +42,9 @@ describe("Sync retry status contract", () => {
     mockFindAll.mockResolvedValue([
       {
         entity_id: "EMP001",
+        action: "UPDATE",
         status: "FAILED",
+        correlation_id: "req-original-1",
       },
     ]);
     mockEmployeeFindOne.mockResolvedValue({
@@ -54,15 +56,48 @@ describe("Sync retry status contract", () => {
   });
 
   test("should transition FAILED logs to SUCCESS on successful retry", async () => {
-    const result = await retryFailedSyncs();
+    const result = await retryFailedSyncs({ fallbackCorrelationId: "req-manual-1" });
 
     expect(result.succeeded).toBe(1);
+    expect(mockAdapterSync).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: "EMP001", payRate: 100 }),
+      "UPDATE",
+      expect.objectContaining({
+        correlationId: "req-original-1",
+        source: "SYNC_RETRY_MANUAL",
+      }),
+    );
     expect(mockUpdate).toHaveBeenCalledWith(
       { status: "SUCCESS" },
       expect.objectContaining({
         where: expect.objectContaining({
           status: "FAILED",
         }),
+      }),
+    );
+  });
+
+  test("should replay DELETE retries without reloading a deleted employee", async () => {
+    mockFindAll.mockResolvedValue([
+      {
+        entity_id: "EMP999",
+        action: "DELETE",
+        status: "FAILED",
+        correlation_id: null,
+      },
+    ]);
+    mockEmployeeFindOne.mockResolvedValue(null);
+
+    const result = await retryFailedSyncs({ fallbackCorrelationId: "req-delete-1" });
+
+    expect(result.succeeded).toBe(1);
+    expect(mockEmployeeFindOne).not.toHaveBeenCalled();
+    expect(mockAdapterSync).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: "EMP999" }),
+      "DELETE",
+      expect.objectContaining({
+        correlationId: "req-delete-1",
+        source: "SYNC_RETRY_MANUAL",
       }),
     );
   });

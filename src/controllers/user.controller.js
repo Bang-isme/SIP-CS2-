@@ -1,6 +1,21 @@
 import User from "../models/User.js";
 import Role from "../models/Role.js";
 import { ADMIN_EMAIL } from "../config.js";
+import {
+  UserContractError,
+  buildUserMeta,
+  normalizeCreateUserPayload,
+  normalizeUserIdParam,
+  sendUserContractError,
+} from "../utils/userContracts.js";
+import {
+  createApiError,
+  createBadRequestError,
+  createForbiddenError,
+  createNotFoundError,
+  respondWithApiError,
+  sendApiError,
+} from "../utils/apiErrors.js";
 
 const normalizeRoles = (roles = []) => {
   return roles
@@ -31,11 +46,16 @@ const sanitizeUserPayload = (userDoc) => {
 
 export const createUser = async (req, res) => {
   try {
-    const { username, email, password, roles } = req.body;
-    const requestedRoles = Array.isArray(roles) && roles.length > 0 ? roles : ["user"];
+    const { username, email, password, roles: requestedRoles } = normalizeCreateUserPayload(req.body);
     const rolesFound = await Role.find({ name: { $in: requestedRoles } });
-    if (!rolesFound.length) {
-      return res.status(400).json({ success: false, message: "Invalid roles payload" });
+    if (rolesFound.length !== requestedRoles.length) {
+      return sendApiError(
+        res,
+        createApiError("Invalid roles payload", {
+          statusCode: 422,
+          code: "USER_INVALID_ROLE_SET",
+        }),
+      );
     }
 
     // creating a new User
@@ -46,9 +66,6 @@ export const createUser = async (req, res) => {
       roles: rolesFound.map((role) => role._id),
     });
 
-    // encrypting password
-    user.password = await User.encryptPassword(user.password);
-
     // saving the new user
     const savedUser = await user.save();
 
@@ -57,9 +74,27 @@ export const createUser = async (req, res) => {
       ? await createdUserQuery.populate("roles", "name -_id")
       : await createdUserQuery;
 
-    return res.status(200).json({ success: true, data: sanitizeUserPayload(createdUser || savedUser) });
+    return res.status(201).json({
+      success: true,
+      data: sanitizeUserPayload(createdUser || savedUser),
+      meta: buildUserMeta({
+        req,
+        res,
+        dataset: "users",
+        actorId: req.userId,
+      }),
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    if (error instanceof UserContractError) {
+      return sendUserContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "UserController",
+      defaultCode: "USER_CREATE_FAILED",
+    });
   }
 };
 
@@ -70,95 +105,158 @@ export const getUsers = async (req, res) => {
       ? await usersQuery.populate("roles", "name -_id")
       : await usersQuery;
     const sanitizedUsers = users.map((user) => sanitizeUserPayload(user));
-    return res.json({ success: true, data: sanitizedUsers });
+    return res.json({
+      success: true,
+      data: sanitizedUsers,
+      meta: buildUserMeta({
+        req,
+        res,
+        dataset: "users",
+        actorId: req.userId,
+        total: sanitizedUsers.length,
+      }),
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "UserController",
+      defaultCode: "USER_LIST_FAILED",
+    });
   }
 };
 
 export const getUser = async (req, res) => {
   try {
-    const userQuery = User.findById(req.params.userId);
+    const userId = normalizeUserIdParam(req.params.userId);
+    const userQuery = User.findById(userId);
     const user = typeof userQuery?.populate === "function"
       ? await userQuery.populate("roles", "name -_id")
       : await userQuery;
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return sendApiError(res, createNotFoundError("User not found", "USER_NOT_FOUND"));
     }
-    return res.json({ success: true, data: sanitizeUserPayload(user) });
+    return res.json({
+      success: true,
+      data: sanitizeUserPayload(user),
+      meta: buildUserMeta({
+        req,
+        res,
+        dataset: "userDetail",
+        actorId: req.userId,
+      }),
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    if (error instanceof UserContractError) {
+      return sendUserContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "UserController",
+      defaultCode: "USER_DETAIL_LOOKUP_FAILED",
+    });
   }
 };
 
 export const promoteUserToAdmin = async (req, res) => {
   try {
+    const targetUserId = normalizeUserIdParam(req.params.id, "id");
     const adminRole = await Role.findOne({ name: "admin" });
     if (!adminRole) {
-      return res.status(500).json({
-        success: false,
-        message: "Admin role configuration is missing",
-      });
+      return sendApiError(
+        res,
+        createApiError("Admin role configuration is missing", {
+          statusCode: 500,
+          code: "USER_ADMIN_ROLE_MISSING",
+        }),
+      );
     }
 
     const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
+      targetUserId,
       { $addToSet: { roles: adminRole._id } },
       { new: true },
     ).populate("roles", "name -_id");
 
     if (!updatedUser) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return sendApiError(res, createNotFoundError("User not found", "USER_NOT_FOUND"));
     }
 
     return res.status(200).json({
       success: true,
       data: sanitizeUserPayload(updatedUser),
+      meta: buildUserMeta({
+        req,
+        res,
+        dataset: "userRoleMutation",
+        actorId: req.userId,
+        targetUserId,
+        action: "PROMOTE_ADMIN",
+      }),
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    if (error instanceof UserContractError) {
+      return sendUserContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "UserController",
+      defaultCode: "USER_PROMOTION_FAILED",
+    });
   }
 };
 
 export const demoteUserFromAdmin = async (req, res) => {
   try {
-    if (req.userId === req.params.id) {
-      return res.status(400).json({
-        success: false,
-        message: "Self-demotion is not allowed",
-      });
+    const targetUserId = normalizeUserIdParam(req.params.id, "id");
+    if (req.userId === targetUserId) {
+      return sendApiError(
+        res,
+        createBadRequestError("Self-demotion is not allowed", "USER_SELF_DEMOTION_FORBIDDEN"),
+      );
     }
 
-    const targetUser = await User.findById(req.params.id);
+    const targetUser = await User.findById(targetUserId);
     if (!targetUser) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return sendApiError(res, createNotFoundError("User not found", "USER_NOT_FOUND"));
     }
 
     if (targetUser.email === ADMIN_EMAIL) {
-      return res.status(403).json({
-        success: false,
-        message: "Root admin account cannot be demoted",
-      });
+      return sendApiError(
+        res,
+        createForbiddenError(
+          "Root admin account cannot be demoted",
+          "USER_ROOT_ADMIN_DEMOTION_FORBIDDEN",
+        ),
+      );
     }
 
     const adminRole = await Role.findOne({ name: "admin" });
     if (!adminRole) {
-      return res.status(500).json({
-        success: false,
-        message: "Admin role configuration is missing",
-      });
+      return sendApiError(
+        res,
+        createApiError("Admin role configuration is missing", {
+          statusCode: 500,
+          code: "USER_ADMIN_ROLE_MISSING",
+        }),
+      );
     }
 
     const hasAdmin = (targetUser.roles || []).some((roleId) => String(roleId) === String(adminRole._id));
     if (!hasAdmin) {
-      return res.status(400).json({
-        success: false,
-        message: "Target user does not have admin role",
-      });
+      return sendApiError(
+        res,
+        createBadRequestError("Target user does not have admin role", "USER_TARGET_NOT_ADMIN"),
+      );
     }
 
     const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
+      targetUserId,
       { $pull: { roles: adminRole._id } },
       { new: true },
     ).populate("roles", "name -_id");
@@ -166,9 +264,26 @@ export const demoteUserFromAdmin = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: sanitizeUserPayload(updatedUser),
+      meta: buildUserMeta({
+        req,
+        res,
+        dataset: "userRoleMutation",
+        actorId: req.userId,
+        targetUserId,
+        action: "DEMOTE_ADMIN",
+      }),
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    if (error instanceof UserContractError) {
+      return sendUserContractError(res, error);
+    }
+    return respondWithApiError({
+      req,
+      res,
+      error,
+      context: "UserController",
+      defaultCode: "USER_DEMOTION_FAILED",
+    });
   }
 };
 

@@ -29,6 +29,10 @@ const IntegrationEvent = sequelize.define(
             type: DataTypes.JSON,
             allowNull: true,
         },
+        correlation_id: {
+            type: DataTypes.STRING(120),
+            allowNull: true,
+        },
         status: {
             type: DataTypes.ENUM("PENDING", "PROCESSING", "SUCCESS", "FAILED", "DEAD"),
             allowNull: false,
@@ -51,6 +55,22 @@ const IntegrationEvent = sequelize.define(
             type: DataTypes.DATE,
             allowNull: true,
         },
+        last_operator_action: {
+            type: DataTypes.STRING(40),
+            allowNull: true,
+        },
+        last_operator_actor_id: {
+            type: DataTypes.STRING(100),
+            allowNull: true,
+        },
+        last_operator_request_id: {
+            type: DataTypes.STRING(120),
+            allowNull: true,
+        },
+        last_operator_at: {
+            type: DataTypes.DATE,
+            allowNull: true,
+        },
     },
     {
         tableName: "integration_events",
@@ -60,6 +80,8 @@ const IntegrationEvent = sequelize.define(
             { fields: ["next_run_at"] },
             { fields: ["createdAt"] },
             { fields: ["entity_type"] },
+            { fields: ["correlation_id"] },
+            { fields: ["last_operator_at"] },
         ],
     }
 );

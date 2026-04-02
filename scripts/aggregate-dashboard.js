@@ -32,6 +32,7 @@ import {
 } from "../src/models/sql/index.js";
 import sequelize from "../src/mysqlDatabase.js";
 import { Op } from "sequelize";
+import { buildBenefitsChangeMatchesFromRows } from "../src/utils/benefitsPayrollImpact.js";
 
 const BATCH_SIZE = 5000;
 
@@ -498,14 +499,14 @@ async function aggregateAlerts() {
     // Get active alerts configuration
     const activeAlerts = await Alert.find({ isActive: true }).lean();
 
+    // Clear existing data before rebuilding so disabled alerts cannot leave stale summaries behind
+    await AlertsSummary.destroy({ where: {} });
+    await AlertEmployee.sync({ force: true }); // Recreate table
+
     if (activeAlerts.length === 0) {
         console.log("   No active alerts configured");
         return;
     }
-
-    // Clear existing data
-    await AlertsSummary.destroy({ where: {} });
-    await AlertEmployee.sync({ force: true }); // Recreate table
 
     const summaryRows = [];
     const now = new Date();
@@ -591,10 +592,19 @@ async function aggregateAlerts() {
                     where: {
                         last_change_date: { [Op.gte]: cutoffDate.toISOString().split("T")[0] },
                     },
+                    include: [{
+                        model: BenefitPlan,
+                        as: "plan",
+                        attributes: ["name"],
+                        required: false,
+                    }],
                     raw: true,
+                    nest: true,
                 });
 
-                const changedEmployeeIds = [...new Set(recentChanges.map(c => c.employee_id))];
+                const benefitMatches = buildBenefitsChangeMatchesFromRows(recentChanges, { now });
+                const impactByEmployee = new Map(benefitMatches.map((item) => [item.employeeId, item]));
+                const changedEmployeeIds = benefitMatches.map((item) => item.employeeId);
                 totalCount = changedEmployeeIds.length;
 
                 if (changedEmployeeIds.length > 0) {
@@ -604,12 +614,15 @@ async function aggregateAlerts() {
                         .cursor({ batchSize: BATCH_SIZE });
 
                     for await (const emp of cursor) {
+                        const impact = impactByEmployee.get(emp.employeeId);
+                        if (!impact) continue;
+
                         employeeBatch.push({
                             alert_type: "benefits_change",
                             employee_id: emp.employeeId,
                             name: `${emp.firstName} ${emp.lastName || ""}`.trim(),
-                            days_until: null,
-                            extra_data: null,
+                            days_until: impact.sortDays,
+                            extra_data: impact.extraData,
                             aggregated_at: now
                         });
 

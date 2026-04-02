@@ -13,6 +13,7 @@ import AlertsSummary from "./AlertsSummary.js";
 import AlertEmployee from "./AlertEmployee.js";
 import SyncLog from "./SyncLog.js";
 import IntegrationEvent from "./IntegrationEvent.js";
+import IntegrationEventAudit from "./IntegrationEventAudit.js";
 
 export {
     sequelize,
@@ -29,4 +30,5 @@ export {
     AlertEmployee,
     SyncLog,
     IntegrationEvent,
+    IntegrationEventAudit,
 };

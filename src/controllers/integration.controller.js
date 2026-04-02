@@ -1,19 +1,38 @@
 import { IntegrationEvent } from "../models/sql/index.js";
-import { Op } from "sequelize";
-
-const normalizeStatus = (status) => {
-    if (!status) return null;
-    const upper = String(status).toUpperCase();
-    const allowed = ["PENDING", "PROCESSING", "SUCCESS", "FAILED", "DEAD"];
-    return allowed.includes(upper) ? upper : null;
-};
+import {
+    recoverStuckProcessingIntegrationEvents,
+} from "../services/integrationEventService.js";
+import { buildIntegrationMetricsSnapshot } from "../services/integrationMetricsService.js";
+import {
+    buildIntegrationMeta,
+    IntegrationContractError,
+    normalizeIntegrationAuditQuery,
+    normalizeIntegrationEventIdParam,
+    normalizeIntegrationListQuery,
+    normalizeReplayPayload,
+    REPLAYABLE_STATUSES,
+    sendIntegrationContractError,
+} from "../utils/integrationContracts.js";
+import {
+    createNotFoundError,
+    respondWithApiError,
+    sendApiError,
+} from "../utils/apiErrors.js";
+import {
+    replayIntegrationEventsByFilter,
+    requeueDeadIntegrationEvents,
+    requeueIntegrationEventById,
+} from "../services/integrationOperatorService.js";
+import { listIntegrationEventAudits } from "../services/integrationAuditService.js";
 
 export const listIntegrationEvents = async (req, res) => {
     try {
-        const status = normalizeStatus(req.query.status);
-        const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 500);
-        const page = Math.max(parseInt(req.query.page) || 1, 1);
-        const offset = (page - 1) * limit;
+        const {
+            status,
+            limit,
+            page,
+            offset,
+        } = normalizeIntegrationListQuery(req.query);
 
         const where = {};
         if (status) where.status = status;
@@ -32,117 +51,199 @@ export const listIntegrationEvents = async (req, res) => {
         res.json({
             success: true,
             data: events,
-            meta: {
+            meta: buildIntegrationMeta({
+                dataset: "integrationEvents",
                 total,
                 page,
                 limit,
                 pages: Math.ceil(total / limit),
-            },
+                totalPages: Math.ceil(total / limit),
+                filters: {
+                    status: status || null,
+                },
+                actorId: req.userId || null,
+            }),
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof IntegrationContractError) {
+            return sendIntegrationContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_EVENT_LIST_FAILED",
+        });
     }
 };
 
 export const getIntegrationMetrics = async (_req, res) => {
     try {
-        const grouped = await IntegrationEvent.findAll({
-            attributes: [
-                "status",
-                [IntegrationEvent.sequelize.fn("COUNT", IntegrationEvent.sequelize.col("id")), "count"],
-            ],
-            group: ["status"],
-            raw: true,
+        const metrics = await buildIntegrationMetricsSnapshot();
+        res.json({
+            success: true,
+            data: metrics,
+            meta: buildIntegrationMeta({
+                dataset: "integrationMetrics",
+                generatedAt: new Date().toISOString(),
+                actorId: _req.userId || null,
+                filters: {},
+            }),
         });
-
-        const counts = {
-            PENDING: 0,
-            PROCESSING: 0,
-            SUCCESS: 0,
-            FAILED: 0,
-            DEAD: 0,
-        };
-
-        for (const row of grouped) {
-            const status = row.status;
-            const count = parseInt(row.count, 10) || 0;
-            if (Object.prototype.hasOwnProperty.call(counts, status)) {
-                counts[status] = count;
-            }
-        }
-
-        const total = Object.values(counts).reduce((acc, curr) => acc + curr, 0);
-        const backlog = counts.PENDING + counts.PROCESSING + counts.FAILED;
-        const actionable = counts.FAILED + counts.DEAD;
-
-        const oldestPending = await IntegrationEvent.findOne({
-            where: { status: { [Op.in]: ["PENDING", "PROCESSING", "FAILED"] } },
-            attributes: ["createdAt"],
-            order: [["createdAt", "ASC"]],
-            raw: true,
+    } catch (error) {
+        return respondWithApiError({
+            req: _req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_METRICS_FAILED",
         });
+    }
+};
 
-        const now = Date.now();
-        const oldestPendingAt = oldestPending?.createdAt || null;
-        const oldestPendingAgeMinutes = oldestPendingAt
-            ? Math.max(0, Math.floor((now - new Date(oldestPendingAt).getTime()) / 60000))
-            : 0;
+export const getIntegrationEventAudit = async (req, res) => {
+    try {
+        const id = normalizeIntegrationEventIdParam(req.params.id);
+        const {
+            limit,
+            page,
+            offset,
+        } = normalizeIntegrationAuditQuery(req.query);
+        const result = await listIntegrationEventAudits({
+            integrationEventId: id,
+            limit,
+            offset,
+        });
 
         res.json({
             success: true,
-            data: {
-                total,
-                counts,
-                backlog,
-                actionable,
-                oldestPendingAt,
-                oldestPendingAgeMinutes,
-            },
+            data: result.rows,
+            meta: buildIntegrationMeta({
+                dataset: "integrationEventAudit",
+                actorId: req.userId || null,
+                total: result.total,
+                page,
+                limit,
+                pages: Math.ceil(result.total / limit),
+                totalPages: Math.ceil(result.total / limit),
+                filters: { id },
+            }),
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof IntegrationContractError) {
+            return sendIntegrationContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_AUDIT_LOOKUP_FAILED",
+        });
     }
 };
 
 export const retryIntegrationEvent = async (req, res) => {
     try {
-        const { id } = req.params;
-        const event = await IntegrationEvent.findByPk(id);
+        const id = normalizeIntegrationEventIdParam(req.params.id);
+        const event = await requeueIntegrationEventById(id, {
+            actorId: req.userId || null,
+            requestId: req.requestId || null,
+        });
         if (!event) {
-            return res.status(404).json({ success: false, message: "Event not found" });
+            return sendApiError(
+                res,
+                createNotFoundError("Event not found", "INTEGRATION_EVENT_NOT_FOUND"),
+            );
         }
 
-        await IntegrationEvent.update(
-            {
-                status: "PENDING",
-                attempts: 0,
-                last_error: null,
-                next_run_at: null,
+        res.json({
+            success: true,
+            message: "Event queued for retry",
+            data: {
+                id,
+                previousStatus: event.status,
+                entityType: event.entity_type,
+                entityId: event.entity_id,
+                action: event.action,
             },
-            { where: { id } }
-        );
-
-        res.json({ success: true, message: "Event queued for retry" });
+            meta: buildIntegrationMeta({
+                dataset: "integrationRetry",
+                actorId: req.userId || null,
+                filters: { id },
+            }),
+        });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof IntegrationContractError) {
+            return sendIntegrationContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_RETRY_FAILED",
+        });
     }
 };
 
-export const retryDeadIntegrationEvents = async (_req, res) => {
+export const retryDeadIntegrationEvents = async (req, res) => {
     try {
-        const [count] = await IntegrationEvent.update(
-            {
-                status: "PENDING",
-                attempts: 0,
-                last_error: null,
-                next_run_at: null,
-            },
-            { where: { status: "DEAD" } }
-        );
+        const count = await requeueDeadIntegrationEvents({
+            actorId: req.userId || null,
+            requestId: req.requestId || null,
+        });
 
-        res.json({ success: true, message: `Re-queued ${count} dead events` });
+        res.json({
+            success: true,
+            message: `Re-queued ${count} dead events`,
+            data: { count },
+            meta: buildIntegrationMeta({
+                dataset: "integrationRetryDead",
+                actorId: req.userId || null,
+                filters: { status: "DEAD" },
+            }),
+        });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_RETRY_DEAD_FAILED",
+        });
+    }
+};
+
+export const recoverStuckIntegrationEvents = async (req, res) => {
+    try {
+        const result = await recoverStuckProcessingIntegrationEvents({
+            actorId: req.userId || null,
+            requestId: req.requestId || null,
+            operatorAction: "recover-stuck",
+        });
+
+        res.json({
+            success: true,
+            message: result.count
+                ? `Recovered ${result.count} stale PROCESSING events`
+                : "No stale PROCESSING events found",
+            data: result,
+            meta: buildIntegrationMeta({
+                dataset: "integrationRecoverStuck",
+                actorId: req.userId || null,
+                filters: { status: "PROCESSING" },
+            }),
+        });
+    } catch (error) {
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_RECOVER_STUCK_FAILED",
+        });
     }
 };
 
@@ -154,53 +255,42 @@ export const replayIntegrationEvents = async (req, res) => {
             entityId,
             fromDays,
             fromDate,
-        } = req.body || {};
-
-        const allowedStatuses = ["FAILED", "DEAD"];
-        const normalizedStatus = normalizeStatus(status);
-        const statuses = normalizedStatus ? [normalizedStatus] : allowedStatuses;
-
-        const where = {
-            status: { [Op.in]: statuses },
-        };
-
-        if (entityType) {
-            where.entity_type = String(entityType);
-        }
-        if (entityId) {
-            where.entity_id = String(entityId);
-        }
-
-        let since = null;
-        if (fromDate) {
-            const parsed = new Date(fromDate);
-            if (!Number.isNaN(parsed.getTime())) since = parsed;
-        } else if (fromDays !== undefined && fromDays !== null) {
-            const days = Number(fromDays);
-            if (!Number.isNaN(days) && days >= 0) {
-                since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-            }
-        }
-        if (since) {
-            where.createdAt = { [Op.gte]: since };
-        }
-
-        const [count] = await IntegrationEvent.update(
-            {
-                status: "PENDING",
-                attempts: 0,
-                last_error: null,
-                next_run_at: null,
-            },
-            { where }
-        );
+        } = normalizeReplayPayload(req.body || {});
+        const statuses = status ? [status] : REPLAYABLE_STATUSES;
+        const since = fromDate
+            || (Number.isInteger(fromDays)
+                ? new Date(Date.now() - fromDays * 24 * 60 * 60 * 1000)
+                : null);
+        const result = await replayIntegrationEventsByFilter({
+            statuses,
+            entityType,
+            entityId,
+            since,
+        }, {
+            actorId: req.userId || null,
+            requestId: req.requestId || null,
+        });
 
         res.json({
             success: true,
-            message: `Re-queued ${count} events`,
-            data: { count },
+            message: `Re-queued ${result.count} events`,
+            data: { count: result.count },
+            meta: buildIntegrationMeta({
+                dataset: "integrationReplay",
+                actorId: req.userId || null,
+                filters: result.filters,
+            }),
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        if (error instanceof IntegrationContractError) {
+            return sendIntegrationContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_REPLAY_FAILED",
+        });
     }
 };
