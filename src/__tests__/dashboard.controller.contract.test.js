@@ -5,6 +5,8 @@ const employeeFindMock = jest.fn();
 const employeeCountDocumentsMock = jest.fn();
 const earningsSummaryFindAllMock = jest.fn();
 const earningsEmployeeYearFindAllMock = jest.fn();
+const benefitPlanFindOneMock = jest.fn();
+const employeeBenefitFindAllMock = jest.fn();
 const cacheGetMock = jest.fn();
 const cacheSetMock = jest.fn();
 const buildDepartmentNameMapMock = jest.fn();
@@ -35,10 +37,10 @@ jest.unstable_mockModule("../models/sql/index.js", () => ({
   Earning: {},
   VacationRecord: {},
   BenefitPlan: {
-    findOne: jest.fn(),
+    findOne: benefitPlanFindOneMock,
   },
   EmployeeBenefit: {
-    findAll: jest.fn(),
+    findAll: employeeBenefitFindAllMock,
     findOne: jest.fn(),
   },
   EarningsSummary: {
@@ -261,6 +263,49 @@ describe("dashboard controller contract behavior", () => {
     }
     expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "text/csv; charset=utf-8");
     expect(res.write).toHaveBeenCalled();
+    expect(res.end).toHaveBeenCalledTimes(1);
+  });
+
+  test("exportDrilldownCsv skips earnings lookup for benefits export when no minEarnings filter is active", async () => {
+    employeeFindMock.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        lean: jest.fn().mockReturnValue({
+          cursor: async function* cursor() {
+            yield {
+              _id: "mongo-1",
+              employeeId: "EMP0001",
+              firstName: "Ava",
+              lastName: "Benefits",
+              departmentId: null,
+              gender: "F",
+              ethnicity: "Asian",
+              employmentType: "Full-time",
+              isShareholder: false,
+              annualEarnings: 120000,
+              annualEarningsYear: 2026,
+            };
+          },
+        }),
+      }),
+    });
+    benefitPlanFindOneMock.mockResolvedValue({ id: 7, name: "Gold Plan" });
+    employeeBenefitFindAllMock.mockResolvedValue([
+      { employee_id: "EMP0001", total: 4200 },
+    ]);
+
+    const req = {
+      query: {
+        context: "benefits",
+        year: "2026",
+        benefitPlanName: "Gold Plan",
+      },
+    };
+    const res = createStreamRes();
+
+    await exportDrilldownCsv(req, res);
+
+    expect(earningsEmployeeYearFindAllMock).not.toHaveBeenCalled();
+    expect(employeeBenefitFindAllMock).toHaveBeenCalledTimes(1);
     expect(res.end).toHaveBeenCalledTimes(1);
   });
 });

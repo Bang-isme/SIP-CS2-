@@ -30,6 +30,64 @@ npm run mongo:local:start
 npm run mongo:local:stop
 ```
 
+If the Windows service is installed, these commands will start/stop the service.
+If not, they fall back to the existing manual process mode.
+
+## Windows Service / Autostart
+
+Recommended for demo or viva so Mongo local starts reliably without a manual step.
+
+Install service:
+
+```powershell
+npm run mongo:local:service:install
+```
+
+This requires running PowerShell as Administrator.
+
+Check service status:
+
+```powershell
+npm run mongo:local:service:status
+```
+
+Remove service:
+
+```powershell
+npm run mongo:local:service:uninstall
+```
+
+Service details:
+- Service name: `SIPLocalMongoDB`
+- Display name: `SIP Local MongoDB`
+- Startup type: `Automatic`
+- Config source: [mongod.conf](D:/MongoDB/mongod.conf)
+
+After installation, Windows will bring Mongo local up automatically on boot.
+That avoids `ECONNREFUSED 127.0.0.1:27017` during demo, backend startup, or integration tests.
+
+## Fallback Autostart Without Admin
+
+If service installation is blocked because PowerShell is not elevated, use the per-user scheduled task fallback:
+
+```powershell
+npm run mongo:local:autostart:install
+npm run mongo:local:autostart:status
+```
+
+Remove it with:
+
+```powershell
+npm run mongo:local:autostart:uninstall
+```
+
+Task details:
+- Task name: `SIPLocalMongoDBAutostart`
+- Trigger: at user logon
+- Action: run [start-local-mongo.ps1](D:/SIP_CS%202/SIP_CS/scripts/start-local-mongo.ps1) hidden
+
+This does not require administrator rights and is the recommended fallback when Windows service registration is not available.
+
 ## Clone Atlas to Local
 
 If `.env.atlas.backup` exists, clone all Mongo collections into local:
@@ -63,6 +121,39 @@ console.log(await signin.json());
 '@ | node --experimental-vm-modules -
 ```
 
+For one-command local runtime verification:
+
+```powershell
+npm run doctor:local
+```
+
+This checks:
+- MongoDB connectivity
+- MySQL connectivity and required migrations
+- backend `/api/health/live` and `/api/health/ready`
+- 500k local dataset baseline for Mongo employees and core MySQL tables
+- Mongo service/autostart hints
+
+## Backend + Full Stack Shortcuts
+
+Backend only:
+
+```powershell
+npm run backend:local:start
+npm run backend:local:status
+npm run backend:local:stop
+```
+
+Full local stack:
+
+```powershell
+npm run stack:local:start
+npm run doctor:local
+npm run stack:local:stop
+```
+
+This is the recommended operator flow before demo or viva.
+
 ## Recommended 500k Local Baseline
 
 For the coursework-scale local dataset, use this order:
@@ -87,3 +178,4 @@ Expected baseline after a clean enterprise seed on local:
 - `ALLOW_STATELESS_JWT_FALLBACK` should stay `0` in normal local mode.
 - Atlas clone is optional. The current recommended local baseline is the seeded `500000`-employee dataset above.
 - `scripts/seed.js` now writes SQL batch rows inside a transaction, so a failed batch no longer leaves partial writes across `earnings`, `vacation_records`, `employee_benefits`, and `pay_rates`.
+- The recommended runtime mode is now the Windows service, not the manual background process.

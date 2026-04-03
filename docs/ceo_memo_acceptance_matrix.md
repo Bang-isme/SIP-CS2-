@@ -50,9 +50,10 @@
 | Legacy products module no longer carries malformed HTTP semantics or broken search behavior | PASS | `src/controllers/products.controller.js`, `src/utils/productContracts.js`, `src/routes/products.routes.js`, `src/__tests__/products.controller.behavior.test.js`, `src/__tests__/products.routes.authz.test.js` |
 | Runtime logs on main backend paths are now structured and correlation-friendly | PASS | `src/controllers/auth.controller.js`, `src/controllers/dashboard.controller.js`, `src/controllers/alerts.controller.js`, `src/controllers/employee.controller.js`, `src/registry/serviceRegistry.js`, `src/workers/integrationEventWorker.js`, `src/libs/initialSetup.js`, `src/utils/logger.js` |
 | Test environment keeps gate output low-noise by default while still allowing explicit log override | PASS | `src/utils/logger.js`, `src/app.js`, `src/__tests__/logger.test.js` |
+| Backend lint gate now includes ESLint static analysis in addition to syntax checking | PASS | `eslint.config.js`, `package.json`, `src/__tests__/lint.contract.test.js`, `scripts/aggregate-dashboard.js`, `scripts/local-runtime-doctor.js` |
 | Queue rows retain durable operator audit trail for retry/replay/recover | PASS | `src/models/sql/IntegrationEvent.js`, `src/services/integrationOperatorService.js`, `src/services/integrationEventService.js`, `src/__tests__/integration.controller.behavior.test.js`, `src/__tests__/integrationEventService.recovery.test.js` |
 | Per-event operator audit history is queryable via admin API | PASS | `src/models/sql/IntegrationEventAudit.js`, `src/services/integrationAuditService.js`, `src/controllers/integration.controller.js`, `src/__tests__/integration.controller.behavior.test.js` |
-| CSV export no longer preloads whole-year earnings data | PASS | `src/controllers/dashboard.controller.js`, `src/__tests__/dashboard.controller.contract.test.js` |
+| CSV export no longer preloads whole-year earnings data and avoids redundant earnings lookups on benefits-only export | PASS | `src/controllers/dashboard.controller.js`, `src/__tests__/dashboard.controller.contract.test.js` |
 | MySQL readiness checks required incremental migrations, not just tables | PASS | `src/mysqlDatabase.js`, `scripts/migrate-mysql.js` |
 | Signup privilege-escalation blocked (`/auth/signup` always role `user`) | PASS | `src/controllers/auth.controller.js`, `src/__tests__/auth.signup.contract.test.js` |
 | Employee write path least-privilege (`POST/PUT/DELETE` admin-only) | PASS | `src/routes/employee.routes.js`, `src/__tests__/employee.routes.authz.test.js` |
@@ -73,6 +74,7 @@
 ## 5) Quality Gate Evidence (2026-04-03)
 
 Backend:
+- `npm run doctor:local` -> HEALTHY (`500000` Mongo employees, required MySQL migrations present, backend health probes green)
 - `npm run lint` -> PASS
 - `npm test` -> PASS
 - `npm run test:advanced` -> PASS
@@ -96,5 +98,5 @@ Advisory scans:
 - Current state is **production-like for coursework/demo** with improved security and contract correctness.  
 - Remaining gaps before enterprise claim:
   1. Replace DB-outbox polling with broker-grade architecture (Kafka/RabbitMQ + DLQ + observability).
-  2. Mature migration workflow beyond bootstrap baseline.
-  3. Resolve residual advisory findings and ops hardening backlog.
+  2. Continue maturing migration workflow and expand the current ESLint/runtime-safety baseline if the team wants stricter static analysis.
+  3. If a more hands-off demo laptop setup is needed, install `SIPLocalMongoDB` as a real Windows service from an elevated shell; current scheduled-task autostart already covers non-admin local runs.

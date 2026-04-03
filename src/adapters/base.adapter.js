@@ -15,7 +15,7 @@ export class BaseAdapter {
      * @param {Object} syncContext - Cross-cutting metadata like correlationId/source/eventId.
      * @returns {Promise<{success: boolean, message: string}>}
      */
-    async sync(employeeData, action, syncContext = {}) {
+    async sync(employeeData, action, _syncContext = {}) {
         throw new Error(`sync() not implemented in ${this.name}`);
     }
 

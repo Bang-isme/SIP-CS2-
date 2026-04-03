@@ -8,7 +8,7 @@ import {
     exportDrilldownCsv,
     getDepartments,
 } from "../controllers/dashboard.controller.js";
-import { verifyToken, isAdmin, } from "../middlewares/authJwt.js";
+import { verifyToken } from "../middlewares/authJwt.js";
 
 const router = Router();
 

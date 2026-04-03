@@ -20,8 +20,6 @@ import Department from "../src/models/Department.js";
 import Alert from "../src/models/Alert.js";
 import { buildDepartmentNameMap } from "../src/utils/departmentMapping.js";
 import {
-    Earning,
-    VacationRecord,
     BenefitPlan,
     EmployeeBenefit,
     EarningsEmployeeYear,

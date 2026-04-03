@@ -2,6 +2,7 @@ $mongoRoot = "D:\MongoDB"
 $mongod = Join-Path $mongoRoot "Server\8.2\bin\mongod.exe"
 $config = Join-Path $mongoRoot "mongod.conf"
 $pidFile = Join-Path $mongoRoot "run\mongod.pid"
+$serviceName = "SIPLocalMongoDB"
 
 if (-not (Test-Path $mongod)) {
   throw "mongod.exe not found at $mongod"
@@ -9,6 +10,24 @@ if (-not (Test-Path $mongod)) {
 
 if (-not (Test-Path $config)) {
   throw "Mongo config not found at $config"
+}
+
+$service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+if ($service) {
+  if ($service.Status -ne "Running") {
+    Start-Service -Name $serviceName
+  }
+
+  for ($i = 0; $i -lt 30; $i++) {
+    Start-Sleep -Seconds 1
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($service -and $service.Status -eq "Running") {
+      Write-Output "MongoDB local service '$serviceName' is running."
+      exit 0
+    }
+  }
+
+  throw "MongoDB Windows service '$serviceName' did not reach Running state in time."
 }
 
 $existing = Get-NetTCPConnection -LocalPort 27017 -ErrorAction SilentlyContinue |

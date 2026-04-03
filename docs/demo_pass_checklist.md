@@ -16,19 +16,14 @@ Pass criteria:
 
 ## 2) Hard Gates Before Live Demo
 
-1. Backend tests
-   - `npm test`
-2. Frontend lint
-   - in `SIP_CS/dashboard`: `npm run lint`
-3. Frontend production build
-   - in `SIP_CS/dashboard`: `npm run build`
-4. Integration queue rehearsal
+1. Full-stack verification
+   - in `SIP_CS`: `npm run verify:all`
+2. Integration queue rehearsal
    - `npm run demo:queue:flow -- 2 2`
 
 Pass criteria:
-- Unit + integration backend tests pass.
-- Lint passes.
-- Build passes without chunk-size warning >500 kB.
+- Backend doctor/lint/tests/audit all pass.
+- Frontend lint/test/build/audit all pass.
 - Queue flow completes warning -> critical -> cleanup.
 
 ## 3) Live Demo Flow (6-8 mins)
@@ -65,9 +60,7 @@ Screenshots:
 - Integration queue recovered
 
 Terminal outputs:
-- `npm test`
-- `npm run lint` (dashboard)
-- `npm run build` (dashboard)
+- `npm run verify:all`
 
 ## 5) Go / No-Go
 

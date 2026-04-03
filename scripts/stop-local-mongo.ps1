@@ -1,12 +1,26 @@
 $pidFile = "D:\MongoDB\run\mongod.pid"
+$serviceName = "SIPLocalMongoDB"
+
+$service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+if ($service) {
+  if ($service.Status -eq "Running") {
+    Stop-Service -Name $serviceName -Force
+    Write-Output "Stopped MongoDB Windows service '$serviceName'."
+  } else {
+    Write-Output "MongoDB Windows service '$serviceName' is already stopped."
+  }
+
+  Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+  exit 0
+}
 
 if (Test-Path $pidFile) {
-  $pid = Get-Content $pidFile | Select-Object -First 1
-  if ($pid) {
-    $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+  $mongoPid = Get-Content $pidFile | Select-Object -First 1
+  if ($mongoPid) {
+    $process = Get-Process -Id $mongoPid -ErrorAction SilentlyContinue
     if ($process) {
-      Stop-Process -Id $pid -Force
-      Write-Output "Stopped MongoDB local process PID $pid."
+      Stop-Process -Id $mongoPid -Force
+      Write-Output "Stopped MongoDB local process PID $mongoPid."
     }
   }
   Remove-Item $pidFile -Force -ErrorAction SilentlyContinue

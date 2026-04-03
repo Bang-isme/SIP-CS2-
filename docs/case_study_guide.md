@@ -22,9 +22,11 @@
 - Error handling ở tầng API giờ cũng đã được kéo gần về một chuẩn chung hơn: validation/not-found/conflict/server errors trên các surface chính đều có `code` machine-readable và fallback route-not-found của app cũng trả JSON cùng style.
 - Observability ở các path backend chính cũng đã sạch hơn: runtime logs dùng structured logger với `context` và `requestId`, nên trace demo/incidents theo workflow thật dễ hơn so với giai đoạn còn rải `console.*`.
 - Quality gate backend giờ cũng rõ hơn: `NODE_ENV=test` mặc định tắt structured logger và access log nếu không chủ động bật, nên unit/integration output ít noise hơn và dễ nhìn blocker thật hơn.
+- `npm run lint` của backend cũng không còn dừng ở syntax check: giờ chạy cả `lint:syntax` và `lint:static` với ESLint runtime-safety rules để bắt thêm lỗi như `no-undef`, `no-unreachable`, `no-dupe-keys`, `no-unused-vars`, `no-empty`, `eqeqeq`, và `no-useless-catch`.
 - Backend runtime dependency tree hiện cũng sạch hơn cho demo/coursework: transitive overrides đã dọn advisory ở `express -> path-to-regexp` và `sequelize -> lodash`, nên `npm audit --omit=dev` đang pass.
 - Auth signin giờ cũng quota-aware hơn: nếu Mongo token storage bị khóa ghi vì over-quota, backend trả `503 AUTH_SESSION_STORAGE_UNAVAILABLE` thay vì phát token rồi để `/auth/me` đá người dùng ra ngay sau đó.
 - Legacy product module cũng đã được làm sạch HTTP semantics: không còn `204` kèm body, có `404/422` canonical, và search path giờ dùng lookup chạy thật thay vì aggregation syntax lỗi.
+- Local runtime cho BE cũng đã được kéo về trạng thái ổn định hơn cho dataset lớn: Mongo local 500k tránh quota Atlas, có `doctor:local`, `backend:local:*`, `stack:local:*`, và fallback autostart theo user logon để demo/viva bớt phụ thuộc thao tác tay.
 - Case Study 3: triển khai được theo hướng eventual consistency có kiểm soát, và giờ có correlation trace xuyên request -> outbox/direct fallback -> sync log; chưa claim ACID xuyên MongoDB + MySQL.
 - Case Study 4: có middleware-lite bằng DB-backed outbox + worker, monitor API/UI, replay/retry, stale-`PROCESSING` recovery, integration operator contract với validation `422` + operator metadata, end-to-end correlation trace xuyên worker/adapters, latest audit trail trên `integration_events`, và durable history riêng trong `integration_event_audits`; chưa có broker-grade stack.
 - Case Study 5: có network/DR/security docs + rehearsal-safe evidence; chưa rollout hạ tầng thật.
@@ -73,6 +75,7 @@
 - Drilldown đọc dữ liệu chi tiết từ Mongo + snapshot SQL/Mongo tùy ngữ cảnh.
 - CSV export dùng streaming để tránh payload quá lớn.
 - Export earnings path flush theo employee batch trong lúc stream, không còn preload toàn bộ earnings của cả năm vào RAM.
+- Export benefits path cũng không còn query `EarningsEmployeeYear` vô ích khi không dùng `minEarnings`, nên export lớn giảm thêm một lớp SQL load không cần thiết.
 - `Executive Action Center` gom freshness, summary failures, alerts, và queue health thành action-oriented briefing ngay trên trang chính.
 - `Alert Follow-up Queue` tách riêng các alert đang `Unassigned` hoặc `Needs Re-review` và cho phép mở thẳng modal cần xử lý.
 - Backend còn có `executive brief snapshot` để FE lấy sẵn priority/tone/follow-up state thay vì tự ráp từ nhiều endpoint.
@@ -204,6 +207,7 @@
 ## 9) Quality gate snapshot (2026-04-03)
 
 Backend:
+- `npm run doctor:local` -> HEALTHY (`500000` Mongo employees, required MySQL migrations present, `/health/live` + `/health/ready` đều `200`)
 - `npm run lint` -> PASS
 - `npm test` -> PASS
 - `npm run test:advanced` -> PASS
@@ -224,3 +228,10 @@ Advisory-only backlog:
 - Case 3: eventual consistency có kiểm soát, không claim ACID.
 - Case 4: middleware-lite có retry/replay/recovery, chưa phải enterprise middleware.
 - Case 5: có thiết kế và rehearsal-safe evidence, chưa phải triển khai hạ tầng thật.
+
+## 11) Backend improvement verdict (2026-04-03)
+- Không còn blocker chức năng mới nào cho scope coursework/demo; BE hiện đủ ổn để FE bám theo như nguồn chuẩn.
+- Phần còn lại là non-blocking polish:
+  1. Cài `SIPLocalMongoDB` thành Windows service bằng PowerShell elevated nếu muốn system-wide autostart; hiện tại scheduled-task autostart đã đủ cho demo local.
+  2. Mở rộng dần rule-set ESLint/static analysis nếu muốn quality gate chặt hơn nữa, thay vì chỉ giữ runtime-safety baseline hiện tại.
+  3. Chỉ khi muốn vượt phạm vi môn học mới cần thay DB-outbox polling bằng broker-grade middleware và observability sâu hơn.

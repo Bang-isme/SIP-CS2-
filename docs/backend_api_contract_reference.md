@@ -95,6 +95,18 @@ Update `GET /api/contracts/openapi.json` cùng lúc với code khi:
 - đổi any machine-readable error code that FE/operator relies on
 - đổi meaning của `sync`, `meta`, hoặc `correlationId`
 
+## Backend improvement verdict (2026-04-03)
+
+- Latest local evidence from `npm run doctor:local` is `healthy` on the 500k baseline:
+  - Mongo local `employees=500000`, `departments=8`
+  - MySQL required migrations present (`appliedMigrationCount=5`, `missingMigrations=[]`)
+  - backend `/api/health/live` and `/api/health/ready` both return `200`
+- For coursework/demo scope, backend is now functionally complete enough to act as the source of truth for FE/operator contracts.
+- Remaining work is non-blocking polish, not a functional blocker:
+  - install `SIPLocalMongoDB` as a real Windows service from an elevated shell if system-wide autostart is required; current scheduled-task autostart already covers non-admin demo runs
+  - expand the current ESLint/static-analysis gate beyond the new runtime-safety baseline if stricter code-quality enforcement is desired
+  - only if going beyond coursework scope, replace DB-outbox polling with broker-grade integration middleware and deeper observability
+
 ## Evidence path
 
 - Route: `src/routes/contracts.routes.js`
@@ -115,3 +127,19 @@ Update `GET /api/contracts/openapi.json` cùng lúc với code khi:
   - set `LOG_LEVEL=DEBUG|INFO|WARN|ERROR`
   - set `HTTP_LOG_LEVEL=verbose` để bật lại access logs của `morgan`
 - Dev/prod behavior không đổi; thay đổi này chỉ nhắm tới signal-to-noise trong quality gate.
+
+## Lint Gate
+
+- `npm run lint` now runs two backend stages:
+  - `lint:syntax` keeps the existing parser-level `node --check` sweep
+  - `lint:static` runs ESLint on `src`, `scripts`, `tests`, and `jest.config.js`
+- Current ESLint rules intentionally focus on runtime-safety signals instead of style churn:
+  - `no-undef`
+  - `no-unreachable`
+  - `no-dupe-keys`
+  - `no-self-assign`
+  - `no-constant-condition`
+  - `no-unused-vars`
+  - `no-empty`
+  - `eqeqeq`
+  - `no-useless-catch`

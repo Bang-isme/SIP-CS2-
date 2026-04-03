@@ -317,7 +317,7 @@ export const deleteEmployee = async (req, res) => {
     }
 };
 
-export const getEmployee = async (req, res, next) => {
+export const getEmployee = async (req, res) => {
     try {
         const employeeLookup = normalizeEmployeeLookupParam(req.params.employeeId);
         let employee = await Employee.findOne({ employeeId: employeeLookup });

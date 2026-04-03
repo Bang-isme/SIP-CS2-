@@ -6,7 +6,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
 import { MONGODB_URI } from "../src/config.js";
 import User from "../src/models/User.js";
 import Role from "../src/models/Role.js";

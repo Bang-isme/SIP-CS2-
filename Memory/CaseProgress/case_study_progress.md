@@ -1,6 +1,6 @@
 ﻿# Case Study Progress
 
-> Last Updated: 2026-04-03T21:00:00+07:00
+> Last Updated: 2026-04-03T14:45:00+07:00
 
 ## Current Stage: Case Study 4 - PARTIAL IMPLEMENTATION
 
@@ -92,6 +92,21 @@ See: Memory/Context/case_study_requirements_summary.md
 - Verified local counts after reseed: Mongo `employees=500000`, Mongo `departments=8`, MySQL `vacation_records=500000`, `employee_benefits=500000`, `pay_rates=500000`, `earnings_employee_year=849977`.
 - Verified cross-database repair run reported `0` orphan deletions on the 500k local baseline.
 - Re-ran backend quality gates after the reseed hardening: `npm run lint`, `npm test`, `npm run test:advanced`, `npm audit --omit=dev`, `npm run db:migrate:mysql:status` all pass.
+- Added Windows service operations for local Mongo on `D:\MongoDB` (`SIPLocalMongoDB`) so demo/test environments no longer depend on remembering a manual `mongod` start command.
+- `mongo:local:start` and `mongo:local:stop` now prefer the Windows service when installed and fall back to manual process mode otherwise.
+- Added package scripts for Mongo service install/uninstall/status and updated docs/runbook to treat service mode as the recommended runtime for demo readiness.
+- Added a no-admin fallback autostart path via scheduled task `SIPLocalMongoDBAutostart`, so local Mongo can still auto-start on user logon even when Windows service registration is blocked by non-elevated shells.
+- Added `npm run doctor:local` to verify Mongo, MySQL, migration readiness, backend health probes, runtime hints, and 500k dataset baseline in one command before demo/viva.
+- Added `backend:local:*` and `stack:local:*` wrappers so local backend and the full Mongo+backend stack can be started/stopped/status-checked without ad-hoc terminal commands.
+- Re-ran `npm run doctor:local` after the local runtime wrappers and confirmed `status=healthy` on the 500k baseline with Mongo autostart present, MySQL required migrations satisfied, and backend `/api/health/live` + `/api/health/ready` both returning `200`.
+- Backend review verdict for the current repo state: no new functional blocker remains for coursework/demo; remaining improvements are non-blocking polish only (elevated Windows service install for Mongo if desired, stronger static linting, broker-grade middleware only if intentionally over-scoping past coursework).
+- Tightened dashboard CSV export once more so benefits-context exports skip `EarningsEmployeeYear` lookups unless `minEarnings` is actually active, and locked that behavior with an additional controller regression test.
+- Upgraded backend quality gate from syntax-only linting to a two-stage contract: `lint:syntax` plus `lint:static` via ESLint, using a narrow runtime-safety rule set (`no-undef`, `no-unreachable`, `no-dupe-keys`, `no-self-assign`, `no-constant-condition`) that matches the current repo maturity.
+- Expanded that ESLint runtime-safety baseline with `no-unused-vars` and `no-empty`, then cleaned the actual findings it exposed in scripts/controllers/routes instead of suppressing them.
+- Extended the same lint baseline further with `eqeqeq` and `no-useless-catch`; current backend code already satisfies both, so the gate is stricter without introducing new cleanup churn.
+- Stabilized the advanced availability gate so the health-endpoint latency check warms the app first and evaluates a short sample window, reducing false negatives from one-off local timing spikes while still enforcing a fast health path.
+- Added `npm run verify:backend` so the existing local-runtime doctor, lint, tests, migration status, and production dependency audit can be run in one repeatable pre-demo/pre-submit command instead of a manual checklist.
+- Added `dashboard`-level `verify:frontend` and root `verify:all` so the full stack can now be validated from repo root with one command before demo or submission.
 
 ## Case Study 2: The Dashboard
 

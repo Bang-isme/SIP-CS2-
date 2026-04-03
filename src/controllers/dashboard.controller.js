@@ -1,6 +1,6 @@
 import Employee from "../models/Employee.js";
 import Department from "../models/Department.js";
-import { Earning, VacationRecord, BenefitPlan, EmployeeBenefit, EarningsSummary, EarningsEmployeeYear, VacationSummary, BenefitsSummary } from "../models/sql/index.js";
+import { VacationRecord, BenefitPlan, EmployeeBenefit, EarningsSummary, EarningsEmployeeYear, VacationSummary, BenefitsSummary } from "../models/sql/index.js";
 import { Op, fn, col } from "sequelize";
 import dashboardCache from "../utils/cache.js";
 import { buildDepartmentNameMap, listDepartmentNames, resolveDepartmentIdByName } from "../utils/departmentMapping.js";
@@ -29,30 +29,6 @@ import {
  * 
  * Response time: < 100ms (reading 20-50 rows instead of 500K)
  */
-
-// Helper: Get employee IDs from MongoDB filtered by criteria
-const getFilteredEmployeeIds = async (filters) => {
-    const query = {};
-
-    if (filters.isShareholder !== undefined) {
-        query.isShareholder = filters.isShareholder === "true";
-    }
-    if (filters.gender) {
-        query.gender = filters.gender;
-    }
-    if (filters.ethnicity) {
-        query.ethnicity = filters.ethnicity;
-    }
-    if (filters.employmentType) {
-        query.employmentType = filters.employmentType;
-    }
-    if (filters.departmentId) {
-        query.departmentId = filters.departmentId;
-    }
-
-    const employees = await Employee.find(query).select("employeeId _id");
-    return employees.map((e) => e.employeeId || e._id.toString());
-};
 
 const buildBenefitLookup = async ({ employeeIds, benefitPlanName }) => {
     if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
@@ -1055,6 +1031,7 @@ export const exportDrilldownCsv = async (req, res) => {
         if (typeof isShareholder === "boolean") query.isShareholder = isShareholder;
         const isVacation = context === 'vacation';
         const isBenefits = context === 'benefits';
+        const requiresEarningsLookup = (!isVacation && !isBenefits) || hasMinEarnings;
         let selectedPlanId = null;
 
         if (benefitPlanName) {
@@ -1108,7 +1085,7 @@ export const exportDrilldownCsv = async (req, res) => {
                 .filter(Boolean);
 
             let earningsMap = new Map();
-            if (!isVacation || hasMinEarnings) {
+            if (requiresEarningsLookup) {
                 const earningsRows = await EarningsEmployeeYear.findAll({
                     where: {
                         year: earningsYear,
@@ -1149,7 +1126,7 @@ export const exportDrilldownCsv = async (req, res) => {
                 const deptName = departmentMap.get(emp.departmentId?.toString()) || "Unassigned";
                 const employeeId = emp.employeeId || emp._id.toString();
                 const isSnapshotValid = emp.annualEarningsYear === earningsYear && Number.isFinite(emp.annualEarnings);
-                const totalEarnings = earningsMap.has(employeeId)
+                const totalEarnings = requiresEarningsLookup && earningsMap.has(employeeId)
                     ? earningsMap.get(employeeId)
                     : (isSnapshotValid ? emp.annualEarnings : 0);
                 const benefitCost = benefitMap.get(employeeId) || 0;

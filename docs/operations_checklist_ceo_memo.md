@@ -19,6 +19,7 @@ Checklist này dùng để vận hành dashboard ổn định theo CEO flow:
    - `GET /api/health/live`
    - `GET /api/health`
    - `GET /api/health/ready`
+   - hoặc chạy gọn `npm run doctor:local` để kiểm tra local runtime + dataset baseline một lượt
 3. Kiểm tra summary APIs:
     - `GET /api/dashboard/earnings`
     - `GET /api/dashboard/vacation`
@@ -43,6 +44,16 @@ Khi cần dựng lại dataset lớn trên local Mongo + MySQL:
    - MySQL `employee_benefits=500000`
    - MySQL `pay_rates=500000`
 5. Chỉ demo khi repair script báo `total_deleted_orphan_rows: 0` hoặc sau khi đã rerun aggregate.
+
+Mongo local runtime:
+- Khuyến nghị cài `SIPLocalMongoDB` Windows service bằng `npm run mongo:local:service:install`
+- Trước demo, kiểm tra nhanh bằng `npm run mongo:local:service:status`
+- Sau khi đã cài service, không cần nhớ chạy `npm run mongo:local:start` thủ công nữa
+- Nếu shell hiện tại không chạy elevated và service install fail, dùng fallback `npm run mongo:local:autostart:install` để Mongo tự lên khi user đăng nhập
+- Backend local có wrapper riêng: `npm run backend:local:start`, `npm run backend:local:status`, `npm run backend:local:stop`
+- Nếu muốn lên trọn stack nhanh trước demo: `npm run stack:local:start` rồi `npm run doctor:local`
+- Nếu muốn chốt toàn bộ gate backend bằng một lệnh duy nhất trước demo/chấm: `npm run verify:backend`
+- Nếu muốn chốt luôn cả backend + dashboard bằng một lệnh duy nhất: `npm run verify:all`
 
 ## 3) UI Operational Checks
 
@@ -98,11 +109,13 @@ Quick checks:
 ## 6) Quality Gate Before Demo
 
 Backend:
+- `npm run verify:backend`
 - `npm run lint`
 - `npm test`
 - `npm run test:advanced`
 
 Frontend:
+- `npm run verify:all`
 - `cd dashboard && npm run lint`
 - `cd dashboard && npm test`
 - `cd dashboard && npm run build`

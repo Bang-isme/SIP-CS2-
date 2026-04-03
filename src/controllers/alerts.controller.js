@@ -1,6 +1,5 @@
 import Alert from "../models/Alert.js";
-import Employee from "../models/Employee.js";
-import { EmployeeBenefit, AlertsSummary } from "../models/sql/index.js";
+import { AlertsSummary } from "../models/sql/index.js";
 import { Op } from "sequelize";
 import dashboardCache from "../utils/cache.js";
 import { refreshAlertAggregates } from "../services/alertAggregationService.js";
@@ -25,7 +24,6 @@ import {
     respondWithApiError,
     sendApiError,
 } from "../utils/apiErrors.js";
-import logger from "../utils/logger.js";
 import { buildRequestLogData } from "../utils/requestTracking.js";
 
 const buildAlertMutationMeta = async () => {

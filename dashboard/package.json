@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "verify:frontend": "npm run lint && npm run test && npm run build && npm audit --omit=dev",
     "test:watch": "vitest",
     "preview": "vite preview"
   },
