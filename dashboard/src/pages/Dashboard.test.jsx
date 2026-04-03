@@ -152,7 +152,7 @@ describe('Dashboard states', () => {
 
     render(<Dashboard onLogout={onLogout} currentUser={userContext} />);
 
-    expect(await screen.findByText(/Summary data is partially unavailable/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Some summary sections are unavailable/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Retry Failed Loads/i })).toBeInTheDocument();
   });
 
@@ -220,7 +220,7 @@ describe('Dashboard states', () => {
 
     render(<Dashboard onLogout={onLogout} currentUser={{ roles: ['admin'] }} />);
 
-    expect(await screen.findByText(/Action is required before this snapshot is safe to present/i)).toBeInTheDocument();
+    expect(await screen.findByText(/This snapshot needs a quick review before presentation/i)).toBeInTheDocument();
     expect(screen.getByText(/Alert ownership still has gaps/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Review Queue/i })).toBeInTheDocument();
   });

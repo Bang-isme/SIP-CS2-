@@ -92,6 +92,40 @@ const getFreshnessInfo = (updatedAt) => {
   };
 };
 
+const softenExecutiveHeadline = (headline) => {
+  if (headline === 'Action is required before this snapshot is safe to present.') {
+    return 'This snapshot needs a quick review before presentation.';
+  }
+  if (headline === 'The dashboard is usable, but several follow-ups should be cleared first.') {
+    return 'This dashboard is usable, with a few follow-ups to clear first.';
+  }
+  if (headline === 'The dashboard is stable and ready for memo defense.') {
+    return 'This dashboard is ready for memo review.';
+  }
+  return headline;
+};
+
+const softenExecutiveSummary = (summary) => {
+  if (summary === 'Resolve failed summary feeds or outbox risks before using this view as executive evidence.') {
+    return 'Refresh stale sections and review ownership notes before presenting this view.';
+  }
+  if (summary === 'Focus on the highest-impact exception first, then use drilldown to validate the affected scope.') {
+    return 'Start with the highest-impact exception, then use drilldown to confirm the scope.';
+  }
+  if (summary === 'Current aggregates, alerts, and queue signals do not show immediate blockers.') {
+    return 'Current summaries, alerts, and queue checks do not show an immediate blocker.';
+  }
+  return summary;
+};
+
+const trimExecutiveItemsForDisplay = (items, { hasFollowUpQueue = false } = {}) => {
+  if (!Array.isArray(items)) return [];
+  return items
+    .filter(Boolean)
+    .filter((item) => !(hasFollowUpQueue && item.key === 'review-alerts'))
+    .slice(0, 2);
+};
+
 function Dashboard({ onLogout, currentUser }) {
   const [earnings, setEarnings] = useState(null);
   const [loadingEarnings, setLoadingEarnings] = useState(true);
@@ -554,15 +588,15 @@ function Dashboard({ onLogout, currentUser }) {
     const hasInfo = items.some((item) => item.tone === 'info');
     const tone = hasCritical ? 'critical' : hasWarning || hasInfo ? 'warning' : 'healthy';
     const headline = hasCritical
-      ? 'Action is required before this snapshot is safe to present.'
+      ? 'This snapshot needs a quick review before presentation.'
       : hasWarning || hasInfo
-        ? 'The dashboard is usable, but several follow-ups should be cleared first.'
-        : 'The dashboard is stable and ready for memo defense.';
+        ? 'This dashboard is usable, with a few follow-ups to clear first.'
+        : 'This dashboard is ready for memo review.';
     const summary = hasCritical
-      ? 'Resolve failed summary feeds or outbox risks before using this view as executive evidence.'
+      ? 'Refresh stale sections and review ownership notes before presenting this view.'
       : hasWarning || hasInfo
-        ? 'Focus on the highest-impact exception first, then use drilldown to validate the affected scope.'
-        : 'Current aggregates, alerts, and queue signals do not show immediate blockers.';
+        ? 'Start with the highest-impact exception, then use drilldown to confirm the scope.'
+        : 'Current summaries, alerts, and queue checks do not show an immediate blocker.';
 
     return {
       tone,
@@ -588,6 +622,7 @@ function Dashboard({ onLogout, currentUser }) {
   ]);
 
   const executiveBrief = useMemo(() => {
+    const hasFollowUpQueue = alertFollowUp.needsAttentionCategories > 0;
     if (executiveSnapshot?.actionCenter && !executiveSnapshotError) {
       const backendBrief = executiveSnapshot.actionCenter;
       return {
@@ -597,14 +632,19 @@ function Dashboard({ onLogout, currentUser }) {
             ? 'healthy'
             : 'warning',
         label: backendBrief.label || 'Monitor Closely',
-        headline: backendBrief.headline,
-        summary: backendBrief.summary,
-        items: Array.isArray(backendBrief.items) ? backendBrief.items.slice(0, 3) : [],
+        headline: softenExecutiveHeadline(backendBrief.headline),
+        summary: softenExecutiveSummary(backendBrief.summary),
+        items: trimExecutiveItemsForDisplay(backendBrief.items, { hasFollowUpQueue }),
       };
     }
 
-    return computedExecutiveBrief;
-  }, [computedExecutiveBrief, executiveSnapshot, executiveSnapshotError]);
+    return {
+      ...computedExecutiveBrief,
+      headline: softenExecutiveHeadline(computedExecutiveBrief.headline),
+      summary: softenExecutiveSummary(computedExecutiveBrief.summary),
+      items: trimExecutiveItemsForDisplay(computedExecutiveBrief.items, { hasFollowUpQueue }),
+    };
+  }, [alertFollowUp.needsAttentionCategories, computedExecutiveBrief, executiveSnapshot, executiveSnapshotError]);
 
   const openAlertReview = useCallback((alertId) => {
     if (alertId) {
@@ -740,7 +780,7 @@ function Dashboard({ onLogout, currentUser }) {
           <div className="dashboard-banner dashboard-banner-error" role="alert">
             <div className="dashboard-banner-text">
               <FiAlertCircle size={14} />
-              <span>Summary data is partially unavailable. Retry failed sections before making decisions.</span>
+              <span>Some summary sections are unavailable. Refresh failed loads before presenting this view.</span>
             </div>
             <button
               className="panel-action"
@@ -856,10 +896,10 @@ function Dashboard({ onLogout, currentUser }) {
             onRetry={fetchBenefits}
           />
           <StatCard
-            title="Action Items"
+            title="Active Alerts"
             value={`${stats.alerts.categories} Alerts`}
             icon={<FiBell size={16} />}
-            subtext={`${formatNum(stats.alerts.affected)} employees affected`}
+            subtext={`${formatNum(stats.alerts.affected)} employees currently covered`}
             trend={stats.alerts.categories > 0 ? 'down' : 'up'}
             loading={loadingAlerts}
             error={alertsError}
@@ -998,7 +1038,7 @@ function Dashboard({ onLogout, currentUser }) {
               <div className="card-header">
                 <div>
                   <h2>Alert Follow-up Queue</h2>
-                  <span className="card-subtitle">Ownership and re-review priority</span>
+                  <span className="card-subtitle">Start with owner gaps, then inspect the employee list</span>
                 </div>
                 <div className="card-header-actions">
                   <span className="badge-count">{formatNum(alertFollowUp.needsAttentionCategories)}</span>
@@ -1007,7 +1047,7 @@ function Dashboard({ onLogout, currentUser }) {
                   </span>
                 </div>
               </div>
-              <div className="card-hint">Operational cue: assign an owner first, then re-check alerts whose snapshot changed.</div>
+              <div className="card-hint">Start with the first item in this queue. Open alert detail only when you need employee rows.</div>
               {loadingAlerts ? (
                 <SkeletonList />
               ) : alertsError ? (
@@ -1088,8 +1128,8 @@ function Dashboard({ onLogout, currentUser }) {
             <div className="card alerts-section" id="dashboard-alerts-section">
               <div className="card-header">
                 <div>
-                  <h2>Action Items & Alerts</h2>
-                  <span className="card-subtitle">Manage-by-exception</span>
+                  <h2>Alert Detail</h2>
+                  <span className="card-subtitle">Inspect employee rows and ownership notes</span>
                 </div>
                 <div className="card-header-actions">
                   {canManageAlerts && (
@@ -1112,7 +1152,7 @@ function Dashboard({ onLogout, currentUser }) {
                   </button>
                 </div>
               </div>
-              <div className="card-hint">Decision view: prioritize high-severity alerts first.</div>
+              <div className="card-hint">Use this panel after the follow-up queue points you to the right alert.</div>
               {loadingAlerts ? (
                 <SkeletonList />
               ) : alertsError ? (

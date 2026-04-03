@@ -107,6 +107,11 @@ See: Memory/Context/case_study_requirements_summary.md
 - Stabilized the advanced availability gate so the health-endpoint latency check warms the app first and evaluates a short sample window, reducing false negatives from one-off local timing spikes while still enforcing a fast health path.
 - Added `npm run verify:backend` so the existing local-runtime doctor, lint, tests, migration status, and production dependency audit can be run in one repeatable pre-demo/pre-submit command instead of a manual checklist.
 - Added `dashboard`-level `verify:frontend` and root `verify:all` so the full stack can now be validated from repo root with one command before demo or submission.
+- Completed `D:\SIP_CS 2\Vision_Group11.md` using the original Vision template structure, but replaced the placeholder content with the actual Group 11 solution direction, implemented architecture, demo flow, and reproducibility steps that match the current codebase.
+- Added a separate presentation/demo script at `D:\SIP_CS 2\SIP_CS\docs\group11_slide_demo_script_vi.md`, then simplified it further to match the real 3-member team split (Bang, Khiem, Hoa) with shorter and more natural Vietnamese speaking lines.
+- Simplified the dashboard FE for demo clarity: softened action-center wording, renamed the alert detail area, and reduced drilldown clutter by collapsing saved views and optional filters behind explicit toggles.
+- Changed drilldown pagination copy to emphasize the current filtered result window (`Showing X-Y of Z matching employees`) instead of foregrounding huge page counts, which reads better on the 500k dataset during demo.
+- Rebalanced drilldown layout for readability: widened the modal, reduced filter chrome, kept presets on a tighter horizontal row, and gave the data table a larger share of the viewport so drilldown feels like a review surface instead of a small pop-up.
 
 ## Case Study 2: The Dashboard
 

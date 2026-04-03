@@ -153,6 +153,7 @@ describe('DrilldownModal behavior', () => {
 
     await user.click(screen.getByRole('button', { name: /Open Drilldown/i }));
     await screen.findByRole('dialog');
+    await user.click(screen.getByRole('button', { name: /Open Quick Views/i }));
     await user.click(screen.getByRole('button', { name: /High Earners > \$100k/i }));
 
     await waitFor(() => {
@@ -172,6 +173,8 @@ describe('DrilldownModal behavior', () => {
 
     await user.selectOptions(screen.getByLabelText(/Department filter/i), 'Engineering');
     await user.selectOptions(screen.getByLabelText(/Employment type filter/i), 'Part-time');
+    await user.click(screen.getByRole('button', { name: /Open Quick Views/i }));
+    await user.click(screen.getByRole('button', { name: /Open Saved Views/i }));
     await user.type(screen.getByLabelText(/Preset name/i), 'Operations Focus');
     await user.click(screen.getByRole('button', { name: /Save View/i }));
 

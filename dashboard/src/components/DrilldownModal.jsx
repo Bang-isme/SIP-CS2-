@@ -31,6 +31,9 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const [benefitPlans, setBenefitPlans] = useState([]);
  const [savedPresets, setSavedPresets] = useState([]);
  const [presetName, setPresetName] = useState('');
+ const [showPresetWorkbench, setShowPresetWorkbench] = useState(false);
+ const [showSavedViews, setShowSavedViews] = useState(false);
+ const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
  const requestIdRef = useRef(0);
  const abortRef = useRef(null);
  const summaryRequestIdRef = useRef(0);
@@ -129,6 +132,11 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   setShareholderFilter(initialFilters?.isShareholder !== undefined ? String(initialFilters.isShareholder) : '');
   setBenefitPlanFilter(initialFilters?.benefitPlan || '');
   setMinEarnings(initialFilters?.minEarnings ? String(initialFilters.minEarnings) : '');
+  setShowAdvancedFilters(Boolean(
+   initialFilters?.gender
+   || initialFilters?.ethnicity
+   || initialFilters?.isShareholder !== undefined,
+  ));
   setPage(1);
  }, [initialFilters]);
 
@@ -178,6 +186,8 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     },
    });
    setSavedPresets(nextSavedPresets);
+   setShowPresetWorkbench(true);
+   setShowSavedViews(true);
    setPresetFeedback({ type: 'success', message: `Saved preset "${presetName.trim()}".` });
    setPresetName('');
   } catch (error) {
@@ -188,6 +198,8 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const handleDeletePreset = (presetId, presetLabel) => {
   const nextSavedPresets = deleteDrilldownPreset({ id: presetId, context: modalContext });
   setSavedPresets(nextSavedPresets);
+  setShowPresetWorkbench(true);
+  setShowSavedViews(true);
   setPresetFeedback({ type: 'success', message: `Removed preset "${presetLabel}".` });
  };
 
@@ -329,6 +341,9 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   return chips;
  }, [deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings, debouncedSearch, shouldShowMinEarningsFilter]);
 
+ const advancedFilterCount = [genderFilter, ethnicityFilter, shareholderFilter].filter(Boolean).length;
+ const showAdvancedSection = showAdvancedFilters || advancedFilterCount > 0;
+
  const handleModalKeyDown = (event) => {
   if (event.key === 'Escape') {
    event.preventDefault();
@@ -398,6 +413,8 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
  const totalPages = data?.meta?.pages || 1;
  const totalRecords = data?.meta?.total || 0;
+ const visibleStart = totalRecords === 0 ? 0 : (page - 1) * pageSize + 1;
+ const visibleEnd = totalRecords === 0 ? 0 : Math.min(page * pageSize, totalRecords);
 
  // Handle Export CSV
  const [exporting, setExporting] = useState(false);
@@ -460,7 +477,26 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
     {/* Filter Bar */}
     <div className="filter-bar">
-     <div className="preset-workbench">
+     <div className="filter-utility-row">
+      <div className="filter-utility-copy">
+       <span className="filter-utility-label">Quick Views</span>
+       <span className="filter-utility-caption">
+        {showPresetWorkbench
+         ? 'Preset shortcuts are open. Close them when you need more room for the table.'
+         : 'Open presets only when you need a quick follow-up path.'}
+       </span>
+      </div>
+      <button
+       type="button"
+       className={`workspace-toggle-button ${showPresetWorkbench ? 'active' : ''}`}
+       onClick={() => setShowPresetWorkbench((value) => !value)}
+       aria-expanded={showPresetWorkbench}
+      >
+       {showPresetWorkbench ? 'Hide Quick Views' : 'Open Quick Views'}
+      </button>
+     </div>
+      {showPresetWorkbench && (
+       <div className="preset-workbench">
       <div className="preset-section">
        <div className="preset-section-header">
         <span className="preset-section-label">Memo Presets</span>
@@ -485,11 +521,23 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
       </div>
 
       <div className="preset-section preset-section-saved">
-       <div className="preset-section-header">
-        <span className="preset-section-label">Saved Views</span>
-        <span className="preset-section-caption">Reusable filters for demo and viva follow-up questions</span>
+       <div className="preset-section-header preset-section-header-inline">
+        <div className="preset-section-copy">
+         <span className="preset-section-label">Saved Views</span>
+         <span className="preset-section-caption">Keep a few repeat questions ready for demo follow-up.</span>
+        </div>
+        <button
+         type="button"
+         className={`preset-toggle-button ${showSavedViews ? 'active' : ''}`}
+         onClick={() => setShowSavedViews((value) => !value)}
+         aria-expanded={showSavedViews}
+        >
+         {showSavedViews
+          ? 'Hide Saved Views'
+          : `Open Saved Views${savedPresets.length > 0 ? ` (${savedPresets.length})` : ''}`}
+        </button>
        </div>
-       {savedPresets.length > 0 ? (
+       {showSavedViews ? (
         <div className="saved-preset-list">
          {savedPresets.map((preset) => (
           <div key={preset.id} className="saved-preset-card">
@@ -516,36 +564,45 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
          ))}
         </div>
        ) : (
-        <p className="preset-empty">No saved views yet. Save one from your current filter mix.</p>
+        <p className="preset-empty">
+         {savedPresets.length > 0
+          ? `${savedPresets.length} saved view${savedPresets.length === 1 ? '' : 's'} available. Open this section only when you need a repeat question.`
+          : 'Save the current filter mix only when a follow-up question is likely to repeat.'}
+        </p>
        )}
-       <div className="preset-save-row">
-        <label className="sr-only" htmlFor="drilldown-preset-name">Preset name</label>
-        <input
-         id="drilldown-preset-name"
-         type="text"
-         className="preset-name-input"
-         placeholder="Save current view as..."
-         value={presetName}
-         onChange={(e) => setPresetName(e.target.value)}
-        />
-        <button
-         type="button"
-         className="preset-save-button"
-         onClick={handleSavePreset}
-        >
-         Save View
-        </button>
+       {showSavedViews && (
+        <>
+         <div className="preset-save-row">
+          <label className="sr-only" htmlFor="drilldown-preset-name">Preset name</label>
+          <input
+           id="drilldown-preset-name"
+           type="text"
+           className="preset-name-input"
+           placeholder="Save current view as..."
+           value={presetName}
+           onChange={(e) => setPresetName(e.target.value)}
+          />
+          <button
+           type="button"
+           className="preset-save-button"
+           onClick={handleSavePreset}
+          >
+           Save View
+          </button>
+         </div>
+         {presetFeedback.message && (
+          <div
+           className={`preset-feedback preset-feedback--${presetFeedback.type || 'success'}`}
+           role={presetFeedback.type === 'error' ? 'alert' : 'status'}
+          >
+           {presetFeedback.message}
+          </div>
+         )}
+         </>
+        )}
        </div>
-       {presetFeedback.message && (
-        <div
-         className={`preset-feedback preset-feedback--${presetFeedback.type || 'success'}`}
-         role={presetFeedback.type === 'error' ? 'alert' : 'status'}
-        >
-         {presetFeedback.message}
-        </div>
-       )}
       </div>
-     </div>
+      )}
 
      <div className="filter-row filter-row-primary">
      <div className="search-group">
@@ -587,49 +644,86 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
          <option value="Part-time">Part-time</option>
         </select>
        </div>
-
-       <div className="filter-group">
-        <label className="sr-only" htmlFor="drilldown-gender">Gender filter</label>
-        <select
-         id="drilldown-gender"
-         value={genderFilter}
-         onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
-         className={`filter-select ${genderFilter ? 'active' : ''}`}
-        >
-         <option value="">All Genders</option>
-         <option value="Male">Male</option>
-         <option value="Female">Female</option>
-        </select>
-
-        <label className="sr-only" htmlFor="drilldown-ethnicity">Ethnicity filter</label>
-        <select
-         id="drilldown-ethnicity"
-         value={ethnicityFilter}
-         onChange={(e) => { setEthnicityFilter(e.target.value); setPage(1); }}
-         className={`filter-select ${ethnicityFilter ? 'active' : ''}`}
-        >
-         <option value="">All Ethnicities</option>
-         <option value="Asian">Asian</option>
-         <option value="Caucasian">Caucasian</option>
-         <option value="Hispanic">Hispanic</option>
-         <option value="African American">African American</option>
-         <option value="Other">Other</option>
-        </select>
-
-        <label className="sr-only" htmlFor="drilldown-shareholder">Shareholder status filter</label>
-        <select
-         id="drilldown-shareholder"
-         value={shareholderFilter}
-         onChange={(e) => { setShareholderFilter(e.target.value); setPage(1); }}
-         className={`filter-select ${shareholderFilter ? 'active' : ''}`}
-        >
-         <option value="">Shareholder Status</option>
-         <option value="true">Shareholders Only</option>
-         <option value="false">Non-Shareholders</option>
-        </select>
-       </div>
+      </div>
+      <div className="filter-toolbar-actions">
+       <button
+        type="button"
+        className={`filter-toggle-button ${showAdvancedSection ? 'active' : ''}`}
+        onClick={() => setShowAdvancedFilters((value) => !value)}
+        aria-expanded={showAdvancedSection}
+       >
+        {showAdvancedSection
+         ? 'Hide More Filters'
+         : advancedFilterCount > 0
+          ? `More Filters (${advancedFilterCount})`
+          : 'More Filters'}
+       </button>
       </div>
      </div>
+
+     {showAdvancedSection && (
+      <div className="filter-row filter-row-advanced">
+       <div className="advanced-filter-header">
+        <span className="advanced-filter-title">Optional filters</span>
+        {advancedFilterCount > 0 && (
+         <button
+          type="button"
+          className="advanced-filter-clear"
+          onClick={() => {
+           setGenderFilter('');
+           setEthnicityFilter('');
+           setShareholderFilter('');
+           setPage(1);
+          }}
+         >
+          Clear optional filters
+         </button>
+        )}
+       </div>
+       <div className="filter-group-wrap">
+        <div className="filter-group">
+         <label className="sr-only" htmlFor="drilldown-gender">Gender filter</label>
+         <select
+          id="drilldown-gender"
+          value={genderFilter}
+          onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
+          className={`filter-select ${genderFilter ? 'active' : ''}`}
+         >
+          <option value="">All Genders</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+         </select>
+
+         <label className="sr-only" htmlFor="drilldown-ethnicity">Ethnicity filter</label>
+         <select
+          id="drilldown-ethnicity"
+          value={ethnicityFilter}
+          onChange={(e) => { setEthnicityFilter(e.target.value); setPage(1); }}
+          className={`filter-select ${ethnicityFilter ? 'active' : ''}`}
+         >
+          <option value="">All Ethnicities</option>
+          <option value="Asian">Asian</option>
+          <option value="Caucasian">Caucasian</option>
+          <option value="Hispanic">Hispanic</option>
+          <option value="African American">African American</option>
+          <option value="Other">Other</option>
+         </select>
+
+         <label className="sr-only" htmlFor="drilldown-shareholder">Shareholder status filter</label>
+         <select
+          id="drilldown-shareholder"
+          value={shareholderFilter}
+          onChange={(e) => { setShareholderFilter(e.target.value); setPage(1); }}
+          className={`filter-select ${shareholderFilter ? 'active' : ''}`}
+         >
+          <option value="">Shareholder Status</option>
+          <option value="true">Shareholders Only</option>
+          <option value="false">Non-Shareholders</option>
+         </select>
+        </div>
+       </div>
+      </div>
+     )}
 
      {(shouldShowMinEarningsFilter || isBenefitsContext) && (
       <div className="filter-row filter-row-secondary">
@@ -868,7 +962,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     {/* Footer / Pagination */}
     <div className="modal-footer">
      <div className="page-size">
-     <span>Show</span>
+      <span>Rows</span>
       <label className="sr-only" htmlFor="drilldown-page-size">Rows per page</label>
       <select id="drilldown-page-size" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} aria-label="Rows per page">
        <option value={10}>10</option>
@@ -883,24 +977,29 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      </div>
 
      <div className="pagination-controls">
-      <span className="page-info">
-       Page
-       <label className="sr-only" htmlFor="drilldown-current-page">Current page</label>
-       <input
-        id="drilldown-current-page"
-        type="number"
-        min="1"
-        max={totalPages}
-        value={page}
-        onChange={(e) => {
-         const val = Number(e.target.value);
-         if (val >= 1 && val <= totalPages) setPage(val);
-        }}
-        className="page-input-field"
-        aria-label="Current page"
-       />
-       of {totalPages} <span className="text-muted">({totalRecords.toLocaleString()} items)</span>
-      </span>
+      <div className="pagination-summary">
+       <span className="page-results">
+        Showing {visibleStart.toLocaleString()}-{visibleEnd.toLocaleString()} of {totalRecords.toLocaleString()} matching employees
+       </span>
+       <span className="page-info">
+        Page
+        <label className="sr-only" htmlFor="drilldown-current-page">Current page</label>
+        <input
+         id="drilldown-current-page"
+         type="number"
+         min="1"
+         max={totalPages}
+         value={page}
+         onChange={(e) => {
+          const val = Number(e.target.value);
+          if (val >= 1 && val <= totalPages) setPage(val);
+         }}
+         className="page-input-field"
+         aria-label="Current page"
+        />
+        of {totalPages.toLocaleString()}
+       </span>
+      </div>
       <div className="btn-group">
        <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</button>
        <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
