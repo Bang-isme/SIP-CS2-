@@ -1,15 +1,14 @@
 /**
  * 220 Questions Audit - Phase 1: API Tests
- * 
- * Tests run against LIVE backend server (port 4000)
+ *
+ * Tests run against the live backend server on port 4000.
  * Requires: npm run dev to be running
- * 
+ *
  * Based on: docs/Questions_test.md
  */
 
 const BASE_URL = 'http://localhost:4000/api';
 
-// Simple fetch wrapper
 async function apiGet(path, token = null) {
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['x-access-token'] = token;
@@ -36,11 +35,18 @@ async function apiPost(path, data, token = null) {
     };
 }
 
-describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
+function getAlertEmployees(body = {}) {
+    return body.data?.employees || body.employees || [];
+}
+
+function getAlertEmployeesMeta(body = {}) {
+    return body.data?.meta || body.meta || {};
+}
+
+describe('220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
     let authToken = null;
 
     beforeAll(async () => {
-        // Login to get valid token
         try {
             const res = await apiPost('/auth/signin', {
                 email: 'test@test.com',
@@ -49,21 +55,16 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
 
             if (res.status === 200 && res.body.token) {
                 authToken = res.body.token;
-                console.log('✓ Logged in successfully');
+                console.log('Logged in successfully');
             } else {
-                console.log('⚠️ Login failed:', res.body.message);
+                console.log('Login failed:', res.body.message);
             }
         } catch (e) {
-            console.log('⚠️ Login error:', e.message);
+            console.log('Login error:', e.message);
         }
     }, 15000);
 
-    // ============================================
-    // SECTION 1: FUNCTIONAL / BUSINESS LOGIC (Q31-Q70)
-    // ============================================
-
-    describe('🔧 FUNCTIONAL / BUSINESS LOGIC (Q31-Q70)', () => {
-
+    describe('FUNCTIONAL / BUSINESS LOGIC (Q31-Q70)', () => {
         test('Q31: Drill-down returns employee fields (id, name)', async () => {
             const res = await apiGet('/dashboard/drilldown?page=1&limit=5', authToken);
 
@@ -78,7 +79,7 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
 
             expect(res.status).toBe(200);
             if (res.body.data && res.body.data.length > 0) {
-                res.body.data.forEach(emp => {
+                res.body.data.forEach((emp) => {
                     if (emp.gender) expect(emp.gender).toBe('Female');
                 });
             }
@@ -103,10 +104,11 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
 
         test('Q36: Anniversary employees within threshold', async () => {
             const res = await apiGet('/alerts/anniversary/employees?page=1&limit=10', authToken);
+            const employees = getAlertEmployees(res.body);
 
             expect(res.status).toBe(200);
-            if (res.body.employees && res.body.employees.length > 0) {
-                res.body.employees.forEach(emp => {
+            if (employees.length > 0) {
+                employees.forEach((emp) => {
                     expect(emp.daysUntil).toBeLessThanOrEqual(30);
                 });
             }
@@ -116,7 +118,7 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
             const res = await apiGet('/alerts', authToken);
 
             expect(res.status).toBe(200);
-            const vacation = res.body.data?.find(a => a.type === 'vacation');
+            const vacation = res.body.data?.find((alert) => alert.type === 'vacation');
             if (vacation) {
                 expect(vacation).toHaveProperty('threshold');
             }
@@ -150,20 +152,22 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
 
         test('Q45: Alert employees have valid IDs', async () => {
             const res = await apiGet('/alerts/anniversary/employees?page=1&limit=5', authToken);
+            const employees = getAlertEmployees(res.body);
 
             expect(res.status).toBe(200);
-            if (res.body.employees && res.body.employees.length > 0) {
-                expect(res.body.employees[0].employeeId).toBeDefined();
+            if (employees.length > 0) {
+                expect(employees[0].employeeId).toBeDefined();
             }
         });
 
         test('Q47: Pagination totalPages correct', async () => {
             const res = await apiGet('/alerts/anniversary/employees?page=1&limit=50', authToken);
+            const meta = getAlertEmployeesMeta(res.body);
 
             expect(res.status).toBe(200);
-            if (res.body.total && res.body.limit) {
-                const expected = Math.ceil(res.body.total / res.body.limit);
-                expect(res.body.totalPages).toBe(expected);
+            if (meta.total && meta.limit) {
+                const expected = Math.ceil(meta.total / meta.limit);
+                expect(meta.totalPages).toBe(expected);
             }
         });
 
@@ -183,12 +187,7 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
         });
     });
 
-    // ============================================
-    // SECTION 2: DATA ACCURACY (Q71-Q110)
-    // ============================================
-
-    describe('📊 DATA ACCURACY (Q71-Q110)', () => {
-
+    describe('DATA ACCURACY (Q71-Q110)', () => {
         test('Q71: Summary totals are numeric', async () => {
             const res = await apiGet('/dashboard/earnings', authToken);
 
@@ -249,12 +248,12 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
             const triggered = await apiGet('/alerts/triggered', authToken);
 
             expect(triggered.status).toBe(200);
-
             if (triggered.body.data?.length > 0) {
-                const anniv = triggered.body.data.find(a => a.alert?.type === 'anniversary');
+                const anniv = triggered.body.data.find((alert) => alert.alert?.type === 'anniversary');
                 if (anniv) {
                     const emps = await apiGet('/alerts/anniversary/employees?page=1&limit=1', authToken);
-                    expect(anniv.count).toBe(emps.body.total);
+                    const meta = getAlertEmployeesMeta(emps.body);
+                    expect(anniv.count).toBe(meta.total);
                 }
             }
         });
@@ -277,7 +276,6 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
-            // API returns array of department names (strings)
             if (res.body.data && Array.isArray(res.body.data)) {
                 expect(res.body.data.length).toBeGreaterThan(0);
                 expect(typeof res.body.data[0]).toBe('string');
@@ -291,20 +289,16 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
 
         test('Q105: Vacation alerts have days', async () => {
             const res = await apiGet('/alerts/vacation/employees?page=1&limit=10', authToken);
+            const employees = getAlertEmployees(res.body);
 
             expect(res.status).toBe(200);
-            if (res.body.employees?.length > 0) {
-                expect(res.body.employees[0].vacationDays).toBeGreaterThan(0);
+            if (employees.length > 0) {
+                expect(employees[0].vacationDays).toBeGreaterThan(0);
             }
         });
     });
 
-    // ============================================
-    // SECTION 3: ALERTS (Q181-Q200)
-    // ============================================
-
-    describe('🔔 ALERTS (Q181-Q200)', () => {
-
+    describe('ALERTS (Q181-Q200)', () => {
         test('Q182: Alerts have thresholds', async () => {
             const res = await apiGet('/alerts', authToken);
 
@@ -328,7 +322,7 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
             const res = await apiGet('/alerts', authToken);
 
             expect(res.status).toBe(200);
-            res.body.data?.forEach(alert => {
+            res.body.data?.forEach((alert) => {
                 expect(validTypes).toContain(alert.type);
             });
         });
@@ -355,27 +349,26 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
             expect(res.status).toBe(200);
 
             const activeByType = {};
-            res.body.data?.forEach(alert => {
+            res.body.data?.forEach((alert) => {
                 if (alert.isActive) {
                     activeByType[alert.type] = (activeByType[alert.type] || 0) + 1;
                 }
             });
 
-            Object.values(activeByType).forEach(count => {
+            Object.values(activeByType).forEach((count) => {
                 expect(count).toBe(1);
             });
         });
     });
 
-    // ============================================
-    // SECTION 4: PERFORMANCE (Q111-Q130)
-    // ============================================
-
-    describe('⚡ PERFORMANCE (Q111-Q130)', () => {
-
+    describe('PERFORMANCE (Q111-Q130)', () => {
         test('Q111: Dashboard endpoints < 5s', async () => {
-            // Note: /dashboard/summary endpoint does not exist, using available endpoints
-            const endpoints = ['/dashboard/earnings', '/dashboard/vacation', '/dashboard/benefits'];
+            const endpoints = [
+                '/dashboard/earnings',
+                '/dashboard/vacation',
+                '/dashboard/benefits',
+                '/dashboard/executive-brief?year=2026'
+            ];
 
             for (const ep of endpoints) {
                 const start = Date.now();
@@ -398,7 +391,6 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
             const res = await apiGet('/dashboard/drilldown?search=John&page=1&limit=20', authToken);
 
             expect(res.status).toBe(200);
-            // Relaxed for large dataset - should optimize search indexes
             expect(Date.now() - start).toBeLessThan(2000);
         });
 
@@ -411,31 +403,26 @@ describe('📋 220 QUESTIONS AUDIT - PHASE 1: API TESTS', () => {
         });
     });
 
-    // ============================================
-    // SECTION 5: SECURITY (Q151-Q160)
-    // ============================================
-
-    describe('🔒 SECURITY (Q151-Q160)', () => {
-
+    describe('SECURITY (Q151-Q160)', () => {
         test('Q151: Protected endpoints require auth', async () => {
-            const res = await apiGet('/dashboard/summary');
+            const res = await apiGet('/dashboard/executive-brief?year=2026');
             expect(res.status).toBe(403);
         });
 
-        // ⚠️ SECURITY GAP: Password hash exposed - needs fix in User controller
         test('Q152: Password not exposed in users', async () => {
-            const res = await apiGet('/users');
+            const res = await apiGet('/users', authToken);
 
-            if (res.status === 200 && res.body.data) {
-                // Document security gap: passwords ARE currently exposed
-                // TODO: Add { password: 0 } projection to /api/users endpoint
-                const hasPasswordExposed = res.body.data.some(u => u.password !== undefined);
-                if (hasPasswordExposed) {
-                    console.warn('⚠️ SECURITY GAP: Password hashes exposed in /api/users');
-                }
-                // Test passes but logs warning - this is a known gap
-                expect(res.status).toBe(200);
+            expect([200, 403]).toContain(res.status);
+
+            if (res.status === 200 && Array.isArray(res.body.data)) {
+                res.body.data.forEach((user) => {
+                    expect(user).not.toHaveProperty('password');
+                    expect(user).not.toHaveProperty('tokens');
+                });
+                return;
             }
+
+            expect(String(res.body.message || '')).toMatch(/Admin|token/i);
         });
 
         test('Q158: Invalid routes return 404', async () => {

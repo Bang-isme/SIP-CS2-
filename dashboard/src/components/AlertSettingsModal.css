@@ -11,7 +11,7 @@
 }
 
 .alert-settings-card {
-  width: min(1180px, 100%);
+  width: min(1120px, 100%);
   max-height: min(90vh, 860px);
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
@@ -27,7 +27,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 18px;
+  padding: 18px 20px;
   border-bottom: 1px solid var(--color-border);
   background:
     linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(79, 70, 229, 0) 48%),
@@ -119,9 +119,9 @@
 .alert-settings-summary {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   flex-wrap: wrap;
-  padding: 10px 18px;
+  padding: 11px 20px;
   border-bottom: 1px solid var(--color-border);
   background: #fafcff;
   font-size: var(--font-size-xs);
@@ -143,7 +143,7 @@
 }
 
 .alert-settings-inline-message {
-  margin: 12px 18px 0;
+  margin: 12px 20px 0;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   padding: 10px 12px;
@@ -165,9 +165,9 @@
 
 .alert-settings-layout {
   display: grid;
-  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px 18px 18px;
+  grid-template-columns: minmax(216px, 252px) minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px 20px 20px;
   min-height: 0;
   overflow: hidden;
 }
@@ -185,12 +185,12 @@
   border: 1px solid #dce5f8;
   border-radius: 14px;
   background: #ffffff;
-  padding: 12px 13px;
+  padding: 10px 12px;
   text-align: left;
   cursor: pointer;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 9px;
   transition: all var(--duration-fast) var(--ease-out);
 }
 
@@ -223,8 +223,8 @@
 }
 
 .alert-settings-nav-icon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 10px;
   display: inline-flex;
   align-items: center;
@@ -261,14 +261,14 @@
 }
 
 .alert-settings-nav-title {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 800;
   color: #0f172a;
 }
 
 .alert-settings-nav-meta,
 .alert-settings-nav-submeta {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   color: #64748b;
   font-family: var(--font-family-mono);
 }
@@ -298,13 +298,13 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px;
+  padding: 16px 18px;
   border-bottom: 1px solid #e4ebfb;
 }
 
 .alert-settings-editor-head h3 {
   margin: 0;
-  font-size: 1.22rem;
+  font-size: 1.14rem;
   color: #111827;
   letter-spacing: -0.02em;
 }
@@ -357,8 +357,8 @@
 .alert-settings-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px 18px;
 }
 
 .alert-settings-field {
@@ -416,7 +416,7 @@
 }
 
 .alert-settings-toggle-row {
-  padding: 0 18px 18px;
+  padding: 0 18px 16px;
 }
 
 .alert-settings-toggle {

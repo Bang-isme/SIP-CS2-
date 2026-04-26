@@ -9,6 +9,7 @@ const alertEmployeeCountMock = jest.fn();
 const alertEmployeeFindAllMock = jest.fn();
 const alertsSummaryFindAllMock = jest.fn();
 const alertsSummaryFindOneMock = jest.fn();
+const sqlQueryMock = jest.fn();
 const cacheGetMock = jest.fn();
 const cacheSetMock = jest.fn();
 const cacheClearMock = jest.fn();
@@ -56,8 +57,12 @@ jest.unstable_mockModule("../models/sql/index.js", () => ({
   AlertEmployee: {
     count: alertEmployeeCountMock,
     findAll: alertEmployeeFindAllMock,
+    getTableName: jest.fn(() => "alert_employees"),
   },
   EmployeeBenefit: {},
+  sequelize: {
+    query: sqlQueryMock,
+  },
 }));
 
 jest.unstable_mockModule("../utils/cache.js", () => ({

@@ -1,82 +1,122 @@
 # Codebase Audit - CEO Memo + Case Study 1-5
 
-> Updated: 2026-03-19  
+> Updated: 2026-04-22
 > Scope: `SIP_CS` codebase (backend, dashboard frontend, scripts, docs)
 
-## 1) Muc tieu audit
-Tai lieu nay xac nhan:
-- He thong hien tai da dap ung den dau so voi CEO Memo.
-- Muc do hoan thanh thuc te cua Case Study 1-5.
-- Cac gap con lai (uu tien cao) de lam tiep dung huong.
+## 1. Audit Objective
 
-## 2) Nhu cau chinh cua stakeholder (Vision)
-| Nhu cau | Uu tien | Moi quan tam | Giai phap hien tai | Giai phap de xuat | Trang thai codebase |
-|---|---|---|---|---|---|
-| Tich hop thong tin HR + Payroll | High | Du lieu phan manh | Thu thap thu cong | Dashboard tich hop | Dat (Case 2) |
-| Ho tro quyet dinh kip thoi | High | Truy cap thong tin cham | Bao cao ad-hoc thu cong | Summary gan real-time | Dat mot phan (batch + cache, chua realtime event-stream full) |
-| Quan ly bang ngoai le | High | Phat hien qua muon | Kiem tra thu cong | Alert tu dong | Dat (4 alert types) |
-| Drill-down chi tiet | Medium | Thieu chi tiet sau summary | Dieu tra tay | Drill-down tuong tac | Dat |
-| Giam gian doan hoat dong HR/Payroll | Medium | Bao cao tay ton cong | Report thu cong | Tong hop tu dong | Dat (batch script + summary tables) |
+This document records:
 
-## 3) Kha nang dashboard va doi chieu CEO Memo
-| Yeu cau CEO Memo | Bang chung code | Ket qua |
-|---|---|---|
-| Tong earnings theo shareholder/gender/ethnicity/PT-FT/department (current + previous) | `src/controllers/dashboard.controller.js`, `scripts/aggregate-dashboard.js` | Dat |
-| Tong vacation days theo cung phan loai (current + previous) | `src/controllers/dashboard.controller.js`, `scripts/aggregate-dashboard.js` | Dat |
-| Average benefits theo plan + shareholder status | `src/controllers/dashboard.controller.js`, `scripts/aggregate-dashboard.js` | Dat |
-| Alerts: anniversary / high vacation / benefits change / birthday month | `src/controllers/alerts.controller.js`, `scripts/aggregate-dashboard.js` | Dat |
-| Drill-down tu summary den detail records | `src/controllers/dashboard.controller.js`, `dashboard/src/components/DrilldownModal.jsx` | Dat |
-| Ad-hoc query "earning > X by department" | `GET /api/dashboard/drilldown?minEarnings=...` + UI filter | Dat mot phan (numeric filter, khong phai natural language query) |
-| Khong thay legacy, neu thay thi estimate effort | Summary tables + outbox la mo rong, khong alter quy trinh legacy cot loi | Dat |
+- how far the current codebase satisfies the CEO Memo
+- the real completion level of Case Study 1-5
+- the remaining gaps that still matter for demo defense
 
-## 4) Trang thai Case Study 1-5 (thuc te)
-| Case | Muc tieu | Trang thai | Bang chung |
+---
+
+## 2. Stakeholder Need Summary
+
+| Need | Priority | Concern | Current approach | Status |
+|---|---|---|---|---|
+| Integrate HR + Payroll information | High | Data is fragmented | Multi-service integration with reporting layer | Achieved |
+| Timely decision support | High | Access is slow and scattered | Pre-aggregated dashboard + alerts + drilldown | Achieved with freshness model, not realtime streaming |
+| Manage by exception | High | Important issues are found too late | Alert categories + ownership + follow-up | Achieved |
+| Drill into details | Medium | Summary alone is not enough | Drilldown and CSV export | Achieved |
+| Reduce HR/Payroll operating friction | Medium | Manual reconciliation is expensive | SA source system + Payroll evidence + reporting layer | Achieved for coursework scope |
+
+---
+
+## 2.5 Completion Snapshot (2026-04-22)
+
+| Area | Completion | Confidence | Why this score is fair |
 |---|---|---|---|
-| Case 1 - Proposal | 2 phuong an + lifecycle + problem/solution framing | Da co docs | `docs/case_study_1_proposal.md` |
-| Case 2 - Dashboard | Presentation-style integration + alerts + drilldown | Hoan thanh | `dashboard/*`, `src/controllers/dashboard.controller.js`, `src/controllers/alerts.controller.js` |
-| Case 3 - Integrated System | Data entered once + consistency strategy | Dat muc implementation practical theo eventual consistency, khong claim full ACID | `src/services/syncService.js`, `src/models/sql/SyncLog.js`, `src/routes/sync.routes.js` |
-| Case 4 - Fully Integrated | Middleware-centric integration | Hoan thanh mot phan (Outbox + Worker + monitor API/UI + stale-processing recovery) | `src/services/integrationEventService.js`, `src/workers/integrationEventWorker.js`, `src/routes/integration.routes.js`, `dashboard/src/components/IntegrationEventsPanel.jsx` |
-| Case 5 - Network Integration | Network, backup/recovery, security | Design complete, implementation pending | `docs/case_study_5_network_dr_security.md`, `docs/templates/*`, `scripts/dr-rehearsal-safe.js` |
+| CEO Memo overall | 94% | High | All core asks are visible in running code and current verification gates, and the dashboard now explains freshness, readiness, and parity more credibly. It is still refresh-based and pre-aggregated rather than truly realtime. |
+| Case 1 | 96% | High | Proposal quality is reinforced by the actual runtime split (`SA`, `Payroll`, `Dashboard`) and by the operational uplift that now matches that architecture in practice. |
+| Case 2 | 95% | High | Dashboard, alerts, drilldown, export, readiness, and freshness semantics are now strong enough to feel production-near for coursework scope; the main remaining gap is no realtime streaming/push model. |
+| Case 3 | 94% | High | Separate source and downstream systems are running and verifiable end-to-end via `npm run verify:case3`, with visible reconciliation and sync-lifecycle evidence rather than only backend semantics. |
+| Case 4 | 88% | High | The repo has real middleware-lite behavior: outbox, worker, retry, replay, recover, operator metrics, reconciliation, and auditability. It is still not a broker-backed integration platform or full enterprise middleware stack. |
 
-## 5) Phan tich ky thuat quan trong
-### 5.1 Nhung diem dang dung huong
-- Dung "presentation-style integration" cho dashboard (dung yeu cau CEO + Case 2).
-- Pre-aggregation + cache giai quyet van de toc do khi data lon.
-- Drilldown co bulk mode, fast/full summary mode va export stream.
-- Alert architecture tach summary va detail (`alerts_summary` + `alert_employees`) de scale.
-- `benefits_change` da duoc nang cap tu "recent change" thanh payroll-impact alert co explainable metadata (plan, paid amount, effective date, change date).
-- Case 4 da co outbox + worker + retry/dead handling, co monitor API + UI.
+### Gate Evidence Used For This Re-score
 
-### 5.2 Gap can uu tien tiep
-1. Case 4 chua co message broker thuc te (Kafka/RabbitMQ) va observability production-grade.  
-   - Hien tai la middleware-lite bang DB outbox + polling worker.
-2. Case 5 moi dung o muc docs/template, chua co trien khai network/DR/security thuc te.
-3. Ad-hoc query chua co lop query builder business-level (natural language / saved queries).
-4. Quy trinh van hanh batch can duoc "scheduler hoa" ro rang trong deployment (hien dang script-run).
+- `npm run verify:backend` -> pass on `2026-04-22`
+- `npm --prefix dashboard run verify:frontend` -> pass on `2026-04-22`
+- `npm run verify:case3` -> pass on `2026-04-22`
 
-## 6) Danh sach hanh dong de lam cho "chuan va an diem"
-### Priority 1 (khong lech pham vi mon hoc)
-- Chot "Operational Runbook" bat buoc:
-  - daily batch,
-  - post-import checks,
-  - health checks,
-  - drilldown smoke tests.
-- Dong bo toan bo docs tracking theo audit nay.
+---
 
-### Priority 2 (Case 4 depth)
-- Bo sung metrics can ban cho outbox:
-  - pending count,
-  - failed/dead count,
-  - retry success rate,
-  - oldest pending age.
-- Hien thi trong Integration panel de demo "manage-by-exception" cho tich hop.
+## 3. CEO Memo Coverage
 
-### Priority 3 (Case 5 defensible)
-- Chay rehearsal DR an toan dinh ky (script da co).
-- Luu evidence file vao `Memory/DR/` + ket luan pass/fail theo checklist.
+| CEO Memo ask | Evidence | Result |
+|---|---|---|
+| Earnings by shareholder, gender, ethnicity, employment type, department | `src/controllers/dashboard.controller.js`, `scripts/aggregate-dashboard.js` | Achieved |
+| Vacation totals across the same dimensions | `src/controllers/dashboard.controller.js`, `scripts/aggregate-dashboard.js` | Achieved |
+| Benefits averages and plan context | `src/controllers/dashboard.controller.js`, `scripts/aggregate-dashboard.js` | Achieved |
+| Alerts: anniversary, vacation, benefits change, birthday | `src/controllers/alerts.controller.js`, `scripts/aggregate-dashboard.js` | Achieved |
+| Drilldown from summary to detail | `src/controllers/dashboard.controller.js`, `dashboard/src/components/DrilldownModal.jsx` | Achieved |
+| Practical ad-hoc query such as `earnings > X by department` | dashboard drilldown filters + UI presets | Achieved for coursework scope, but still filter-driven rather than open text analytics |
+| Keep legacy systems recognizable | service boundaries and read models layered around source/downstream systems | Achieved |
 
-## 7) Ket luan audit
-- Codebase hien tai phu hop huong CEO Memo va da dat phan lon yeu cau hoc phan.
-- Case 2 dat muc implementation manh; Case 3 dat muc implementation theo eventual consistency, khong full ACID.
-- Case 4 dat muc implementation mot phan (middleware-lite) + docs architecture.
-- Case 5 dat muc design va rehearsal-safe, chua phai production network implementation.
+---
+
+## 4. Case Study 1-5 Status
+
+| Case | Goal | Status | Evidence |
+|---|---|---|---|
+| Case 1 - Proposal | two viable options and lifecycle framing | Completed and reinforced by running architecture | `docs/case_study_1_proposal.md`, `src/sa-server.js`, `src/payroll-server.js`, `src/dashboard-server.js` |
+| Case 2 - Dashboard | presentation-style integration, alerts, drilldown | Strongest implementation area | `dashboard/*`, `src/controllers/dashboard.controller.js`, `src/controllers/alerts.controller.js`, frontend verification gate |
+| Case 3 - Integrated System | enter once, propagate with consistency story | Achieved as controlled eventual consistency | `src/sa-server.js`, `src/payroll-server.js`, `src/adapters/payroll.adapter.js`, `src/services/integrationEventService.js`, `npm run verify:case3` |
+| Case 4 - Fully Integrated | middleware-centric integration and operations | Substantial coursework implementation | `src/services/integrationEventService.js`, `src/workers/integrationEventWorker.js`, `src/routes/integration.routes.js`, `dashboard/src/components/IntegrationEventsPanel.jsx` |
+| Case 5 - Network Integration | network, backup/recovery, security | Design + rehearsal-safe evidence only | `docs/case_study_5_network_dr_security.md`, `docs/templates/*`, `scripts/dr-rehearsal-safe.js` |
+
+---
+
+## 5. Technical Direction That Is Now Correct
+
+### 5.1 What is now aligned with the coursework better
+
+- The repo is now defendable as `same repo, separate runtime systems`, not just one app with two databases.
+- `SA` is the visible source system.
+- `Payroll` is the visible downstream system.
+- `Dashboard` is the visible reporting system.
+- `SA` no longer writes payroll tables directly.
+- The active outbox now lives in MongoDB under the SA boundary.
+- Payroll owns writes to `pay_rates` and `sync_log` through an internal API.
+- Dashboard startup now prepares summary freshness and alert ownership so the executive brief can reach `Ready for Memo`.
+
+### 5.2 What still needs honest phrasing
+
+- This is not ACID across MongoDB and MySQL.
+- This is not a transactional outbox in the strict enterprise sense.
+- This is not a broker-grade middleware stack.
+- Dashboard summaries are pre-aggregated and manually refreshed; they are not live event-stream views.
+- Case 5 is not a production network rollout.
+
+---
+
+## 6. Remaining Gaps That Still Matter
+
+### Priority 1
+
+- Keep all docs consistent with the new service split and Mongo outbox ownership.
+- Keep demo scripts and evidence aligned with `Ready for Memo`, not the old stale dashboard story.
+- Keep readiness/parity/operator-action semantics aligned so UI actions never imply more than the backend actually guarantees.
+
+### Priority 2
+
+- Improve queue metrics and observability further if more depth is needed for viva.
+- Keep verifying that no doc or script still implies SQL outbox ownership.
+- Consider one final pass on operator ergonomics for `Operations` and `Manage Employees` if the team wants tighter live-demo flow, but this is now polish rather than a core architecture gap.
+
+### Priority 3
+
+- If going beyond coursework scope, move from internal HTTP to broker-grade middleware and deeper tracing.
+- If going beyond coursework scope, separate deployment artifacts more aggressively.
+
+---
+
+## 7. Audit Verdict
+
+- The codebase now fits the CEO Memo direction very well for coursework/demo defense, provided the team still says `refresh-based`, `summary-based`, and `eventual consistency` instead of over-claiming realtime behavior.
+- Case Study 2 remains the strongest area and is now closer to a production-near reporting surface because freshness, rebuild, and readiness semantics are visible in-product.
+- Case Study 3 is strong because the runtime split, write-path ownership, reconciliation, sync-evidence surface, and end-to-end verification are all visible in code and in demo flow.
+- Case Study 4 is still partial relative to enterprise expectations, but it is now strong enough to defend as a real middleware-lite integration layer with retry, replay, recovery, parity evidence, and operator trust loops.
+- Case Study 5 remains design-focused with rehearsal-safe support, not production infrastructure.

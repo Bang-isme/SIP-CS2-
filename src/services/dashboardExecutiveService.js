@@ -7,6 +7,11 @@ import {
   EarningsSummary,
   VacationSummary,
 } from "../models/sql/index.js";
+import {
+  DASHBOARD_AGGREGATION_ENABLED,
+  DASHBOARD_AGGREGATION_INTERVAL_MS,
+  DASHBOARD_FRESHNESS_THRESHOLD_MINUTES,
+} from "../config.js";
 import dashboardCache from "../utils/cache.js";
 import {
   ALERT_TYPE_META,
@@ -14,7 +19,7 @@ import {
 } from "../utils/alertDashboard.js";
 import { buildIntegrationMetricsSnapshot } from "./integrationMetricsService.js";
 
-const FRESH_THRESHOLD_MINUTES = 120;
+const FRESH_THRESHOLD_MINUTES = DASHBOARD_FRESHNESS_THRESHOLD_MINUTES;
 const QUEUE_ACTIONABLE_WARNING = 5;
 const QUEUE_ACTIONABLE_CRITICAL = 20;
 const QUEUE_PENDING_AGE_WARNING = 10;
@@ -128,6 +133,72 @@ const buildGlobalFreshness = (datasets) => {
   };
 };
 
+const buildFreshnessReadiness = ({ globalFreshness, canRebuildSummaries }) => {
+  const workerIntervalMinutes = Math.max(1, Math.round(DASHBOARD_AGGREGATION_INTERVAL_MS / 60000));
+  const baseReadiness = {
+    workerEnabled: DASHBOARD_AGGREGATION_ENABLED,
+    workerIntervalMinutes,
+    thresholdMinutes: FRESH_THRESHOLD_MINUTES,
+    lastUpdatedAt: globalFreshness?.lastUpdatedAt || null,
+  };
+
+  if (!globalFreshness) {
+    return {
+      ...baseReadiness,
+      status: "unknown",
+      label: "Unknown",
+      css: "unknown",
+      summary: "Freshness unknown",
+      note: "Check summaries",
+      detail: "The dashboard could not determine summary freshness from the current metadata.",
+      actionMode: canRebuildSummaries ? "rebuild" : "reload",
+      actionLabel: canRebuildSummaries ? "Rebuild summaries" : "Refresh data",
+    };
+  }
+
+  if (globalFreshness.unknownDatasetCount > 0) {
+    return {
+      ...baseReadiness,
+      status: "coverage_gap",
+      label: "Coverage gap",
+      css: "unknown",
+      summary: "Coverage incomplete",
+      note: canRebuildSummaries ? "Rebuild now" : "Admin rebuild",
+      detail: `${globalFreshness.unknownDatasetCount} dataset${globalFreshness.unknownDatasetCount === 1 ? "" : "s"} are missing summary rows or freshness metadata. Rebuild before using totals as memo evidence.`,
+      actionMode: canRebuildSummaries ? "rebuild" : "reload",
+      actionLabel: canRebuildSummaries ? "Rebuild summaries" : "Refresh data",
+    };
+  }
+
+  if (globalFreshness.staleDatasetCount > 0) {
+    return {
+      ...baseReadiness,
+      status: "refresh_lag",
+      label: DASHBOARD_AGGREGATION_ENABLED ? "Refresh lag" : "Manual refresh",
+      css: "stale",
+      summary: DASHBOARD_AGGREGATION_ENABLED ? "Summary refresh lag" : "Manual refresh needed",
+      note: DASHBOARD_AGGREGATION_ENABLED ? `Auto ${workerIntervalMinutes}m` : "Worker off",
+      detail: `${globalFreshness.staleDatasetCount} dataset${globalFreshness.staleDatasetCount === 1 ? "" : "s"} exceeded the ${FRESH_THRESHOLD_MINUTES}-minute freshness window. ${canRebuildSummaries ? "Rebuild now if you need current evidence." : "Ask an admin to rebuild summaries before using totals as evidence."}`,
+      actionMode: canRebuildSummaries ? "rebuild" : "reload",
+      actionLabel: canRebuildSummaries ? "Rebuild summaries" : "Refresh data",
+    };
+  }
+
+  return {
+    ...baseReadiness,
+    status: "current",
+    label: "Current",
+    css: "fresh",
+    summary: "Summaries current",
+    note: DASHBOARD_AGGREGATION_ENABLED ? `Auto ${workerIntervalMinutes}m` : "Manual only",
+    detail: DASHBOARD_AGGREGATION_ENABLED
+      ? `Core summaries are within the ${FRESH_THRESHOLD_MINUTES}-minute freshness window. Background aggregation runs every ${workerIntervalMinutes} minutes.`
+      : "Core summaries are current, but background aggregation is disabled. Use manual rebuilds to keep them current.",
+    actionMode: "reload",
+    actionLabel: "Refresh data",
+  };
+};
+
 const resolveRoleContext = async (userId) => {
   const fallback = {
     roles: [],
@@ -178,6 +249,7 @@ const buildQueueSeverity = ({ actionable = 0, oldestPendingAgeMinutes = 0 } = {}
 
 const buildActionCenter = ({
   freshness,
+  freshnessReadiness,
   alertStats,
   alertFollowUp,
   integration,
@@ -188,17 +260,17 @@ const buildActionCenter = ({
     items.push({
       key: "refresh-summary",
       tone: "warning",
-      title: "Core summary coverage is incomplete",
-      detail: `${freshness.global.unknownDatasetCount} dataset${freshness.global.unknownDatasetCount === 1 ? "" : "s"} are missing freshness metadata or pre-aggregated rows.`,
-      actionLabel: ACTION_LABELS["refresh-summary"],
+      title: "Summary coverage is incomplete",
+      detail: freshnessReadiness.detail,
+      actionLabel: freshnessReadiness.actionLabel || ACTION_LABELS["refresh-summary"],
     });
   } else if (freshness.global.staleDatasetCount > 0) {
     items.push({
       key: "refresh-summary",
       tone: "warning",
-      title: "Pre-aggregated data is stale",
-      detail: `${freshness.global.staleDatasetCount} dataset${freshness.global.staleDatasetCount === 1 ? "" : "s"} exceeded the ${FRESH_THRESHOLD_MINUTES}-minute freshness window.`,
-      actionLabel: ACTION_LABELS["refresh-summary"],
+      title: freshnessReadiness.summary,
+      detail: freshnessReadiness.detail,
+      actionLabel: freshnessReadiness.actionLabel || ACTION_LABELS["refresh-summary"],
     });
   }
 
@@ -211,25 +283,16 @@ const buildActionCenter = ({
           ? "Alert ownership still has gaps"
           : "Alert ownership needs re-review",
         detail: `${alertFollowUp.unassignedCategories} unassigned, ${alertFollowUp.staleCategories} stale across ${alertFollowUp.needsAttentionEmployees} affected employees.`,
-        actionLabel: ACTION_LABELS["review-alert-ownership"],
+          actionLabel: ACTION_LABELS["review-alert-ownership"],
+      });
+      items.push({
+        key: "review-alerts",
+        tone: "info",
+        title: "Manage-by-exception queue is active",
+        detail: `${alertStats.affected} employees are currently covered by ${alertStats.categories} active alert categories.`,
+        actionLabel: ACTION_LABELS["review-alerts"],
       });
     }
-
-    items.push({
-      key: "review-alerts",
-      tone: alertFollowUp.needsAttentionCategories > 0
-        ? "info"
-        : alertStats.affected >= 10 || alertStats.categories >= 2
-          ? "warning"
-          : "info",
-      title: alertFollowUp.needsAttentionCategories > 0
-        ? "Manage-by-exception queue is active"
-        : "Alert queue is covered by active owners",
-      detail: alertFollowUp.needsAttentionCategories > 0
-        ? `${alertStats.affected} employees are currently covered by ${alertStats.categories} active alert categories.`
-        : `All ${alertStats.categories} active alert categories have a current acknowledgement note.`,
-      actionLabel: ACTION_LABELS["review-alerts"],
-    });
   }
 
   if (integration?.accessible) {
@@ -261,7 +324,9 @@ const buildActionCenter = ({
       key: "open-earnings",
       tone: "healthy",
       title: "Dashboard is ready for executive review",
-      detail: "No core blockers detected. Use drilldown to answer follow-up questions without leaving the briefing flow.",
+      detail: alertStats.categories > 0
+        ? `No core blockers detected. All ${alertStats.categories} active alert categories have a current acknowledgement note.`
+        : "No core blockers detected. Use drilldown to answer follow-up questions without leaving the briefing flow.",
       actionLabel: ACTION_LABELS["open-earnings"],
     });
   }
@@ -335,6 +400,10 @@ export const buildExecutiveBriefSnapshot = async ({ userId, year }) => {
     },
   };
   freshness.global = buildGlobalFreshness(freshness.datasets);
+  freshness.readiness = buildFreshnessReadiness({
+    globalFreshness: freshness.global,
+    canRebuildSummaries: roleContext.canAccessIntegrationQueue,
+  });
 
   const alertFollowUp = buildAlertFollowUpSnapshot(activeAlerts, alertSummaries);
   const alertStats = {
@@ -386,6 +455,7 @@ export const buildExecutiveBriefSnapshot = async ({ userId, year }) => {
     integration,
     actionCenter: buildActionCenter({
       freshness,
+      freshnessReadiness: freshness.readiness,
       alertStats,
       alertFollowUp,
       integration,

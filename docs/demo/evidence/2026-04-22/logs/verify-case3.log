@@ -1,0 +1,512 @@
+
+> company-products-api@0.0.2 verify:case3
+> powershell -ExecutionPolicy Bypass -File scripts/verify-case3-stack.ps1
+
+Dashboard is not running.
+Payroll is not running.
+SA is not running.
+MongoDB local is not running.
+Case 3 stack stop command finished.
+MongoDB local started on 127.0.0.1:27017 (PID 27096).
+SA started on http://127.0.0.1:4000 (PID 32832).
+Payroll started on http://127.0.0.1:4100 (PID 16372).
+Dashboard started on http://127.0.0.1:4200 (PID 12068).
+Database is connected to apicompany
+MySQL (Payroll DB) connected successfully.
+{
+  "status": "ok",
+  "activeAlertTypes": [
+    "anniversary",
+    "vacation",
+    "benefits_change",
+    "birthday"
+  ],
+  "missingTriggeredTypes": [],
+  "visibleAlertTypes": [
+    "anniversary",
+    "benefits_change",
+    "birthday",
+    "vacation"
+  ],
+  "provisionedAlerts": [],
+  "provisionedBenefitDemoEmployeeId": null,
+  "preparedAlerts": [
+    {
+      "alertId": "69ced48b112920a8731c54dc",
+      "type": "anniversary",
+      "count": 40981
+    },
+    {
+      "alertId": "69ced48b112920a8731c54de",
+      "type": "benefits_change",
+      "count": 1
+    },
+    {
+      "alertId": "69ced48b112920a8731c54df",
+      "type": "birthday",
+      "count": 40959
+    },
+    {
+      "alertId": "69ced48b112920a8731c54dd",
+      "type": "vacation",
+      "count": 58283
+    }
+  ],
+  "executiveBrief": {
+    "freshness": "fresh",
+    "actionCenter": "healthy",
+    "needsAttentionCategories": 0
+  }
+}
+Case 3 stack is ready: SA (4000), Payroll (4100), Dashboard (4200).
+{
+  "status": "ok",
+  "report": {
+    "checkedAt": "2026-04-22T11:49:22.416Z",
+    "services": {
+      "sa": {
+        "alive": true,
+        "uptime": 214.2587391,
+        "version": "0.0.2",
+        "timestamp": "2026-04-22T11:49:22.451Z",
+        "requestId": "f27b7492-6ebc-4160-a546-68c966450e61",
+        "service": {
+          "key": "sa",
+          "name": "SA / HR Service"
+        }
+      },
+      "payroll": {
+        "alive": true,
+        "uptime": 211.6165874,
+        "version": "0.0.2",
+        "timestamp": "2026-04-22T11:49:22.465Z",
+        "requestId": "ee1fd2e0-6a32-4cac-bd46-71418ede4e1f",
+        "service": {
+          "key": "payroll",
+          "name": "Payroll Service"
+        }
+      },
+      "dashboard": {
+        "alive": true,
+        "uptime": 210.2782185,
+        "version": "0.0.2",
+        "timestamp": "2026-04-22T11:49:22.468Z",
+        "requestId": "e4183a69-821e-4a6d-8f68-e8a573d87b27",
+        "service": {
+          "key": "dashboard",
+          "name": "Dashboard Service"
+        }
+      }
+    },
+    "employeeId": "EMP500030",
+    "created": {
+      "status": "QUEUED",
+      "mode": "OUTBOX",
+      "consistency": "EVENTUAL",
+      "requiresAttention": false,
+      "message": "Queued",
+      "detail": "Saved in MongoDB. Payroll dispatch is queued.",
+      "correlationId": "14f223e8-fb26-4caf-bf24-39fbf6fe11da"
+    },
+    "payrollAfterCreate": {
+      "id": 500175,
+      "employeeId": "EMP500030",
+      "payRate": 41.5,
+      "payType": "HOURLY",
+      "effectiveDate": "2026-04-22",
+      "isActive": true,
+      "createdAt": "2026-04-22T11:49:24.000Z",
+      "updatedAt": "2026-04-22T11:49:24.000Z"
+    },
+    "updated": {
+      "status": "QUEUED",
+      "mode": "OUTBOX",
+      "consistency": "EVENTUAL",
+      "requiresAttention": false,
+      "message": "Queued",
+      "detail": "Saved in MongoDB. Payroll dispatch is queued.",
+      "correlationId": "700c4bff-abb5-4df5-86d0-8a82d3e412ba"
+    },
+    "payrollAfterUpdate": {
+      "id": 500176,
+      "employeeId": "EMP500030",
+      "payRate": 55,
+      "payType": "HOURLY",
+      "effectiveDate": "2026-04-22",
+      "isActive": true,
+      "createdAt": "2026-04-22T11:49:29.000Z",
+      "updatedAt": "2026-04-22T11:49:29.000Z"
+    },
+    "dashboardExecutiveBrief": {
+      "success": true,
+      "data": {
+        "access": {
+          "roles": [
+            "user",
+            "super_admin"
+          ],
+          "effectiveRole": "super_admin",
+          "canAccessIntegrationQueue": true,
+          "canManageAlerts": true
+        },
+        "freshness": {
+          "datasets": {
+            "earnings": {
+              "status": "fresh",
+              "label": "Fresh",
+              "css": "fresh",
+              "staleMinutes": 3,
+              "tooltip": "Updated 3 minutes ago.",
+              "updatedAt": "2026-04-22T11:46:35.000Z"
+            },
+            "vacation": {
+              "status": "fresh",
+              "label": "Fresh",
+              "css": "fresh",
+              "staleMinutes": 1,
+              "tooltip": "Updated 1 minute ago.",
+              "updatedAt": "2026-04-22T11:48:32.000Z"
+            },
+            "benefits": {
+              "status": "fresh",
+              "label": "Fresh",
+              "css": "fresh",
+              "staleMinutes": 0,
+              "tooltip": "Updated 0 minutes ago.",
+              "updatedAt": "2026-04-22T11:48:55.000Z"
+            }
+          },
+          "global": {
+            "status": "fresh",
+            "label": "Fresh",
+            "css": "fresh",
+            "tooltip": "All core datasets updated recently.",
+            "staleDatasetCount": 0,
+            "unknownDatasetCount": 0,
+            "lastUpdatedAt": "2026-04-22T11:48:55.000Z"
+          },
+          "readiness": {
+            "workerEnabled": true,
+            "workerIntervalMinutes": 30,
+            "thresholdMinutes": 120,
+            "lastUpdatedAt": "2026-04-22T11:48:55.000Z",
+            "status": "current",
+            "label": "Current",
+            "css": "fresh",
+            "summary": "Summaries current",
+            "note": "Auto 30m",
+            "detail": "Core summaries are within the 120-minute freshness window. Background aggregation runs every 30 minutes.",
+            "actionMode": "reload",
+            "actionLabel": "Refresh data"
+          }
+        },
+        "alerts": {
+          "stats": {
+            "categories": 4,
+            "affected": 140224,
+            "activeTypes": [
+              "vacation",
+              "benefits_change",
+              "anniversary",
+              "birthday"
+            ],
+            "highestPriorityAlert": {
+              "alertId": "69ced48b112920a8731c54dd",
+              "type": "vacation",
+              "label": "High Vacation Balance",
+              "severity": "High",
+              "severityRank": 3,
+              "status": "owned",
+              "statusRank": 1,
+              "count": 58283,
+              "detail": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+              "ownerLabel": "admin",
+              "acknowledgedAt": "2026-04-22T11:49:19.163Z",
+              "actionLabel": "Open Note",
+              "acknowledgement": {
+                "status": "current",
+                "needsReview": false,
+                "note": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                "acknowledgedAt": "2026-04-22T11:49:19.163Z",
+                "acknowledgedCount": 58283,
+                "acknowledgedSummaryAt": "2026-04-22T11:48:55.000Z",
+                "currentCount": 58283,
+                "currentSummaryAt": "2026-04-22T11:48:55.000Z",
+                "acknowledgedBy": {
+                  "_id": "6996c9fa67c296fb96d94fbb",
+                  "username": "admin",
+                  "email": "admin@localhost"
+                }
+              }
+            },
+            "largestQueue": {
+              "alertId": "69ced48b112920a8731c54dd",
+              "type": "vacation",
+              "label": "High Vacation Balance",
+              "severity": "High",
+              "severityRank": 3,
+              "status": "owned",
+              "statusRank": 1,
+              "count": 58283,
+              "detail": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+              "ownerLabel": "admin",
+              "acknowledgedAt": "2026-04-22T11:49:19.163Z",
+              "actionLabel": "Open Note",
+              "acknowledgement": {
+                "status": "current",
+                "needsReview": false,
+                "note": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                "acknowledgedAt": "2026-04-22T11:49:19.163Z",
+                "acknowledgedCount": 58283,
+                "acknowledgedSummaryAt": "2026-04-22T11:48:55.000Z",
+                "currentCount": 58283,
+                "currentSummaryAt": "2026-04-22T11:48:55.000Z",
+                "acknowledgedBy": {
+                  "_id": "6996c9fa67c296fb96d94fbb",
+                  "username": "admin",
+                  "email": "admin@localhost"
+                }
+              }
+            }
+          },
+          "followUp": {
+            "items": [
+              {
+                "alertId": "69ced48b112920a8731c54dd",
+                "type": "vacation",
+                "label": "High Vacation Balance",
+                "severity": "High",
+                "severityRank": 3,
+                "status": "owned",
+                "statusRank": 1,
+                "count": 58283,
+                "detail": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                "ownerLabel": "admin",
+                "acknowledgedAt": "2026-04-22T11:49:19.163Z",
+                "actionLabel": "Open Note",
+                "acknowledgement": {
+                  "status": "current",
+                  "needsReview": false,
+                  "note": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                  "acknowledgedAt": "2026-04-22T11:49:19.163Z",
+                  "acknowledgedCount": 58283,
+                  "acknowledgedSummaryAt": "2026-04-22T11:48:55.000Z",
+                  "currentCount": 58283,
+                  "currentSummaryAt": "2026-04-22T11:48:55.000Z",
+                  "acknowledgedBy": {
+                    "_id": "6996c9fa67c296fb96d94fbb",
+                    "username": "admin",
+                    "email": "admin@localhost"
+                  }
+                }
+              },
+              {
+                "alertId": "69ced48b112920a8731c54de",
+                "type": "benefits_change",
+                "label": "Benefits Payroll Impact",
+                "severity": "Medium",
+                "severityRank": 2,
+                "status": "owned",
+                "statusRank": 1,
+                "count": 1,
+                "detail": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                "ownerLabel": "admin",
+                "acknowledgedAt": "2026-04-22T11:49:19.141Z",
+                "actionLabel": "Open Note",
+                "acknowledgement": {
+                  "status": "current",
+                  "needsReview": false,
+                  "note": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                  "acknowledgedAt": "2026-04-22T11:49:19.141Z",
+                  "acknowledgedCount": 1,
+                  "acknowledgedSummaryAt": "2026-04-22T11:48:55.000Z",
+                  "currentCount": 1,
+                  "currentSummaryAt": "2026-04-22T11:48:55.000Z",
+                  "acknowledgedBy": {
+                    "_id": "6996c9fa67c296fb96d94fbb",
+                    "username": "admin",
+                    "email": "admin@localhost"
+                  }
+                }
+              },
+              {
+                "alertId": "69ced48b112920a8731c54dc",
+                "type": "anniversary",
+                "label": "Anniversaries",
+                "severity": "Low",
+                "severityRank": 1,
+                "status": "owned",
+                "statusRank": 1,
+                "count": 40981,
+                "detail": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                "ownerLabel": "admin",
+                "acknowledgedAt": "2026-04-22T11:49:19.124Z",
+                "actionLabel": "Open Note",
+                "acknowledgement": {
+                  "status": "current",
+                  "needsReview": false,
+                  "note": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                  "acknowledgedAt": "2026-04-22T11:49:19.124Z",
+                  "acknowledgedCount": 40981,
+                  "acknowledgedSummaryAt": "2026-04-22T11:48:55.000Z",
+                  "currentCount": 40981,
+                  "currentSummaryAt": "2026-04-22T11:48:55.000Z",
+                  "acknowledgedBy": {
+                    "_id": "6996c9fa67c296fb96d94fbb",
+                    "username": "admin",
+                    "email": "admin@localhost"
+                  }
+                }
+              },
+              {
+                "alertId": "69ced48b112920a8731c54df",
+                "type": "birthday",
+                "label": "Birthday Alert",
+                "severity": "Low",
+                "severityRank": 1,
+                "status": "owned",
+                "statusRank": 1,
+                "count": 40959,
+                "detail": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                "ownerLabel": "admin",
+                "acknowledgedAt": "2026-04-22T11:49:19.153Z",
+                "actionLabel": "Open Note",
+                "acknowledgement": {
+                  "status": "current",
+                  "needsReview": false,
+                  "note": "Demo baseline reviewed on 2026-04-22. Current alert queue has an assigned owner.",
+                  "acknowledgedAt": "2026-04-22T11:49:19.153Z",
+                  "acknowledgedCount": 40959,
+                  "acknowledgedSummaryAt": "2026-04-22T11:48:55.000Z",
+                  "currentCount": 40959,
+                  "currentSummaryAt": "2026-04-22T11:48:55.000Z",
+                  "acknowledgedBy": {
+                    "_id": "6996c9fa67c296fb96d94fbb",
+                    "username": "admin",
+                    "email": "admin@localhost"
+                  }
+                }
+              }
+            ],
+            "queue": [],
+            "queuePreview": [],
+            "needsAttentionCategories": 0,
+            "needsAttentionEmployees": 0,
+            "unassignedCategories": 0,
+            "staleCategories": 0,
+            "ownedCategories": 4
+          },
+          "typeMeta": {
+            "anniversary": {
+              "label": "Anniversaries",
+              "severity": "Low",
+              "severityRank": 1
+            },
+            "vacation": {
+              "label": "High Vacation Balance",
+              "severity": "High",
+              "severityRank": 3
+            },
+            "benefits_change": {
+              "label": "Benefits Payroll Impact",
+              "severity": "Medium",
+              "severityRank": 2
+            },
+            "birthday": {
+              "label": "Birthday Alert",
+              "severity": "Low",
+              "severityRank": 1
+            }
+          }
+        },
+        "integration": {
+          "accessible": true,
+          "severity": "healthy",
+          "metrics": {
+            "total": 163,
+            "counts": {
+              "PENDING": 0,
+              "PROCESSING": 0,
+              "SUCCESS": 163,
+              "FAILED": 0,
+              "DEAD": 0
+            },
+            "backlog": 0,
+            "actionable": 0,
+            "stuckProcessingCount": 0,
+            "healthyProcessingCount": 0,
+            "processingTimeoutMinutes": 15,
+            "oldestPendingAt": null,
+            "oldestPendingAgeMinutes": 0
+          },
+          "summaryLabel": "0 actionable / 0 backlog",
+          "error": null
+        },
+        "actionCenter": {
+          "status": "healthy",
+          "label": "Ready for Memo",
+          "headline": "Dashboard is ready for executive review.",
+          "summary": "Current aggregates, alerts, and queue signals do not show immediate blockers.",
+          "items": [
+            {
+              "key": "open-earnings",
+              "tone": "healthy",
+              "title": "Dashboard is ready for executive review",
+              "detail": "No core blockers detected. All 4 active alert categories have a current acknowledgement note.",
+              "actionLabel": "Open Earnings Drilldown"
+            }
+          ]
+        }
+      },
+      "meta": {
+        "dataset": "executiveBrief",
+        "updatedAt": null,
+        "filters": {
+          "year": 2026
+        },
+        "year": 2026,
+        "generatedAt": "2026-04-22T11:49:30.830Z",
+        "requestId": "83861ecd-a5fe-4ccc-a4e6-c489ccd2efce"
+      }
+    },
+    "deleted": {
+      "status": "QUEUED",
+      "mode": "OUTBOX",
+      "consistency": "EVENTUAL",
+      "requiresAttention": false,
+      "message": "Queued",
+      "detail": "Saved in MongoDB. Payroll dispatch is queued.",
+      "correlationId": "811e8250-cc47-40d7-99ce-e54ad63802d3"
+    },
+    "payrollAfterDelete": {
+      "id": 391,
+      "entityType": "employee",
+      "entityId": "EMP500030",
+      "action": "DELETE",
+      "status": "SUCCESS",
+      "correlationId": "811e8250-cc47-40d7-99ce-e54ad63802d3",
+      "retryCount": 0,
+      "errorMessage": null,
+      "completedAt": "2026-04-22T11:49:34.000Z",
+      "createdAt": "2026-04-22T11:49:34.000Z",
+      "updatedAt": "2026-04-22T11:49:34.000Z"
+    }
+  }
+}
+Case 3 browser auth smoke passed.
+Database is connected to apicompany
+[DemoQueue] Cleanup complete.
+Database is connected to apicompany
+[DemoQueue] Seeded scenario: warning (44 rows).
+[DemoQueue] Seeded operator audit entries: 5.
+[DemoQueue] Snapshot: { PENDING: 30, PROCESSING: 0, FAILED: 8, DEAD: 4, SUCCESS: 2 }
+[DemoQueue] backlog=38, actionable=12
+[DemoQueue] auditEntries=5
+Case 4 operations demo verification passed.
+Database is connected to apicompany
+[DemoQueue] Cleanup complete.
+Stopped Dashboard process PID 12068.
+Stopped Payroll process PID 16372.
+Stopped SA process PID 32832.
+Stopped MongoDB local process PID 27096.
+Case 3 stack stop command finished.

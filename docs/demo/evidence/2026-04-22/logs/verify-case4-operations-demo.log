@@ -1,0 +1,12 @@
+
+> company-products-api@0.0.2 verify:case4:operations-demo
+> powershell -ExecutionPolicy Bypass -File scripts/verify-case4-operations-demo.ps1
+
+[DemoQueue] Failed: MongoDB connection failed: connect ECONNREFUSED 127.0.0.1:27017
+[DemoQueue] Failed: MongoDB connection failed: connect ECONNREFUSED 127.0.0.1:27017
+Demo queue scenario 'cleanup' failed.
+At D:\SIP_CS 2\SIP_CS\scripts\verify-case4-operations-demo.ps1:20 char:7
++       throw "Demo queue scenario '$Scenario' failed."
++       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Demo queue scenario 'cleanup' failed.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Demo queue scenario 'cleanup' failed.

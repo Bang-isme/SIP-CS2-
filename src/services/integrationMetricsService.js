@@ -1,21 +1,17 @@
 import { Op } from "sequelize";
-import { IntegrationEvent } from "../models/sql/index.js";
 import { OUTBOX_PROCESSING_TIMEOUT_MS } from "../config.js";
 import { countStuckProcessingIntegrationEvents } from "./integrationEventService.js";
+import {
+  groupIntegrationEventCountsByStatus,
+  IntegrationEventStore,
+} from "../repositories/integrationStore.js";
 
 export const getProcessingTimeoutMinutes = () => {
   return Math.max(1, Math.floor(OUTBOX_PROCESSING_TIMEOUT_MS / 60000));
 };
 
 export const buildIntegrationMetricsSnapshot = async () => {
-  const grouped = await IntegrationEvent.findAll({
-    attributes: [
-      "status",
-      [IntegrationEvent.sequelize.fn("COUNT", IntegrationEvent.sequelize.col("id")), "count"],
-    ],
-    group: ["status"],
-    raw: true,
-  });
+  const grouped = await groupIntegrationEventCountsByStatus();
 
   const counts = {
     PENDING: 0,
@@ -43,11 +39,10 @@ export const buildIntegrationMetricsSnapshot = async () => {
   const actionable = counts.FAILED + counts.DEAD + stuckProcessingCount;
   const processingTimeoutMinutes = getProcessingTimeoutMinutes();
 
-  const oldestPending = await IntegrationEvent.findOne({
+  const oldestPending = await IntegrationEventStore.findOne({
     where: { status: { [Op.in]: ["PENDING", "PROCESSING", "FAILED"] } },
     attributes: ["createdAt"],
     order: [["createdAt", "ASC"]],
-    raw: true,
   });
 
   const now = Date.now();

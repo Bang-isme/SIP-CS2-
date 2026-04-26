@@ -15,8 +15,12 @@ const payrateSchema = new mongoose.Schema(
         type: Number,
         default: 0.1,
     },
-    type: Number,
-    amount: Number
+    type: {
+      type: Number,
+    },
+    amount: {
+      type: Number,
+    },
   },
   {
     timestamps: true,

@@ -110,4 +110,6 @@ AlertSchema.pre('findOneAndUpdate', async function (next) {
     next();
 });
 
+AlertSchema.index({ isActive: 1, type: 1 });
+
 export default mongoose.model("Alert", AlertSchema);

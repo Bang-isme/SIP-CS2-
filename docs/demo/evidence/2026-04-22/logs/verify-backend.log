@@ -1,0 +1,860 @@
+
+> company-products-api@0.0.2 verify:backend
+> powershell -ExecutionPolicy Bypass -File scripts/verify-backend-safe.ps1
+
+MongoDB local started on 127.0.0.1:27017 (PID 30760).
+
+> company-products-api@0.0.2 doctor:local
+> node scripts/local-runtime-doctor.js
+
+{
+  "checkedAt": "2026-04-22T11:42:32.817Z",
+  "backendBaseUrl": "http://127.0.0.1:4000",
+  "datasetTarget": 500000,
+  "mongoRuntime": {
+    "serviceInstalled": false,
+    "serviceStatus": null,
+    "autostartInstalled": true,
+    "autostartStatus": "Folder: \\\r\nHostName:                             BANGISME\r\nTaskName:                             \\SIPLocalMongoDBAutostart\r\nNext Run Time:                        N/A\r\nStatus:                               Ready\r\nLogon Mode:                           Interactive only\r\nLast Run Time:                        20/04/2026 12:15:49 CH\r\nLast Result:                          0\r\nAuthor:                               N/A\r\nTask To Run:                          C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"D:\\SIP_CS 2\\SIP_CS\\scripts\\start-local-mongo.ps1\"\r\nStart In:                             N/A\r\nComment:                              N/A\r\nScheduled Task State:                 Enabled\r\nIdle Time:                            Disabled\r\nPower Management:                     \r\nRun As User:                          tranb\r\nDelete Task If Not Rescheduled:       Disabled\r\nStop Task If Runs X Hours and X Mins: 72:00:00\r\nSchedule:                             Scheduling data is not available in this format.\r\nSchedule Type:                        At logon time\r\nStart Time:                           N/A\r\nStart Date:                           N/A\r\nEnd Date:                             N/A\r\nDays:                                 N/A\r\nMonths:                               N/A\r\nRepeat: Every:                        N/A\r\nRepeat: Until: Time:                  N/A\r\nRepeat: Until: Duration:              N/A\r\nRepeat: Stop If Still Running:        N/A"
+  },
+  "mongodb": {
+    "employees": 500006,
+    "departments": 8,
+    "users": 4,
+    "roles": 4,
+    "alerts": 4
+  },
+  "mysql": {
+    "appliedMigrationCount": 7,
+    "missingMigrations": [],
+    "missingTables": [],
+    "counts": {
+      "vacation_records": 500000,
+      "employee_benefits": 500000,
+      "pay_rates": 500174,
+      "earnings_employee_year": 849977,
+      "alerts_summary": 4,
+      "alert_employees": 140224
+    }
+  },
+  "backendHealth": {
+    "skipped": true,
+    "reason": "LOCAL_DOCTOR_SKIP_BACKEND_PROBES enabled for this run."
+  },
+  "warnings": [],
+  "blockers": [],
+  "status": "healthy"
+}
+
+> company-products-api@0.0.2 lint
+> npm run lint:syntax && npm run lint:static
+
+
+> company-products-api@0.0.2 lint:syntax
+> node scripts/lint-backend.js
+
+Backend lint passed. Checked 203 JavaScript files.
+
+> company-products-api@0.0.2 lint:static
+> eslint src scripts tests jest.config.js --max-warnings=0
+
+
+> company-products-api@0.0.2 test
+> npm run test:unit && npm run test:integration
+
+
+> company-products-api@0.0.2 test:unit
+> node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.js --runInBand
+
+(node:25060) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/__tests__/employee.routes.authz.test.js
+  Employee routes authz hardening
+    √ should reject anonymous create request (31 ms)
+    √ should reject non-admin create request (5 ms)
+    √ should reject admin create request (4 ms)
+    √ should reject non-admin update request (4 ms)
+    √ should allow super admin update request (5 ms)
+    √ should allow super admin create request (5 ms)
+    √ should reject normal user access to employee sync evidence (4 ms)
+    √ should allow super admin access to employee sync evidence (3 ms)
+
+  console.error
+    {"timestamp":"2026-04-22T11:42:48.833Z","level":"ERROR","context":"App","message":"synthetic failure","data":{"requestId":"req-app-error-1","method":"GET","path":"/boom","actorId":null,"statusCode":500,"code":"INTERNAL_SERVER_ERROR"},"error":{"message":"synthetic failure","stack":"Error: synthetic failure\n    at D:\\SIP_CS 2\\SIP_CS\\src\\__tests__\\app.error-contract.test.js:27:51\n    at Layer.handle [as handle_request] (D:\\SIP_CS 2\\SIP_CS\\node_modules\\express\\lib\\router\\layer.js:95:5)\n    at next (D:\\SIP_CS 2\\SIP_CS\\node_modules\\express\\lib\\router\\route.js:149:13)\n    at Route.dispatch (D:\\SIP_CS 2\\SIP_CS\\node_modules\\express\\lib\\router\\route.js:119:3)\n    at Layer.handle [as handle_request] (D:\\SIP_CS 2\\SIP_CS\\node_modules\\express\\lib\\router\\layer.js:95:5)\n    at D:\\SIP_CS 2\\SIP_CS\\node_modules\\express\\lib\\router\\index.js:284:15\n    at Function.process_params (D:\\SIP_CS 2\\SIP_CS\\node_modules\\express\\lib\\router\\index.js:346:12)\n    at next (D:\\SIP_CS 2\\SIP_CS\\node_modules\\express\\lib\\router\\index.js:280:10)\n    at attachRequestContext (D:\\SIP_CS 2\\SIP_CS\\src\\middlewares\\requestContext.js:21:3)\n    at Layer.handle [as handle_request] (D:\\SIP_CS 2\\SIP_CS\\node_modules\\express\\lib\\router\\layer.js:95:5)"}}
+
+    [0m [90m 80 |[39m                 }[33m;[39m
+     [90m 81 |[39m             }
+    [31m[1m>[22m[39m[90m 82 |[39m             console[33m.[39merror([33mJSON[39m[33m.[39mstringify(logEntry))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 83 |[39m         }
+     [90m 84 |[39m     }[33m,[39m
+     [90m 85 |[39m }[33m;[39m[0m
+
+      at Object.error (src/utils/logger.js:82:21)
+      at respondWithApiError (src/utils/apiErrors.js:163:12)
+      at apiErrorHandler (src/middlewares/errorHandler.js:15:10)
+      at Layer.handle_error (node_modules/express/lib/router/layer.js:71:5)
+      at trim_prefix (node_modules/express/lib/router/index.js:326:13)
+      at node_modules/express/lib/router/index.js:286:9
+      at Function.process_params (node_modules/express/lib/router/index.js:346:12)
+
+PASS src/__tests__/app.error-contract.test.js
+  app error contract
+    √ unknown API route returns canonical 404 envelope (14 ms)
+    √ fallback app error handler returns canonical 500 envelope (18 ms)
+
+PASS src/__tests__/users.contract.test.js
+  Users contract
+    √ should reject mixed valid+invalid roles instead of silently ignoring invalid entries (22 ms)
+    √ should reject invalid Mongo user ids with 422 (4 ms)
+
+PASS src/__tests__/service.apps.test.js
+  service app boundaries
+    √ SA app exposes source-system routes only and serves a service landing page (27 ms)
+    √ Payroll app exposes payroll config and blocks unrelated source routes (17 ms)
+    √ Dashboard app exposes reporting routes and does not own auth routes (15 ms)
+
+PASS src/__tests__/users.promote-admin.test.js
+  Admin role management endpoints
+    √ should add admin role when called by super admin token (14 ms)
+    √ should reject promote request without token (5 ms)
+    √ should reject promote request from non-super-admin token (4 ms)
+    √ should demote admin role when called by super admin token (4 ms)
+    √ should reject demoting root admin account (4 ms)
+    √ should reject self-demotion (3 ms)
+    √ should reject demote when target user is not admin (3 ms)
+
+PASS src/__tests__/health.test.js
+  Health Endpoints
+    GET /api/health/live
+      √ should return alive status (14 ms)
+    GET /api/health
+      √ should return health status with services (43 ms)
+  API Base
+    GET /api
+      √ should return welcome message (3 ms)
+
+PASS src/__tests__/auth.logout.contract.test.js
+  Auth logout contract
+    √ should revoke current token via canonical POST /api/auth/logout (30 ms)
+    √ should keep deprecated GET /api/auth/logout alias working (5 ms)
+
+PASS src/__tests__/rateLimit.middleware.test.js
+  Rate limit middleware
+    √ rate limits repeated sign-in attempts and returns contract-style 429 responses (51 ms)
+
+PASS src/__tests__/auth.signup.contract.test.js
+  Auth signup contract
+    √ should accept signup payload and assign default user role (28 ms)
+    √ should ignore roles=[admin] from request and still assign user role (5 ms)
+    √ should reject passwords shorter than 8 characters (4 ms)
+    √ should reject overly permissive email formats before persistence (3 ms)
+    √ should reject non-array roles before reaching controller logic (3 ms)
+    √ should reject unknown roles with the canonical validation envelope (4 ms)
+
+PASS src/__tests__/demo.evidence.pack.contract.test.js
+  demo evidence pack builder contract
+    √ package.json exposes a one-command evidence builder (3 ms)
+    √ builder script runs verification gates, prepares demo data, and writes a dated pack (7 ms)
+
+PASS src/__tests__/contracts.routes.test.js
+  contracts routes
+    √ GET /api/contracts/openapi.json returns backend-owned OpenAPI spec (20 ms)
+    √ sync log path in OpenAPI spec exposes correlation filter and validation response (6 ms)
+    √ auth signin schema documents identifier-or-email-or-username contract (5 ms)
+    √ auth refresh schema documents refresh token rotation contract (4 ms)
+    √ generic error envelope exposes machine-readable code field (5 ms)
+    √ products paths are documented in the backend-owned OpenAPI bundle (4 ms)
+    √ employee paths document admin search and editor options helpers (5 ms)
+    √ GET /api/contracts/docs redirects to the trailing-slash Swagger UI route (3 ms)
+    √ GET /api/contracts/docs/ returns local Swagger UI HTML bound to backend OpenAPI (5 ms)
+    √ GET /api/contracts/docs/swagger-initializer.js bootstraps Swagger UI against local OpenAPI JSON (3 ms)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:42:58.250Z","level":"WARN","context":"AuthController","message":"Mongo quota reached: rejecting signin because token persistence is unavailable and stateless fallback is disabled","data":{"requestId":"ee3bc6ab-eef0-4bcf-8e05-8c3caa3d22f9","method":"POST","path":"/api/auth/signin","actorId":"507f1f77bcf86cd799439011"}}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at signinHandler (src/controllers/auth.controller.js:276:16)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:42:58.265Z","level":"WARN","context":"AuthController","message":"Mongo quota reached: continuing signin in stateless fallback mode","data":{"requestId":"4e17f731-df8f-4dc4-ba68-f1fef730eeae","method":"POST","path":"/api/auth/signin","actorId":"507f1f77bcf86cd799439011"}}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at signinHandler (src/controllers/auth.controller.js:296:14)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:42:58.281Z","level":"WARN","context":"AuthController","message":"Mongo quota reached: rejecting signin because token persistence is unavailable and stateless fallback is disabled"}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at signinHandler (src/controllers/auth.controller.js:276:16)
+
+PASS src/__tests__/auth.signin.security.test.js
+  Auth Signin Response - Security Guardrails
+    √ should return sanitized user data on sign in (33 ms)
+    √ should return 401 for invalid password (8 ms)
+    √ should return 422 when identifier is missing (40 ms)
+    √ should return 503 when token persistence is unavailable and stateless fallback is disabled (12 ms)
+    √ should continue signin in stateless fallback mode when explicitly enabled (13 ms)
+    √ should keep stateless fallback disabled in production mode (17 ms)
+
+PASS src/__tests__/users.security.test.js
+  Users Endpoint - Security Guardrails
+    √ should reject anonymous requests to GET /api/users (21 ms)
+    √ should reject non-admin requests to GET /api/users (8 ms)
+    √ should return redacted users for admin requests (10 ms)
+
+PASS src/__tests__/dashboard.test.js
+  Dashboard Endpoints - Auth Guard
+    √ should reject anonymous request: /api/dashboard/executive-brief?year=2025 (23 ms)
+    √ should reject anonymous request: /api/dashboard/earnings?year=2025 (8 ms)
+    √ should reject anonymous request: /api/dashboard/vacation?year=2025 (6 ms)
+    √ should reject anonymous request: /api/dashboard/benefits (6 ms)
+    √ should reject anonymous request: /api/dashboard/drilldown?page=1&limit=5 (6 ms)
+    √ should reject anonymous request: /api/dashboard/departments (6 ms)
+  Alerts Endpoints - Auth Guard
+    √ should reject anonymous request for triggered alerts (5 ms)
+  Request tracing
+    √ should echo inbound x-request-id on auth errors (5 ms)
+    √ should generate x-request-id when client does not provide one (6 ms)
+
+PASS src/__tests__/auth.refresh.contract.test.js
+  Auth refresh contract
+    √ rotates refresh cookie and returns a new access token (22 ms)
+    √ refresh rotates only the current session and preserves unrelated sessions (8 ms)
+    √ rejects missing refresh token (5 ms)
+    √ reports that no browser session can be restored when the refresh cookie is missing (4 ms)
+    √ reports that browser session restore is available when the refresh cookie exists (4 ms)
+    √ rejects revoked refresh token (10 ms)
+    √ clears refresh cookie when the JWT itself is invalid (4 ms)
+    √ treats refresh sessions for missing users as invalid refresh auth (5 ms)
+
+PASS src/__tests__/questions.audit.contract.test.js
+  advanced questions audit contract
+    √ questions audit targets the live dashboard and user contracts that still exist (2 ms)
+
+PASS src/__tests__/runtime.hardening.contract.test.js
+  runtime hardening contracts
+    √ app uses env-driven CORS allowlist (2 ms)
+    √ mysql readiness reports migrationRequired=false once schema is ready (1 ms)
+    √ startup registers graceful shutdown hooks for workers and server (6 ms)
+    √ dashboard aggregation worker stops active child processes
+    √ integration event worker waits briefly for an active iteration during shutdown
+    √ user comparePassword fails closed and token schema is structured (1 ms)
+    √ auth fallback stays limited to development-like environments and explicit demo mode
+    √ auth controller and auth guard share session-token lifecycle helpers
+    √ auth seed requires an explicit admin password outside development/test
+    √ production auth config requires a distinct refresh secret and secure cookies
+    √ .env.example documents runtime compatibility and security env vars (2 ms)
+    √ drilldown export uses a runtime batch-size knob instead of an inline magic number
+    √ manual sync retry limit is configurable instead of hardcoded
+    √ auth session token helpers use a runtime session cap instead of a hardcoded limit
+
+PASS src/__tests__/auth.profile.test.js
+  Auth Profile Endpoint - /api/auth/me
+    √ should reject anonymous request for /api/auth/me (17 ms)
+    √ should return sanitized user profile with roles (8 ms)
+
+PASS src/__tests__/cache.util.test.js
+  dashboard cache util
+    √ expires entries by TTL and removes them on read (4 ms)
+    √ evicts the oldest entry once max size is exceeded while preserving recently used keys (2 ms)
+    √ background sweep prunes expired entries without requiring another cache read (35 ms)
+
+PASS src/__tests__/dashboard.summary-scope.contract.test.js
+  dashboard summary scope schema contract
+    √ earnings and vacation summaries expose scope fields in their schema (5 ms)
+    √ benefits summary exposes scope fields in its schema (1 ms)
+    √ mysql migration wiring registers the dashboard summary scope migration (3 ms)
+  dashboard aggregation scoped row contract
+    √ aggregation writes only company-scoped rows by default so current readers stay safe (187 ms)
+    √ aggregation can emit department-scoped rows when the opt-in gate is enabled (231 ms)
+
+PASS src/__tests__/integration.storage-boundary.contract.test.js
+  integration storage boundary contracts
+    √ sql model index exposes only active payroll and reporting models (3 ms)
+    √ demo and DR scripts target Mongo outbox collections instead of retired SQL models (1 ms)
+    √ active MySQL sync path avoids direct repair of retired SQL outbox tables (1 ms)
+
+PASS src/__tests__/employeeSyncEvidenceService.test.js
+  employee sync evidence service
+    √ returns null when no source, queue, or payroll evidence exists (2 ms)
+    √ marks a fully delivered employee update as healthy (2 ms)
+    √ marks pending delivery when queue is still processing (1 ms)
+    √ marks attention when payroll drifts from source (1 ms)
+
+PASS src/__tests__/integration.routes.authz.test.js
+  Integration routes authz
+    √ should reject anonymous integration list request (20 ms)
+    √ should allow admin integration audit request (8 ms)
+    √ should reject non-admin integration metrics request (6 ms)
+    √ should allow admin integration metrics request (5 ms)
+    √ should allow admin integration reconciliation request (8 ms)
+    √ should allow admin retry event request (6 ms)
+    √ should allow super admin replay request (23 ms)
+    √ should reject non-admin recover-stuck request (8 ms)
+
+PASS src/__tests__/alerts.routes.authz.test.js
+  Alert configuration routes authz
+    √ should reject anonymous alert config list request (26 ms)
+    √ should reject non-manager alert config create request (20 ms)
+    √ should allow moderator alert config create request (9 ms)
+    √ should allow admin alert config update request (8 ms)
+    √ should reject non-manager acknowledgement request (9 ms)
+    √ should allow moderator acknowledgement request (6 ms)
+    √ should keep triggered alerts readable for authenticated non-admin users (5 ms)
+
+PASS src/__tests__/local.runtime.doctor.contract.test.js
+  local runtime doctor contract
+    √ package.json exposes doctor:local script (5 ms)
+    √ doctor script checks migrations, health probes, and 500k baseline tables (8 ms)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:43:14.427Z","level":"WARN","context":"AuthGuard","message":"Token is invalid or expired","data":{"requestId":"e025818d-e707-4a36-9684-4313962ed793","method":"GET","path":"/protected","actorId":"507f1f77bcf86cd799439011","code":"AUTH_TOKEN_REVOKED"}}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at sendAuthGuardError (src/utils/authGuardResponses.js:30:23)
+      at verifyToken (src/middlewares/authJwt.js:139:14)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:43:14.440Z","level":"WARN","context":"AuthGuard","message":"Require Admin Role!","data":{"requestId":"991bd935-529e-4963-9882-96e122148559","method":"GET","path":"/admin-only","actorId":"507f1f77bcf86cd799439012","code":"AUTH_FORBIDDEN","allowedRoles":["admin","super_admin"],"roleNames":["user"]}}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at sendAuthGuardError (src/utils/authGuardResponses.js:30:23)
+      at authorizeAnyRole (src/middlewares/authJwt.js:59:12)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:43:14.450Z","level":"WARN","context":"AuthGuard","message":"Allowing stateless JWT fallback because token is not present in persistent token storage","data":{"requestId":"3452e136-4652-4707-a439-3a295d130f23","path":"/protected","actorId":"507f1f77bcf86cd799439099"}}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at verifyToken (src/middlewares/authJwt.js:132:16)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:43:14.464Z","level":"WARN","context":"AuthGuard","message":"Token is invalid or expired","data":{"requestId":"3371dc73-ca87-4473-8a1e-bf5ec7ee1340","method":"POST","path":"/mutating","actorId":"507f1f77bcf86cd799439199","code":"AUTH_TOKEN_REVOKED"}}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at sendAuthGuardError (src/utils/authGuardResponses.js:30:23)
+      at verifyToken (src/middlewares/authJwt.js:139:14)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:43:14.475Z","level":"WARN","context":"AuthGuard","message":"Token is invalid or expired"}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at sendAuthGuardError (src/utils/authGuardResponses.js:30:23)
+      at verifyToken (src/middlewares/authJwt.js:139:14)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:43:14.498Z","level":"WARN","context":"AuthGuard","message":"Require Admin Role!","data":{"requestId":"7d6142c0-0ff7-4396-8d2d-09f153d7671d","method":"GET","path":"/admin-only","actorId":"507f1f77bcf86cd799439499","code":"AUTH_FORBIDDEN","allowedRoles":["admin","super_admin"],"roleNames":["user"]}}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at sendAuthGuardError (src/utils/authGuardResponses.js:30:23)
+      at authorizeAnyRole (src/middlewares/authJwt.js:59:12)
+      at isAdmin (src/middlewares/authJwt.js:191:10)
+      at Layer.handle [as handle_request] (node_modules/express/lib/router/layer.js:95:5)
+      at next (node_modules/express/lib/router/route.js:149:13)
+      at verifyToken (src/middlewares/authJwt.js:104:14)
+
+PASS src/__tests__/auth.guard.contract.test.js
+  auth guard contract
+    √ returns canonical auth error code when token is missing (20 ms)
+    √ returns canonical auth error code when token has been revoked (25 ms)
+    √ returns canonical forbidden code when role check fails (11 ms)
+    √ allows verified JWT without persisted token when stateless fallback is explicitly enabled (11 ms)
+    √ does not allow stateless fallback on non-read requests (12 ms)
+    √ does not allow stateless fallback in production even for read requests (11 ms)
+    √ uses stateless service auth when the app declares authMode=stateless (10 ms)
+    √ keeps stateless role checks claim-driven without querying Mongo (14 ms)
+
+  console.log
+    {"timestamp":"2026-04-22T11:43:16.061Z","level":"INFO","context":"SyncService","message":"Retrying failed sync logs","data":{"failedLogCount":1,"fallbackCorrelationId":"req-manual-1"}}
+
+      at Object.info (src/utils/logger.js:59:21)
+
+  console.log
+    {"timestamp":"2026-04-22T11:43:16.065Z","level":"INFO","context":"SyncService","message":"Broadcasting employee sync to integrations","data":{"employeeId":"EMP001","action":"UPDATE","integrationCount":1,"correlationId":"req-original-1","source":"SYNC_RETRY_MANUAL","integrationEventId":null}}
+
+      at Object.info (src/utils/logger.js:59:21)
+
+  console.log
+    {"timestamp":"2026-04-22T11:43:16.066Z","level":"INFO","context":"SyncService","message":"Retry sync succeeded","data":{"employeeId":"EMP001","action":"UPDATE","correlationId":"req-original-1","source":"SYNC_RETRY_MANUAL"}}
+
+      at Object.info (src/utils/logger.js:59:21)
+
+  console.log
+    {"timestamp":"2026-04-22T11:43:16.073Z","level":"INFO","context":"SyncService","message":"Retrying failed sync logs","data":{"failedLogCount":1,"fallbackCorrelationId":"req-delete-1"}}
+
+      at Object.info (src/utils/logger.js:59:21)
+
+  console.log
+    {"timestamp":"2026-04-22T11:43:16.075Z","level":"INFO","context":"SyncService","message":"Broadcasting employee sync to integrations","data":{"employeeId":"EMP999","action":"DELETE","integrationCount":1,"correlationId":"req-delete-1","source":"SYNC_RETRY_MANUAL","integrationEventId":null}}
+
+      at Object.info (src/utils/logger.js:59:21)
+
+  console.log
+    {"timestamp":"2026-04-22T11:43:16.077Z","level":"INFO","context":"SyncService","message":"Retry sync succeeded","data":{"employeeId":"EMP999","action":"DELETE","correlationId":"req-delete-1","source":"SYNC_RETRY_MANUAL"}}
+
+      at Object.info (src/utils/logger.js:59:21)
+
+PASS src/__tests__/sync.retry.status.test.js
+  Sync retry status contract
+    √ should transition FAILED logs to SUCCESS on successful retry (12 ms)
+    √ should replay DELETE retries without reloading a deleted employee (7 ms)
+
+PASS src/__tests__/dashboard.routes.authz.test.js
+  Dashboard routes authz
+    √ should reject anonymous executive brief request (34 ms)
+    √ should allow authenticated users to read executive brief (25 ms)
+    √ should allow authenticated users to read operational readiness (10 ms)
+    √ should reject non-admin summary rebuild request (12 ms)
+    √ should allow admin summary rebuild request (10 ms)
+
+PASS src/__tests__/products.routes.authz.test.js
+  Products routes authz
+    √ should reject anonymous product list request (13 ms)
+    √ should allow authenticated product list request (6 ms)
+    √ should reject non-manager product creation (13 ms)
+    √ should allow moderator product creation (5 ms)
+    √ should allow admin product update (6 ms)
+    √ should reject moderator product deletion because it remains admin-only (4 ms)
+    √ should allow admin product deletion (5 ms)
+
+PASS src/__tests__/requestContext.middleware.test.js
+  request context middleware
+    √ injects requestId into success meta and send/json error responses (52 ms)
+
+PASS src/__tests__/employee.read.contract.test.js
+  employee read contract
+    √ getEmployee resolves by business employeeId before Mongo fallback (5 ms)
+    √ getEmployee falls back to Mongo id for legacy callers (1 ms)
+    √ getEmployees returns canonical envelope with legacy pagination (1 ms)
+    √ getEmployees applies optional search filter and exposes it in meta (3 ms)
+    √ getEmployees applies source manager filters for department and employment type (1 ms)
+    √ getEmployees rejects invalid pagination params with 422 (1 ms)
+
+  console.log
+    {"timestamp":"2026-04-22T11:43:24.153Z","level":"INFO","context":"DashboardOperationalReadinessService","message":"Built readiness snapshot","data":{"durationMs":5,"status":"healthy","canAccessIntegrationQueue":true}}
+
+      at Object.info (src/utils/logger.js:59:21)
+
+  console.log
+    {"timestamp":"2026-04-22T11:43:24.167Z","level":"INFO","context":"DashboardOperationalReadinessService","message":"Built readiness snapshot","data":{"durationMs":2,"status":"critical","canAccessIntegrationQueue":true}}
+
+      at Object.info (src/utils/logger.js:59:21)
+
+PASS src/__tests__/dashboardOperationalReadinessService.test.js
+  dashboard operational readiness service
+    √ returns a healthy readiness surface when services, parity, and queue are aligned (16 ms)
+    √ escalates readiness when service health or parity drift fails the trust loop (8 ms)
+
+PASS src/__tests__/sync.routes.authz.test.js
+  sync routes authz
+    √ should reject anonymous sync overview request (24 ms)
+    √ should allow authenticated sync logs request (9 ms)
+    √ should reject non-admin sync retry request (8 ms)
+    √ should allow admin sync retry request (6 ms)
+    √ should allow authenticated entity sync status request (8 ms)
+
+PASS src/__tests__/auth.sessionTokens.util.test.js
+  auth session token helpers
+    √ buildPersistedSessionTokens keeps access and refresh tokens under the same session (13 ms)
+    √ prunePersistedTokens removes malformed and expired entries (6 ms)
+    √ mergePersistedSessionTokens keeps the most recent configured session groups (3 ms)
+
+  console.warn
+    {"timestamp":"2026-04-22T11:43:28.481Z","level":"WARN","context":"EmployeeController","message":"Outbox enqueue failed; falling back to direct sync","data":{"employeeId":"EMP000195","action":"CREATE","correlationId":"req-fallback-1","mode":"DIRECT_FALLBACK","warning":"integration outbox unavailable"}}
+
+    [0m [90m 63 |[39m     warn[33m:[39m (context[33m,[39m message[33m,[39m data) [33m=>[39m {
+     [90m 64 |[39m         [36mif[39m (shouldLog([33mLOG_LEVELS[39m[33m.[39m[33mWARN[39m)) {
+    [31m[1m>[22m[39m[90m 65 |[39m             console[33m.[39mwarn([33mJSON[39m[33m.[39mstringify(formatMessage([32m'WARN'[39m[33m,[39m context[33m,[39m message[33m,[39m data)))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 66 |[39m         }
+     [90m 67 |[39m     }[33m,[39m
+     [90m 68 |[39m[0m
+
+      at Object.warn (src/utils/logger.js:65:21)
+      at dispatchEmployeeMutation (src/controllers/employee.controller.js:186:16)
+      at createEmployee (src/controllers/employee.controller.js:283:22)
+      at Object.<anonymous> (src/__tests__/employee.controller.behavior.test.js:361:5)
+
+PASS src/__tests__/employee.controller.behavior.test.js
+  employee controller behavior
+    √ createEmployee maps validation errors to 400 (5 ms)
+    √ getEmployeeSyncEvidence returns lifecycle snapshot for a known employee id (2 ms)
+    √ getEmployeeSyncEvidence returns 404 when no source or downstream evidence exists (1 ms)
+    √ createEmployee auto-generates employeeId when the client omits it (2 ms)
+    √ createEmployee rejects client-supplied employeeId values (2 ms)
+    √ createEmployee maps duplicate employeeId conflicts to 409 (9 ms)
+    √ createEmployee rejects aggregation-owned fields in the payload (2 ms)
+    √ createEmployee queues outbox events with the request correlation id (1 ms)
+    √ createEmployee keeps source success and reports fallback sync state when outbox enqueue fails (5 ms)
+    √ updateEmployee enables validators and maps model validation errors to 400 (2 ms)
+    √ updateEmployee rejects employeeId changes before hitting MongoDB
+    √ updateEmployee rejects date order that conflicts with the persisted timeline (2 ms)
+    √ getEmployeeOptions returns department ids and form enums for admin tools (1 ms)
+
+PASS src/__tests__/lint.contract.test.js
+  backend lint contract
+    √ package.json exposes syntax and static lint stages (6 ms)
+    √ eslint config targets backend sources and enforces core runtime safety rules (9 ms)
+    √ dashboard package exposes one-command frontend verification (2 ms)
+
+PASS src/__tests__/logger.test.js
+  logger
+    √ defaults to silent mode in test environment (4 ms)
+    √ explicit LOG_LEVEL still enables logs in test environment (3 ms)
+
+PASS src/__tests__/local.stack.contract.test.js
+  local backend and stack runtime scripts
+    √ package.json exposes backend and stack commands (4 ms)
+    √ backend start script delegates SA startup to the shared case3 service launcher (2 ms)
+    √ case3 stop script preserves preexisting listeners instead of killing any process on the port (1 ms)
+    √ case3 verification script enforces a clean owned stack before running the end-to-end gate (1 ms)
+    √ local mongo start script uses a configurable timeout and surfaces mongod log detail on startup failure (9 ms)
+    √ interactive runtime scripts distinguish foreground log-following from background launchers (2 ms)
+    √ backend verification script manages Mongo preconditions without killing preexisting listeners (1 ms)
+    √ service entrypoints keep the split runtime dependency boundaries (1 ms)
+
+  console.error
+    {"timestamp":"2026-04-22T11:43:33.251Z","level":"ERROR","context":"AlertAggregationService","message":"Failed to refresh alert aggregates","error":{"message":"bulk insert failed","stack":"Error: bulk insert failed\n    at Object.<anonymous> (D:\\SIP_CS 2\\SIP_CS\\src\\__tests__\\alertAggregation.service.test.js:138:51)\n    at Promise.then.completed (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\utils.js:333:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\utils.js:259:10)\n    at _callCircusTest (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:277:40)\n    at _runTest (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:209:3)\n    at _runTestsForDescribeBlock (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:97:9)\n    at _runTestsForDescribeBlock (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:91:9)\n    at run (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:31:3)\n    at runAndTransformResultsToJestFormat (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\legacy-code-todo-rewrite\\jestAdapterInit.js:135:21)"}}
+
+    [0m [90m 80 |[39m                 }[33m;[39m
+     [90m 81 |[39m             }
+    [31m[1m>[22m[39m[90m 82 |[39m             console[33m.[39merror([33mJSON[39m[33m.[39mstringify(logEntry))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 83 |[39m         }
+     [90m 84 |[39m     }[33m,[39m
+     [90m 85 |[39m }[33m;[39m[0m
+
+      at Object.error (src/utils/logger.js:82:21)
+      at refreshAlertAggregates (src/services/alertAggregationService.js:223:16)
+      at Object.<anonymous> (src/__tests__/alertAggregation.service.test.js:140:5)
+
+PASS src/__tests__/alertAggregation.service.test.js
+  alert aggregation service
+    √ rebuilds alert aggregates inside a single SQL transaction (8 ms)
+    √ rethrows when a transactional alert batch write fails (8 ms)
+
+PASS src/__tests__/integrationReconciliationService.test.js
+  integration reconciliation service
+    √ computes missing, extra, duplicate, and pay-rate mismatch counts (35 ms)
+    √ returns healthy status when source and active payroll are aligned (4 ms)
+
+PASS src/__tests__/dashboardDemoPreparationService.test.js
+  dashboard demo preparation service
+    √ provisions missing benefits-change evidence before alert acknowledgement (6 ms)
+
+PASS src/__tests__/dashboard.executive-brief.test.js
+  dashboard executive brief service
+    √ buildExecutiveBriefSnapshot assembles follow-up and queue risk for admin users (11 ms)
+    √ buildExecutiveBriefSnapshot returns cached snapshot without new queries (2 ms)
+    √ buildExecutiveBriefSnapshot stays ready when active alerts already have current owners (2 ms)
+    √ buildExecutiveBriefSnapshot marks stale summaries as rebuildable operator debt (1 ms)
+
+  console.error
+    {"timestamp":"2026-04-22T11:43:39.324Z","level":"ERROR","context":"UserModel","message":"Static password comparison failed","error":{"message":"bcrypt unavailable","stack":"Error: bcrypt unavailable\n    at Object.<anonymous> (D:\\SIP_CS 2\\SIP_CS\\src\\__tests__\\user.model.contract.test.js:23:35)\n    at Promise.then.completed (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\utils.js:333:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\utils.js:259:10)\n    at _callCircusTest (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:277:40)\n    at _runTest (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:209:3)\n    at _runTestsForDescribeBlock (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:97:9)\n    at _runTestsForDescribeBlock (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:91:9)\n    at run (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\run.js:31:3)\n    at runAndTransformResultsToJestFormat (D:\\SIP_CS 2\\SIP_CS\\node_modules\\jest-circus\\build\\legacy-code-todo-rewrite\\jestAdapterInit.js:135:21)"}}
+
+    [0m [90m 80 |[39m                 }[33m;[39m
+     [90m 81 |[39m             }
+    [31m[1m>[22m[39m[90m 82 |[39m             console[33m.[39merror([33mJSON[39m[33m.[39mstringify(logEntry))[33m;[39m
+     [90m    |[39m                     [31m[1m^[22m[39m
+     [90m 83 |[39m         }
+     [90m 84 |[39m     }[33m,[39m
+     [90m 85 |[39m }[33m;[39m[0m
+
+      at Object.error (src/utils/logger.js:82:21)
+      at Function.userSchema.statics.comparePassword (src/models/User.js:72:12)
+      at Object.<anonymous> (src/__tests__/user.model.contract.test.js:25:20)
+
+PASS src/__tests__/user.model.contract.test.js
+  user model contract
+    √ static comparePassword fails closed when bcrypt throws (7 ms)
+
+PASS src/__tests__/payrate.contract.test.js
+  PayRate model-adapter contract
+    √ PayRate model exposes fields used by payroll adapter (8 ms)
+    √ payroll mutation service uses the same pay_rate contract fields (4 ms)
+
+PASS src/__tests__/dashboard.controller.contract.test.js
+  dashboard controller contract behavior
+    √ getEarningsSummary rejects invalid year query with 422 (7 ms)
+    √ getDrilldown rejects invalid boolean filter before touching persistence (4 ms)
+    √ getDepartments returns dataset metadata for FE contract consumers (1 ms)
+    √ getExecutiveBrief rejects invalid year query with 422 (1 ms)
+    √ refreshDashboardSummaries rebuilds summaries and returns updated freshness metadata (1 ms)
+    √ getOperationalReadiness forwards year and refresh intent to the readiness service (1 ms)
+    √ getDrilldown downgrades large multi-filter summaries to fast mode to protect latency (1 ms)
+    √ getDrilldown keeps single-dimension summaries on the pre-aggregated path even for large result sets (1 ms)
+    √ getDrilldown uses Mongo earnings snapshot for minEarnings-only filters when counts stay consistent (4 ms)
+    √ getDrilldown falls back to SQL earnings filtering when Mongo snapshot counts drift (2 ms)
+    √ exportDrilldownCsv batches earnings lookups by employee chunk instead of loading whole year (53 ms)
+    √ exportDrilldownCsv skips SQL earnings lookups for rows with a valid Mongo earnings snapshot (1 ms)
+    √ exportDrilldownCsv skips earnings lookup for benefits export when no minEarnings filter is active (2 ms)
+    √ exportDrilldownCsv uses context-aware Mongo projection and disables cache storage (2 ms)
+
+PASS src/__tests__/products.controller.behavior.test.js
+  products controller behavior
+    √ createProduct rejects invalid payload before persistence (4 ms)
+    √ getProductById returns canonical 404 when product is missing (1 ms)
+    √ updateProductById returns 200 with canonical mutation envelope (1 ms)
+    √ searchProduct uses regex lookup and returns canonical search envelope (11 ms)
+
+PASS src/__tests__/dashboard.demo-prep.contract.test.js
+  dashboard demo preparation contract
+    √ demo prep script delegates missing-alert orchestration to the dedicated service (8 ms)
+
+PASS src/__tests__/integrationEventService.recovery.test.js
+  integration event service recovery
+    √ countStuckProcessingIntegrationEvents scopes to stale PROCESSING rows (2 ms)
+    √ recoverStuckProcessingIntegrationEvents moves stale rows into FAILED or DEAD (1 ms)
+    √ recoverStuckProcessingIntegrationEvents records operator audit fields when manually invoked (1 ms)
+    √ processPendingIntegrationEvents propagates correlation context to sync workers (1 ms)
+
+PASS src/__tests__/dashboard.summary-scope.migration.test.js
+  dashboard summary scope migration execution
+    √ migration upgrades legacy summary tables and reruns without add/drop/create churn (18 ms)
+    √ partial migration state is repaired by explicit updates before NOT NULL enforcement (5 ms)
+
+PASS src/__tests__/payrollConsole.sessionFlow.test.js
+  Payroll console shared-session revoke flow
+    √ restores a shared session before logout when no token is present (10 ms)
+    √ retries logout after a 401 by restoring the shared session once (1 ms)
+    √ exits quietly when no reusable shared session exists (1 ms)
+    √ throws when the second logout attempt fails with a non-401 status (2 ms)
+
+PASS src/__tests__/demo.evidence.capture.contract.test.js
+  demo evidence capture plan
+    √ uses a date-based evidence folder instead of a hardcoded capture date (3 ms)
+    √ exposes canonical bundle targets for logs, data, and summary output (3 ms)
+    √ plans the expanded screenshot bundle for alerts evidence as well as system overview (2 ms)
+
+PASS src/__tests__/integration.controller.behavior.test.js
+  integration controller behavior
+    √ getIntegrationMetrics returns canonical metrics envelope (7 ms)
+    √ getIntegrationReconciliation returns canonical reconciliation envelope (1 ms)
+    √ getIntegrationEventAudit rejects malformed id before persistence (42 ms)
+    √ getIntegrationEventAudit returns canonical audit history envelope (2 ms)
+    √ listIntegrationEvents rejects invalid query params with 422 (2 ms)
+    √ listIntegrationEvents returns filters and totalPages metadata (2 ms)
+    √ retryIntegrationEvent rejects malformed event id before persistence (2 ms)
+    √ retryIntegrationEvent returns operator metadata for successful requeue (5 ms)
+    √ retryDeadIntegrationEvents returns count with operator metadata (1 ms)
+    √ recoverStuckIntegrationEvents returns recovery summary with operator metadata (1 ms)
+    √ replayIntegrationEvents rejects conflicting replay filters (3 ms)
+    √ replayIntegrationEvents returns normalized replay filter metadata (4 ms)
+
+PASS src/__tests__/employeeId.service.test.js
+  employeeId service
+    √ formats and parses canonical employee ids (5 ms)
+    √ peeks the next employee id from an existing counter (2 ms)
+    √ initializes the counter from the highest stored employee id (4 ms)
+    √ reserves and returns the next employee id (2 ms)
+
+PASS src/__tests__/sync.controller.behavior.test.js
+  sync controller behavior
+    √ getSyncOverview returns canonical sync summary envelope (3 ms)
+    √ listSyncLogs rejects invalid query params with 422 (2 ms)
+    √ listSyncLogs returns correlation-aware filters and pagination metadata (1 ms)
+    √ retrySyncLogs returns operator metadata and preserves request correlation for fallback (1 ms)
+    √ getSyncEntityStatus rejects malformed params with 422 (1 ms)
+    √ getSyncEntityStatus returns latest entity sync with found metadata (1 ms)
+
+PASS src/__tests__/alerts.controller.behavior.test.js
+  alerts controller behavior
+    √ createAlert preserves inactive state from request payload (4 ms)
+    √ getTriggeredAlerts returns empty when no active alert configs remain (1 ms)
+    √ updateAlert maps duplicate-active conflict to 409 (2 ms)
+    √ createAlert rejects invalid alert payload before persistence (1 ms)
+    √ acknowledgeAlert stores manager note against current summary snapshot (1 ms)
+    √ acknowledgeAlert rejects malformed alert id before hitting persistence (1 ms)
+    √ getAlertEmployees rejects unknown alert type (1 ms)
+    √ getAlertEmployees returns canonical data envelope while keeping legacy fields (1 ms)
+
+PASS src/__tests__/case4.operations.demo.contract.test.js
+  Case 4 operations demo verification contract
+    √ operations demo smoke script seeds warning queue state, checks parity, and verifies audit evidence (4 ms)
+
+PASS src/__tests__/payroll.adapter.correlation.test.js
+  PayrollAdapter correlation tracing
+    √ forwards correlation metadata to the payroll internal API and logs success (5 ms)
+    √ returns a failed sync result when the payroll service rejects the mutation
+
+PASS src/__tests__/benefitsPayrollImpact.test.js
+  benefits payroll impact summarizer
+    √ classifies payroll-impacting benefit changes with structured metadata (5 ms)
+
+PASS src/__tests__/seed.script.contract.test.js
+  seed and repair script contracts
+    √ seed script wraps batch SQL writes in a transaction and resets derived tables (3 ms)
+    √ seed script clears Mongo outbox collections instead of truncating retired SQL outbox tables (1 ms)
+    √ repair script covers pay_rates and alert_employees orphans
+    √ mysql schema bootstrap includes pay-rate contract migration
+
+PASS src/__tests__/case5.readiness.script.contract.test.js
+  Case 5 readiness snapshot contract
+    √ safe readiness script captures service, security, and database posture without claiming failover (5 ms)
+
+PASS src/__tests__/payroll.mutation.service.test.js
+  PayrollMutationService
+    √ writes correlation_id and completed_at on successful sync logs (5 ms)
+    √ skips duplicate delivery when the same correlationId already succeeded (1 ms)
+    √ does not create pay-rate history drift when update payload matches current active payroll state (1 ms)
+    √ does not append another terminated row when delete is delivered after the employee is already terminated (1 ms)
+    √ writes correlation_id on failed sync logs as well (1 ms)
+    √ reuses the same sync_log row when a previously failed correlationId is retried (1 ms)
+
+Test Suites: 61 passed, 61 total
+Tests:       275 passed, 275 total
+Snapshots:   0 total
+Time:        72.28 s
+Ran all test suites.
+
+> company-products-api@0.0.2 test:integration
+> node --experimental-vm-modules node_modules/jest/bin/jest.js --config tests/jest.config.js tests/integration/dashboard.test.js --runInBand
+
+(node:28128) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS tests/integration/dashboard.test.js
+  Dashboard Integration Tests
+    GET /api/dashboard/departments
+      √ should return a list of departments (75 ms)
+      √ should not return Unassigned in department filter options (16 ms)
+    GET /api/dashboard/drilldown
+      √ should support server-side search by name (263 ms)
+      √ should return empty list for non-existent search (13 ms)
+      √ should support minEarnings filter using SQL aggregation source (1116 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       5 passed, 5 total
+Snapshots:   0 total
+Time:        3.427 s
+Ran all test suites matching /tests\\integration\\dashboard.test.js/i.
+
+> company-products-api@0.0.2 test:advanced
+> node --experimental-vm-modules node_modules/jest/bin/jest.js --config tests/jest.config.js tests/advanced/quality.test.js --runInBand
+
+(node:28384) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS tests/advanced/quality.test.js
+  🔒 AVAILABILITY TESTS
+    √ A1: Health endpoint stays responsive after warm-up (73 ms)
+    √ A2: Dashboard API handles concurrent requests (10 parallel) (63 ms)
+    √ A3: API returns proper structure on empty filter (209 ms)
+    √ A4: Health check endpoint returns proper status (3 ms)
+  LOCAL TRANSACTION / INTEGRITY TESTS
+    √ ACID1: SyncLog records are atomic (all-or-nothing) (21 ms)
+    √ ACID2: SyncLog can be created and updated (15 ms)
+    √ ACID3: Isolation - Concurrent updates do not corrupt data (20 ms)
+  🔌 EXTENSIBILITY TESTS
+    √ E1: Config lists active integrations
+    √ E2: Adapters folder contains implementation files (1 ms)
+    √ E3: Adding new adapter requires only config change
+    √ E4: BaseAdapter defines interface contract (1 ms)
+  🛠️ MAINTAINABILITY TESTS
+    √ M1: API responses follow consistent structure (154 ms)
+    √ M2: Validation errors return 4xx responses with message field (32 ms)
+    √ M3: Models have proper timestamps
+    √ M4: Controllers are properly separated by domain (1 ms)
+  🧹 CODE QUALITY / NO SMELL CODE TESTS
+    √ Q1: Config uses named exports with env fallbacks
+    √ Q2: SyncService uses Registry pattern (no direct adapter imports) (1 ms)
+    √ Q3: Registry pattern makes SyncService extensible
+    √ Q4: No critical debug statements in production code (1 ms)
+  📊 DATA INTEGRITY TESTS
+    √ D1: Departments API returns consistent data (11 ms)
+    √ D2: Drilldown API supports pagination (151 ms)
+    √ D3: Search parameter filters results (158 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       22 passed, 22 total
+Snapshots:   0 total
+Time:        2.622 s, estimated 3 s
+Ran all test suites matching /tests\\advanced\\quality.test.js/i.
+
+> company-products-api@0.0.2 db:migrate:mysql:status
+> node scripts/migrate-mysql.js --status
+
+MySQL (Payroll DB) connected successfully.
+[MySQL Migration Status]
+Applied migrations: 7
+- 20260221_000001_initial_sequelize_bootstrap @ Sat Feb 21 2026 13:24:58 GMT+0700 (Giờ Đông Dương)
+- 20260402_000002_integration_event_operator_audit @ Thu Apr 02 2026 19:09:54 GMT+0700 (Giờ Đông Dương)
+- 20260402_000003_integration_event_audit_history @ Thu Apr 02 2026 19:42:44 GMT+0700 (Giờ Đông Dương)
+- 20260402_000004_integration_correlation_trace @ Thu Apr 02 2026 23:38:10 GMT+0700 (Giờ Đông Dương)
+- 20260403_000005_pay_rate_schema_contract_cleanup @ Fri Apr 03 2026 03:40:45 GMT+0700 (Giờ Đông Dương)
+- 20260416_000006_sync_log_idempotency_contract @ Thu Apr 16 2026 18:34:38 GMT+0700 (Giờ Đông Dương)
+- 20260419_000006_dashboard_summary_scope @ Mon Apr 20 2026 00:07:55 GMT+0700 (Giờ Đông Dương)
+Missing required migrations: none
+Missing required tables: none
+found 0 vulnerabilities
+Stopped MongoDB local process PID 30760.

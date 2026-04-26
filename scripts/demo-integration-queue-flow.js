@@ -40,12 +40,12 @@ const main = async () => {
     try {
         console.log("[DemoFlow] Step 1/3: WARNING state");
         await runScenario("warning");
-        console.log(`[DemoFlow] Hold WARNING for ${warningSeconds}s (refresh dashboard now).`);
+        console.log(`[DemoFlow] Hold WARNING for ${warningSeconds}s (refresh Operations now and open Audit on a demo event).`);
         await wait(warningSeconds * 1000);
 
         console.log("[DemoFlow] Step 2/3: CRITICAL state");
         await runScenario("critical");
-        console.log(`[DemoFlow] Hold CRITICAL for ${criticalSeconds}s (show retry/replay now).`);
+        console.log(`[DemoFlow] Hold CRITICAL for ${criticalSeconds}s (show retry/replay and compare queue + parity + audit evidence).`);
         await wait(criticalSeconds * 1000);
 
         console.log("[DemoFlow] Step 3/3: CLEANUP");

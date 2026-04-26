@@ -133,7 +133,7 @@ export const buildRecommendedDrilldownPresets = ({ context = '', benefitPlans = 
     {
       id: 'engineering-focus',
       name: 'Engineering Focus',
-      description: 'Jump straight to the largest department used in demos.',
+      description: 'Jump straight to the largest engineering cohort in the current dataset.',
       filters: { department: 'Engineering' },
     },
   ];

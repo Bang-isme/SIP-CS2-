@@ -1,6 +1,6 @@
 import Alert from "../models/Alert.js";
-import { AlertsSummary } from "../models/sql/index.js";
-import { Op } from "sequelize";
+import { AlertEmployee, AlertsSummary, sequelize as sqlSequelize } from "../models/sql/index.js";
+import { Op, QueryTypes } from "sequelize";
 import dashboardCache from "../utils/cache.js";
 import { refreshAlertAggregates } from "../services/alertAggregationService.js";
 import {
@@ -81,6 +81,52 @@ const findLatestAlertSummary = async (alertType) => {
         order: [["computed_at", "DESC"]],
         raw: true,
     });
+};
+
+const buildAlertPreviewMap = async (alertTypes, previewLimit = 5) => {
+    if (!Array.isArray(alertTypes) || alertTypes.length === 0) {
+        return new Map();
+    }
+
+    const alertEmployeeTable = AlertEmployee.getTableName();
+    const previewRows = await sqlSequelize.query(
+        `
+        SELECT alert_type, employee_id, name, days_until, extra_data
+        FROM (
+            SELECT
+                alert_type,
+                employee_id,
+                name,
+                days_until,
+                extra_data,
+                ROW_NUMBER() OVER (
+                    PARTITION BY alert_type
+                    ORDER BY days_until ASC, name ASC, employee_id ASC
+                ) AS row_num
+            FROM \`${alertEmployeeTable}\`
+            WHERE alert_type IN (:alertTypes)
+        ) ranked_alerts
+        WHERE row_num <= :previewLimit
+        ORDER BY alert_type ASC, row_num ASC
+        `,
+        {
+            replacements: {
+                alertTypes,
+                previewLimit,
+            },
+            type: QueryTypes.SELECT,
+        },
+    );
+
+    const previewMap = new Map();
+    for (const row of previewRows) {
+        if (!previewMap.has(row.alert_type)) {
+            previewMap.set(row.alert_type, []);
+        }
+        previewMap.get(row.alert_type).push(row);
+    }
+
+    return previewMap;
 };
 
 /**
@@ -445,20 +491,26 @@ export const getTriggeredAlerts = async (req, res) => {
             });
         }
 
-        // Import AlertEmployee for preview data
-        const { AlertEmployee } = await import("../models/sql/index.js");
+        let previewEmployeeMap = null;
+        try {
+            previewEmployeeMap = await buildAlertPreviewMap(
+                summaries.map((row) => row.alert_type),
+            );
+        } catch {
+            previewEmployeeMap = null;
+        }
 
         // Transform summaries to expected format - fetch preview employees
         const triggeredAlerts = await Promise.all(summaries.map(async (row) => {
             const alertConfig = activeAlertMap.get(row.alert_type);
 
-            // Fetch first 5 employees for preview display on cards
-            const previewEmployees = await AlertEmployee.findAll({
-                where: { alert_type: row.alert_type },
-                order: [['days_until', 'ASC'], ['name', 'ASC'], ['employee_id', 'ASC']],
-                limit: 5,
-                raw: true
-            });
+            const previewEmployees = previewEmployeeMap?.get(row.alert_type)
+                || await AlertEmployee.findAll({
+                    where: { alert_type: row.alert_type },
+                    order: [['days_until', 'ASC'], ['name', 'ASC'], ['employee_id', 'ASC']],
+                    limit: 5,
+                    raw: true
+                });
 
             // Format preview employees for frontend
             const matchingEmployees = previewEmployees.map(emp => {

@@ -1,10 +1,11 @@
 ﻿# Test Plan - Advanced Quality Assurance
 
-> Last Updated: 2026-03-19
+> Last Updated: 2026-04-15
 
 ## Overview
 This document describes the advanced quality suite used to verify:
 - Availability
+- Runtime boundary separation
 - Local transaction and integrity behavior
 - Extensibility
 - Maintainability
@@ -24,6 +25,14 @@ Important scope note:
 | A2 | Concurrent request handling | 10 parallel requests succeed |
 | A3 | Empty filter handling | Returns success structure |
 | A4 | Health check structure | Returns message + version |
+
+### Runtime Boundary Tests
+| Test ID | Description | Criteria |
+|---|---|---|
+| R1 | Split entrypoints exist | `sa-server`, `payroll-server`, `dashboard-server` are present |
+| R2 | SA dependency boundary | SA can boot without MySQL |
+| R3 | Payroll dependency boundary | Payroll can boot without Mongo |
+| R4 | Dashboard auth mode | Dashboard uses stateless service auth mode |
 
 ### Local Transaction / Integrity Tests
 | Legacy ID | Actual Scope | What is being checked |
@@ -69,10 +78,17 @@ Important scope note:
 $env:NODE_OPTIONS='--experimental-vm-modules'; npx jest tests/advanced/quality.test.js -c tests/jest.config.js --forceExit
 ```
 
+For the architecture-level runtime gate, also run:
+
+```powershell
+npm run verify:case3
+```
+
 ## Interpretation Guide
 - Passing this suite means the codebase has a healthy advanced quality baseline for coursework.
 - It should be presented as:
   - availability checks
+  - runtime boundary checks
   - local integrity checks
   - extensibility and maintainability checks
 - It should **not** be presented as proof of distributed ACID guarantees.

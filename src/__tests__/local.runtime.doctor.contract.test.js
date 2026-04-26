@@ -18,9 +18,10 @@ describe("local runtime doctor contract", () => {
     const scriptPath = path.resolve(__dirname, "..", "..", "scripts", "local-runtime-doctor.js");
     const source = fs.readFileSync(scriptPath, "utf-8");
 
-    expect(source).toContain("REQUIRED_MIGRATION_IDS");
+    expect(source).toContain("ACTIVE_SQL_MIGRATION_IDS");
     expect(source).toContain("/api/health/live");
     expect(source).toContain("/api/health/ready");
+    expect(source).toContain("LOCAL_DOCTOR_SKIP_BACKEND_PROBES");
     expect(source).toContain("employee_benefits");
     expect(source).toContain("pay_rates");
     expect(source).toContain("SIPLocalMongoDBAutostart");

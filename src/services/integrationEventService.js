@@ -1,8 +1,8 @@
 import { Op } from "sequelize";
-import { IntegrationEvent } from "../models/sql/index.js";
 import { syncEmployeeToAll } from "./syncService.js";
 import { recordIntegrationEventAudit } from "./integrationAuditService.js";
 import logger from "../utils/logger.js";
+import { IntegrationEventStore } from "../repositories/integrationStore.js";
 import {
     OUTBOX_BATCH_SIZE,
     OUTBOX_MAX_ATTEMPTS,
@@ -38,7 +38,7 @@ export const enqueueIntegrationEvent = async ({
     payload,
     correlationId = null,
 }) => {
-    return IntegrationEvent.create({
+    return IntegrationEventStore.create({
         entity_type: entityType,
         entity_id: entityId,
         action,
@@ -51,7 +51,7 @@ export const enqueueIntegrationEvent = async ({
 };
 
 export const countStuckProcessingIntegrationEvents = async ({ now = new Date() } = {}) => {
-    return IntegrationEvent.count({
+    return IntegrationEventStore.count({
         where: getStaleProcessingWhere(now),
     });
 };
@@ -62,7 +62,7 @@ export const recoverStuckProcessingIntegrationEvents = async ({
     actorId = null,
     requestId = null,
 } = {}) => {
-    const staleEvents = await IntegrationEvent.findAll({
+    const staleEvents = await IntegrationEventStore.findAll({
         where: getStaleProcessingWhere(now),
         order: [["updatedAt", "ASC"]],
     });
@@ -89,7 +89,7 @@ export const recoverStuckProcessingIntegrationEvents = async ({
             event.last_error ? `Previous: ${event.last_error}` : null,
         ].filter(Boolean).join(" | ");
 
-        const [updated] = await IntegrationEvent.update(
+        const [updated] = await IntegrationEventStore.update(
             {
                 status: isDead ? "DEAD" : "FAILED",
                 attempts,
@@ -137,7 +137,7 @@ export const processPendingIntegrationEvents = async () => {
     await recoverStuckProcessingIntegrationEvents();
 
     const now = new Date();
-    const events = await IntegrationEvent.findAll({
+    const events = await IntegrationEventStore.findAll({
         where: {
             status: { [Op.in]: ["PENDING", "FAILED"] },
             [Op.or]: [
@@ -151,7 +151,7 @@ export const processPendingIntegrationEvents = async () => {
 
     for (const event of events) {
         const correlationId = resolveCorrelationId(event.correlation_id);
-        const claimed = await IntegrationEvent.update(
+        const claimed = await IntegrationEventStore.update(
             {
                 status: "PROCESSING",
                 correlation_id: correlationId,
@@ -173,7 +173,7 @@ export const processPendingIntegrationEvents = async () => {
             );
 
             if (result?.success) {
-                await IntegrationEvent.update(
+                await IntegrationEventStore.update(
                     {
                         status: "SUCCESS",
                         processed_at: new Date(),
@@ -184,7 +184,7 @@ export const processPendingIntegrationEvents = async () => {
             } else {
                 const attempts = (event.attempts || 0) + 1;
                 const isDead = attempts >= OUTBOX_MAX_ATTEMPTS;
-                await IntegrationEvent.update(
+                await IntegrationEventStore.update(
                     {
                         status: isDead ? "DEAD" : "FAILED",
                         attempts,
@@ -208,7 +208,7 @@ export const processPendingIntegrationEvents = async () => {
         } catch (error) {
             const attempts = (event.attempts || 0) + 1;
             const isDead = attempts >= OUTBOX_MAX_ATTEMPTS;
-            await IntegrationEvent.update(
+            await IntegrationEventStore.update(
                 {
                     status: isDead ? "DEAD" : "FAILED",
                     attempts,

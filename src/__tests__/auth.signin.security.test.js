@@ -1,5 +1,7 @@
 import request from "supertest";
 import { jest } from "@jest/globals";
+import jwt from "jsonwebtoken";
+import { SECRET } from "../config.js";
 
 const mockFindOne = jest.fn();
 const mockComparePassword = jest.fn();
@@ -25,6 +27,7 @@ const { default: app } = await import("../app.js");
 
 describe("Auth Signin Response - Security Guardrails", () => {
   const originalAllowStatelessFallback = process.env.ALLOW_STATELESS_JWT_FALLBACK;
+  const originalNodeEnv = process.env.NODE_ENV;
   const userDoc = {
     _id: "507f1f77bcf86cd799439011",
     username: "admin-user",
@@ -50,6 +53,11 @@ describe("Auth Signin Response - Security Guardrails", () => {
       delete process.env.ALLOW_STATELESS_JWT_FALLBACK;
     } else {
       process.env.ALLOW_STATELESS_JWT_FALLBACK = originalAllowStatelessFallback;
+    }
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
     }
   });
 
@@ -83,6 +91,25 @@ describe("Auth Signin Response - Security Guardrails", () => {
     });
     expect(res.body.data).not.toHaveProperty("password");
     expect(res.body.data).not.toHaveProperty("tokens");
+    expect(jwt.verify(res.body.token, SECRET)).toEqual(expect.objectContaining({
+      id: "507f1f77bcf86cd799439011",
+      roles: ["admin"],
+      username: "admin-user",
+      email: "admin@example.com",
+    }));
+    expect(res.headers["set-cookie"]).toEqual(expect.arrayContaining([
+      expect.stringContaining("refresh_token="),
+      expect.stringContaining("HttpOnly"),
+    ]));
+    expect(mockFindByIdAndUpdate).toHaveBeenCalledWith(
+      "507f1f77bcf86cd799439011",
+      expect.objectContaining({
+        tokens: expect.arrayContaining([
+          expect.objectContaining({ kind: "access", sessionId: expect.any(String) }),
+          expect.objectContaining({ kind: "refresh", sessionId: expect.any(String) }),
+        ]),
+      }),
+    );
   });
 
   it("should return 401 for invalid password", async () => {
@@ -134,8 +161,12 @@ describe("Auth Signin Response - Security Guardrails", () => {
     expect(res.body).toEqual(expect.objectContaining({
       success: false,
       code: "AUTH_SESSION_STORAGE_UNAVAILABLE",
+      message: "Session storage unavailable",
+      meta: expect.objectContaining({
+        detail: expect.stringContaining("MongoDB quota"),
+        hint: expect.stringContaining("stateless fallback"),
+      }),
     }));
-    expect(res.body.message).toContain("ALLOW_STATELESS_JWT_FALLBACK=1");
     expect(res.body).not.toHaveProperty("token");
   });
 
@@ -160,5 +191,25 @@ describe("Auth Signin Response - Security Guardrails", () => {
     expect(res.body.meta).toEqual(expect.objectContaining({
       sessionMode: "statelessFallback",
     }));
+  });
+
+  it("should keep stateless fallback disabled in production mode", async () => {
+    process.env.ALLOW_STATELESS_JWT_FALLBACK = "1";
+    process.env.NODE_ENV = "production";
+    mockFindByIdAndUpdate.mockRejectedValue({
+      code: 8000,
+      message: "you are over your space quota",
+    });
+
+    const res = await request(app)
+      .post("/api/auth/signin")
+      .send({
+        email: "admin@example.com",
+        password: "admin",
+      })
+      .expect("Content-Type", /json/);
+
+    expect(res.status).toBe(503);
+    expect(res.body.code).toBe("AUTH_SESSION_STORAGE_UNAVAILABLE");
   });
 });

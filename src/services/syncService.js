@@ -10,6 +10,7 @@
 import serviceRegistry from '../registry/serviceRegistry.js';
 import { SyncLog } from "../models/sql/index.js";
 import logger from "../utils/logger.js";
+import { SYNC_RETRY_BATCH_LIMIT } from "../config.js";
 import { createRequestId, normalizeRequestId } from "../utils/requestTracking.js";
 
 const buildSyncContext = ({
@@ -117,7 +118,7 @@ export const retryFailedSyncs = async ({ fallbackCorrelationId = null } = {}) =>
             status: "FAILED",
         },
         order: [["createdAt", "ASC"]],
-        limit: 100, // Batch limit
+        limit: SYNC_RETRY_BATCH_LIMIT,
     });
 
     if (failedLogs.length === 0) {

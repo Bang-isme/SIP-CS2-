@@ -1,6 +1,6 @@
 import Role from "../models/Role.js";
 import User from "../models/User.js";
-import { ADMIN_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD } from "../config.js";
+import { ADMIN_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD, IS_DEFAULT_DEV_ADMIN_PASSWORD } from "../config.js";
 import logger from "../utils/logger.js";
 
 const ALL_ROLE_NAMES = ["user", "moderator", "admin", "super_admin"];
@@ -59,6 +59,17 @@ export const initializeAuthSeed = async () => {
     return;
   }
 
+  if (!ADMIN_PASSWORD) {
+    throw new Error("ADMIN_PASSWORD is required when auth seed is enabled outside development/test.");
+  }
+
+  if (IS_DEFAULT_DEV_ADMIN_PASSWORD) {
+    logger.warn(
+      "InitialSetup",
+      "Using default development admin password. Override ADMIN_PASSWORD before sharing this environment."
+    );
+  }
+
   try {
     await createRoles();
     await createAdmin();
@@ -70,7 +81,3 @@ export const initializeAuthSeed = async () => {
     throw error;
   }
 };
-
-initializeAuthSeed().catch((error) => {
-  logger.error("InitialSetup", "Auth seed initialization failed", error);
-});

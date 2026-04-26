@@ -5,5 +5,8 @@ export default {
     testMatch: [
         "**/tests/**/*.test.js"
     ],
+    moduleNameMapper: {
+        '^uuid$': '<rootDir>/support/uuid-jest-shim.cjs',
+    },
     setupFilesAfterEnv: ['../src/__tests__/setup.js'],
 };

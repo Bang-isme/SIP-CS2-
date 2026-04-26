@@ -1,0 +1,72 @@
+{
+  "type": "CASE5_READINESS_SAFE",
+  "startedAt": "2026-04-16T17:53:25.608Z",
+  "finishedAt": "2026-04-16T17:53:25.927Z",
+  "durationMs": 319,
+  "note": "Non-destructive readiness snapshot. This is evidence for service boundaries, security posture, and schema readiness; not a real failover drill.",
+  "securityPosture": {
+    "nodeEnv": "development",
+    "authCookieSecure": false,
+    "authCookieSameSite": "lax",
+    "refreshSecretDistinctFromAccessSecret": false,
+    "internalServiceSecretDistinctFromAccessSecret": true,
+    "usingDefaultDevAdminPassword": false,
+    "activeIntegrations": [
+      "payroll"
+    ],
+    "outboxEnabled": true,
+    "gracefulShutdownTimeoutMs": 5000
+  },
+  "services": {
+    "sa": {
+      "name": "SA / HR Service",
+      "port": 4000,
+      "liveUrl": "http://127.0.0.1:4000/api/health/live",
+      "readyUrl": "http://127.0.0.1:4000/api/health/ready",
+      "reachable": false,
+      "liveStatus": "unreachable",
+      "readyStatus": "unreachable",
+      "error": "fetch failed"
+    },
+    "payroll": {
+      "name": "Payroll Service",
+      "port": 4100,
+      "liveUrl": "http://127.0.0.1:4100/api/health/live",
+      "readyUrl": "http://127.0.0.1:4100/api/health/ready",
+      "reachable": false,
+      "liveStatus": "unreachable",
+      "readyStatus": "unreachable",
+      "error": "fetch failed"
+    },
+    "dashboard": {
+      "name": "Dashboard Service",
+      "port": 4200,
+      "liveUrl": "http://127.0.0.1:4200/api/health/live",
+      "readyUrl": "http://127.0.0.1:4200/api/health/ready",
+      "reachable": false,
+      "liveStatus": "unreachable",
+      "readyStatus": "unreachable",
+      "error": "fetch failed"
+    }
+  },
+  "databases": {
+    "mongo": {
+      "connected": true,
+      "database": "apicompany",
+      "host": "127.0.0.1"
+    },
+    "mysql": {
+      "connected": true,
+      "schemaReady": true,
+      "readinessError": null,
+      "missingActiveMigrations": [],
+      "missingRequiredTables": [],
+      "appliedMigrationCount": 6
+    }
+  },
+  "safeClaims": [
+    "Split runtime is observable through separate health endpoints and ports.",
+    "Security posture checks are partially automated through config validation and this readiness snapshot.",
+    "This report does not prove real cross-site failover, HA routing, or production network segmentation."
+  ]
+}

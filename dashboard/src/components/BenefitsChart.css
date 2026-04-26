@@ -2,28 +2,27 @@
   margin-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  animation: fadeIn 0.45s var(--ease-out) both;
+  gap: 12px;
 }
 
 .benefits-summary {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid #e4eaf8;
 }
 
 .summary-card {
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   text-align: left;
   border: 1px solid #dbe4f7;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 88px;
-  transition: transform var(--duration-normal) var(--ease-out), border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out);
+  gap: 5px;
+  min-height: 86px;
+  transition: border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out);
   position: relative;
   overflow: hidden;
 }
@@ -38,23 +37,9 @@
   border-radius: 3px 3px 0 0;
 }
 
-.summary-card::after {
-  content: '';
-  position: absolute;
-  right: -24px;
-  bottom: -24px;
-  width: 90px;
-  height: 90px;
-  border-radius: 999px;
-  border: 1px dashed rgba(99, 102, 241, 0.24);
-  opacity: 0.45;
-  pointer-events: none;
-}
-
 .summary-card:hover {
   border-color: #bfd0f5;
-  box-shadow: 0 16px 24px -22px rgba(30, 41, 59, 0.5);
-  transform: translateY(-1px);
+  box-shadow: 0 12px 20px -22px rgba(30, 41, 59, 0.42);
 }
 
 .summary-card.shareholder {
@@ -77,10 +62,20 @@
   background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%);
 }
 
+.summary-card.impact {
+  background:
+    linear-gradient(140deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0) 55%),
+    linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+}
+
+.summary-card.impact::before {
+  background: linear-gradient(90deg, #2563eb 0%, #60a5fa 100%);
+}
+
 .summary-label {
   display: block;
-  font-size: 0.69rem;
-  color: #8b97ab;
+  font-size: 0.72rem;
+  color: #64748b;
   margin-bottom: 2px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -89,7 +84,7 @@
 
 .summary-value {
   display: block;
-  font-size: 2rem;
+  font-size: 1.2rem;
   line-height: 1.02;
   font-weight: 800;
   font-family: var(--font-family-mono);
@@ -97,21 +92,85 @@
   letter-spacing: -0.03em;
 }
 
+.summary-value--label {
+  font-size: 1rem;
+  line-height: 1.12;
+  font-family: var(--font-family-sans);
+  letter-spacing: -0.02em;
+}
+
 .summary-count {
   display: block;
-  font-size: 0.72rem;
-  color: #8b97ab;
+  font-size: 0.7rem;
+  color: #5c6f89;
   margin-top: 2px;
-  font-family: var(--font-family-mono);
+  line-height: 1.35;
+  font-weight: 600;
 }
 
 .benefits-container h4 {
-  font-size: 0.71rem;
-  color: #8b97ab;
+  font-size: 0.72rem;
+  color: #64748b;
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 800;
+}
+
+.benefits-insights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.benefits-insight-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid #dbe4f7;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+  font-family: inherit;
+  appearance: none;
+}
+
+.benefits-insight-card:hover:not(:disabled) {
+  border-color: #bfd0f5;
+  box-shadow: 0 8px 16px -24px rgba(30, 41, 59, 0.28);
+  transform: none;
+}
+
+.benefits-insight-card:disabled {
+  cursor: default;
+}
+
+.benefits-insight-card--secondary {
+  background:
+    linear-gradient(140deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0) 55%),
+    linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
+}
+
+.benefits-insight-card__label {
+  font-size: 0.68rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.benefits-insight-card strong {
+  font-size: 1rem;
+  color: #111827;
+}
+
+.benefits-insight-card small {
+  color: #5c6f89;
+  line-height: 1.4;
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 
 .benefits-container .recharts-cartesian-grid line {
@@ -127,7 +186,11 @@
     grid-template-columns: 1fr;
   }
 
+  .benefits-insights {
+    grid-template-columns: 1fr;
+  }
+
   .summary-value {
-    font-size: 1.75rem;
+    font-size: 1.3rem;
   }
 }

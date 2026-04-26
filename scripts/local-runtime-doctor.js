@@ -4,7 +4,7 @@ loadEnv();
 import { spawnSync } from "node:child_process";
 import mongoose from "mongoose";
 import sequelize, {
-  REQUIRED_MIGRATION_IDS,
+  ACTIVE_SQL_MIGRATION_IDS,
   getMissingRequiredTables,
   listAppliedMigrations,
 } from "../src/mysqlDatabase.js";
@@ -14,6 +14,9 @@ const BACKEND_BASE_URL = process.env.LOCAL_BACKEND_BASE_URL || "http://127.0.0.1
 const DATASET_TARGET = Number.parseInt(process.env.LOCAL_DATASET_TARGET || "500000", 10);
 const SERVICE_NAME = "SIPLocalMongoDB";
 const AUTOSTART_TASK = "SIPLocalMongoDBAutostart";
+const SKIP_BACKEND_PROBES = ["1", "true", "yes", "on"].includes(
+  String(process.env.LOCAL_DOCTOR_SKIP_BACKEND_PROBES || "").trim().toLowerCase(),
+);
 
 const warnings = [];
 const blockers = [];
@@ -123,7 +126,7 @@ const getMySqlReadiness = async () => {
   const appliedMigrations = await listAppliedMigrations();
   const missingTables = await getMissingRequiredTables();
   const appliedIds = new Set(appliedMigrations.map((item) => item.id));
-  const missingMigrations = REQUIRED_MIGRATION_IDS.filter((id) => !appliedIds.has(id));
+  const missingMigrations = ACTIVE_SQL_MIGRATION_IDS.filter((id) => !appliedIds.has(id));
 
   if (missingMigrations.length > 0) {
     addBlocker(`Missing MySQL migrations: ${missingMigrations.join(", ")}`);
@@ -169,22 +172,29 @@ const main = async () => {
     addBlocker(`MongoDB unavailable: ${error.message}`);
   }
 
-  try {
-    const [live, ready] = await Promise.all([
-      parseHealthResponse(`${BACKEND_BASE_URL}/api/health/live`),
-      parseHealthResponse(`${BACKEND_BASE_URL}/api/health/ready`),
-    ]);
+  if (SKIP_BACKEND_PROBES) {
+    report.backendHealth = {
+      skipped: true,
+      reason: "LOCAL_DOCTOR_SKIP_BACKEND_PROBES enabled for this run.",
+    };
+  } else {
+    try {
+      const [live, ready] = await Promise.all([
+        parseHealthResponse(`${BACKEND_BASE_URL}/api/health/live`),
+        parseHealthResponse(`${BACKEND_BASE_URL}/api/health/ready`),
+      ]);
 
-    report.backendHealth = { live, ready };
+      report.backendHealth = { live, ready };
 
-    if (!live.ok) {
-      addWarning(`Backend live probe returned HTTP ${live.status}`);
+      if (!live.ok) {
+        addWarning(`Backend live probe returned HTTP ${live.status}`);
+      }
+      if (!ready.ok) {
+        addWarning(`Backend ready probe returned HTTP ${ready.status}`);
+      }
+    } catch (error) {
+      addWarning(`Backend health probes unavailable: ${error.message}. Start backend with 'npm run backend:local:start' or 'npm run stack:local:start'.`);
     }
-    if (!ready.ok) {
-      addWarning(`Backend ready probe returned HTTP ${ready.status}`);
-    }
-  } catch (error) {
-    addWarning(`Backend health probes unavailable: ${error.message}. Start backend with 'npm run backend:local:start' or 'npm run stack:local:start'.`);
   }
 
   report.status = blockers.length > 0 ? "unhealthy" : warnings.length > 0 ? "degraded" : "healthy";

@@ -28,7 +28,7 @@ describe('Keyboard interactions for drilldown controls', () => {
         data={{
           byDepartment: {
             Engineering: { current: 120000, previous: 110000 },
-            Finance: { current: 100000, previous: 98000 },
+            Finance: { current: 90000, previous: 98000 },
           },
           byShareholder: {
             shareholder: { current: 100000 },
@@ -97,5 +97,88 @@ describe('Keyboard interactions for drilldown controls', () => {
     await user.keyboard('{Enter}');
 
     expect(onDrilldown).toHaveBeenCalledWith({ isShareholder: 'true' });
+  });
+
+  it('supports keyboard navigation across earnings mover tabs', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <EarningsChart
+        data={{
+          byDepartment: {
+            Engineering: { current: 120000, previous: 110000 },
+            Finance: { current: 100000, previous: 98000 },
+          },
+          byShareholder: {
+            shareholder: { current: 100000, previous: 95000 },
+            nonShareholder: { current: 120000, previous: 110000 },
+          },
+          byGender: {
+            Male: { current: 120000, previous: 115000 },
+            Female: { current: 100000, previous: 90000 },
+          },
+          byEthnicity: {
+            Asian: { current: 80000, previous: 76000 },
+            Caucasian: { current: 140000, previous: 130000 },
+          },
+          byEmploymentType: {
+            'Full-time': { current: 210000, previous: 200000 },
+            'Part-time': { current: 10000, previous: 5000 },
+          },
+        }}
+        onDrilldown={vi.fn()}
+      />,
+    );
+
+    const declinesTab = screen.getByRole('tab', { name: /Declines/i });
+    const smallestTab = screen.getByRole('tab', { name: /Smallest Growth/i });
+
+    const activeTab = screen.getByRole('tab', { selected: true });
+    const expectedNextTab = activeTab === declinesTab ? smallestTab : declinesTab;
+
+    expect([declinesTab, smallestTab]).toContain(activeTab);
+    activeTab.focus();
+    await user.keyboard('{ArrowRight}');
+
+    expect(expectedNextTab).toHaveFocus();
+    expect(expectedNextTab).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('supports keyboard navigation across vacation demographic tabs', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <VacationChart
+        data={{
+          byShareholder: {
+            shareholder: { current: 40, previous: 38 },
+            nonShareholder: { current: 80, previous: 75 },
+          },
+          byGender: {
+            Male: { current: 60, previous: 58 },
+            Female: { current: 60, previous: 55 },
+          },
+          byEmploymentType: {
+            'Full-time': { current: 100, previous: 95 },
+            'Part-time': { current: 20, previous: 18 },
+          },
+          byEthnicity: {
+            Asian: { current: 25, previous: 20 },
+            Caucasian: { current: 95, previous: 88 },
+          },
+        }}
+        onDrilldown={vi.fn()}
+      />,
+    );
+
+    const shareholderTab = screen.getByRole('tab', { name: /Shareholder/i });
+    const genderTab = screen.getByRole('tab', { name: /Gender/i });
+
+    expect(shareholderTab).toHaveAttribute('aria-selected', 'true');
+    shareholderTab.focus();
+    await user.keyboard('{ArrowRight}');
+
+    expect(genderTab).toHaveFocus();
+    expect(genderTab).toHaveAttribute('aria-selected', 'true');
   });
 });

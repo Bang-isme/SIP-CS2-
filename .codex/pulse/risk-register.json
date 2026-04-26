@@ -1,0 +1,38 @@
+{
+  "active_risks": [
+    {
+      "id": "RISK-001",
+      "description": "Future broad cleanup commands could delete or revert user work in a dirty worktree.",
+      "severity": "high",
+      "probability": "medium",
+      "impact": "Loss of source changes, evidence files, or generated assets that the user expects to keep.",
+      "mitigation": "Generated artifact paths are ignored. Continue using path-scoped cleanup only after confirming ownership.",
+      "owner": "codex",
+      "created_at": "2026-04-26",
+      "last_reviewed": "2026-04-26",
+      "related_stories": [
+        "UIUX-005"
+      ],
+      "status": "monitoring"
+    },
+    {
+      "id": "RISK-002",
+      "description": "Further UI/UX changes can improve one breakpoint while regressing another without runtime checks.",
+      "severity": "medium",
+      "probability": "medium",
+      "impact": "Dashboard routes may pass unit tests while still creating overflow, clipped controls, or poor interaction states.",
+      "mitigation": "Keep responsive CSS contracts and pair meaningful UI work with desktop/mobile Playwright checks.",
+      "owner": "codex",
+      "created_at": "2026-04-26",
+      "last_reviewed": "2026-04-26",
+      "related_stories": [
+        "UIUX-001",
+        "UIUX-002",
+        "UIUX-003",
+        "UIUX-004"
+      ],
+      "status": "monitoring"
+    }
+  ],
+  "resolved_risks": []
+}

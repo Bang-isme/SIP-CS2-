@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "overrides": {
+    "follow-redirects": "^1.16.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,7 +16,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "axios": "^1.13.5",
+    "axios": "^1.15.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.12.0",

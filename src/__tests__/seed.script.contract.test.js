@@ -17,6 +17,17 @@ describe("seed and repair script contracts", () => {
     expect(source).toContain("\"alert_employees\"");
   });
 
+  test("seed script clears Mongo outbox collections instead of truncating retired SQL outbox tables", () => {
+    const seedPath = path.resolve(__dirname, "..", "..", "scripts", "seed.js");
+    const source = fs.readFileSync(seedPath, "utf-8");
+
+    expect(source).toContain('IntegrationEvent.deleteMany({})');
+    expect(source).toContain('IntegrationEventAudit.deleteMany({})');
+    expect(source).toContain('Counter.deleteMany({');
+    expect(source).not.toContain('"integration_events"');
+    expect(source).not.toContain('"integration_event_audits"');
+  });
+
   test("repair script covers pay_rates and alert_employees orphans", () => {
     const repairPath = path.resolve(__dirname, "..", "..", "scripts", "repair-cross-db-consistency.js");
     const source = fs.readFileSync(repairPath, "utf-8");

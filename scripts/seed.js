@@ -19,6 +19,9 @@ config();
 import Employee from "../src/models/Employee.js";
 import Department from "../src/models/Department.js";
 import Alert from "../src/models/Alert.js";
+import Counter from "../src/models/Counter.js";
+import IntegrationEvent from "../src/models/IntegrationEvent.js";
+import IntegrationEventAudit from "../src/models/IntegrationEventAudit.js";
 import sequelize, { connectMySQL, syncDatabase } from "../src/mysqlDatabase.js";
 import {
     Earning,
@@ -458,8 +461,6 @@ async function setupReferenceData() {
 
     // MySQL disallows TRUNCATE on parent tables referenced by FKs unless FK checks are disabled.
     const truncateTables = [
-        "integration_event_audits",
-        "integration_events",
         "sync_log",
         "alert_employees",
         "alerts_summary",
@@ -475,6 +476,15 @@ async function setupReferenceData() {
     ];
 
     try {
+        await Promise.all([
+            IntegrationEvent.deleteMany({}),
+            IntegrationEventAudit.deleteMany({}),
+            Counter.deleteMany({
+                key: {
+                    $in: ["integration-event-id", "integration-audit-id"],
+                },
+            }),
+        ]);
         await sequelize.query("SET FOREIGN_KEY_CHECKS = 0");
         for (const tableName of truncateTables) {
             await sequelize.query(`TRUNCATE TABLE \`${tableName}\``);

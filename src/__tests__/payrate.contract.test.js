@@ -16,9 +16,9 @@ describe("PayRate model-adapter contract", () => {
     expect(attrs.employee_id.unique).not.toBe(true);
   });
 
-  test("payroll adapter uses the same pay_rate contract fields", () => {
-    const adapterPath = path.resolve(__dirname, "..", "adapters", "payroll.adapter.js");
-    const source = fs.readFileSync(adapterPath, "utf-8");
+  test("payroll mutation service uses the same pay_rate contract fields", () => {
+    const servicePath = path.resolve(__dirname, "..", "services", "payrollMutationService.js");
+    const source = fs.readFileSync(servicePath, "utf-8");
 
     expect(source).toContain("employee_id");
     expect(source).toContain("pay_rate");

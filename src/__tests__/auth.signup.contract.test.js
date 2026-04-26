@@ -82,6 +82,7 @@ describe("Auth signup contract", () => {
     }));
     expect(mockRoleFindOne).toHaveBeenCalledWith({ name: "user" });
     expect(mockRoleFind).not.toHaveBeenCalled();
+    expect(mockFindByIdAndUpdate).not.toHaveBeenCalled();
   });
 
   it("should ignore roles=[admin] from request and still assign user role", async () => {
@@ -100,5 +101,76 @@ describe("Auth signup contract", () => {
     expect(res.body.data.roles).toEqual(["user"]);
     expect(mockRoleFindOne).toHaveBeenCalledWith({ name: "user" });
     expect(mockRoleFind).not.toHaveBeenCalled();
+  });
+
+  it("should reject passwords shorter than 8 characters", async () => {
+    const res = await request(app)
+      .post("/api/auth/signup")
+      .send({
+        username: "short-pass-user",
+        email: "short.pass@example.com",
+        password: "short7",
+      })
+      .expect("Content-Type", /json/);
+
+    expect(res.status).toBe(422);
+    expect(res.body.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "password" }),
+    ]));
+  });
+
+  it("should reject overly permissive email formats before persistence", async () => {
+    const res = await request(app)
+      .post("/api/auth/signup")
+      .send({
+        username: "loose-email-user",
+        email: "a@b.c",
+        password: SIGNUP_TEST_PASSWORD,
+      })
+      .expect("Content-Type", /json/);
+
+    expect(res.status).toBe(422);
+    expect(res.body.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "email" }),
+    ]));
+  });
+
+  it("should reject non-array roles before reaching controller logic", async () => {
+    const res = await request(app)
+      .post("/api/auth/signup")
+      .send({
+        username: "roles-string-user",
+        email: "roles.string@example.com",
+        password: SIGNUP_TEST_PASSWORD,
+        roles: "admin",
+      })
+      .expect("Content-Type", /json/);
+
+    expect(res.status).toBe(422);
+    expect(res.body).toEqual(expect.objectContaining({
+      success: false,
+      code: "AUTH_ROLES_ARRAY_REQUIRED",
+    }));
+  });
+
+  it("should reject unknown roles with the canonical validation envelope", async () => {
+    const res = await request(app)
+      .post("/api/auth/signup")
+      .send({
+        username: "unknown-role-user",
+        email: "unknown.role@example.com",
+        password: SIGNUP_TEST_PASSWORD,
+        roles: ["finance_admin"],
+      })
+      .expect("Content-Type", /json/);
+
+    expect(res.status).toBe(422);
+    expect(res.body).toEqual(expect.objectContaining({
+      success: false,
+      code: "AUTH_ROLE_UNKNOWN",
+    }));
+    expect(res.body.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "roles" }),
+    ]));
   });
 });

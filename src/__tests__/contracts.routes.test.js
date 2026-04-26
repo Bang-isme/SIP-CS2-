@@ -14,12 +14,14 @@ describe("contracts routes", () => {
     }));
     expect(res.body.paths["/dashboard/executive-brief"]).toBeTruthy();
     expect(res.body.paths["/auth/logout"]).toBeTruthy();
+    expect(res.body.paths["/auth/refresh"]).toBeTruthy();
     expect(res.body.paths["/users"]).toBeTruthy();
     expect(res.body.paths["/health"]).toBeTruthy();
     expect(res.body.paths["/products"]).toBeTruthy();
     expect(res.body.paths["/integrations/events"]).toBeTruthy();
     expect(res.body.paths["/sync/logs"]).toBeTruthy();
     expect(res.body.paths["/contracts/openapi.json"]).toBeTruthy();
+    expect(res.body.paths["/employee/options"]).toBeTruthy();
     expect(res.body.components.securitySchemes.XAccessToken).toEqual(expect.objectContaining({
       type: "apiKey",
       in: "header",
@@ -49,6 +51,14 @@ describe("contracts routes", () => {
     ]));
   });
 
+  test("auth refresh schema documents refresh token rotation contract", async () => {
+    const res = await request(app).get("/api/contracts/openapi.json");
+
+    const refreshPost = res.body.paths["/auth/refresh"].post;
+    expect(refreshPost.responses["200"]).toBeTruthy();
+    expect(res.body.components.schemas.AuthRefreshResponse).toBeTruthy();
+  });
+
   test("generic error envelope exposes machine-readable code field", async () => {
     const res = await request(app).get("/api/contracts/openapi.json");
 
@@ -66,6 +76,19 @@ describe("contracts routes", () => {
     expect(res.body.paths["/products/search/{productName}"]).toBeTruthy();
     expect(res.body.paths["/products/{productId}"]).toBeTruthy();
     expect(res.body.components.schemas.ProductResponse).toBeTruthy();
+  });
+
+  test("employee paths document admin search and editor options helpers", async () => {
+    const res = await request(app).get("/api/contracts/openapi.json");
+
+    const employeeListGet = res.body.paths["/employee"].get;
+    expect(employeeListGet.parameters).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "search", in: "query" }),
+      expect.objectContaining({ name: "departmentId", in: "query" }),
+      expect.objectContaining({ name: "employmentType", in: "query" }),
+    ]));
+    expect(res.body.paths["/employee/options"]).toBeTruthy();
+    expect(res.body.components.schemas.EmployeeOptionsResponse).toBeTruthy();
   });
 
   test("GET /api/contracts/docs redirects to the trailing-slash Swagger UI route", async () => {

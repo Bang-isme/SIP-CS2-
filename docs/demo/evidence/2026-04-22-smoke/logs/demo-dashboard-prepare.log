@@ -1,0 +1,30 @@
+
+> company-products-api@0.0.2 demo:dashboard:prepare
+> node scripts/prepare-dashboard-demo.js
+
+Database is connected to apicompany
+MySQL (Payroll DB) connected successfully.
+{
+  "status": "ok",
+  "activeAlertTypes": [
+    "anniversary",
+    "vacation",
+    "benefits_change",
+    "birthday"
+  ],
+  "missingTriggeredTypes": [],
+  "visibleAlertTypes": [
+    "anniversary",
+    "benefits_change",
+    "birthday",
+    "vacation"
+  ],
+  "provisionedAlerts": [],
+  "provisionedBenefitDemoEmployeeId": null,
+  "preparedAlerts": [],
+  "executiveBrief": {
+    "freshness": "fresh",
+    "actionCenter": "healthy",
+    "needsAttentionCategories": 0
+  }
+}

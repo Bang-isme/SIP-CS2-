@@ -10,18 +10,17 @@ import path from "path";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { fileURLToPath } from "url";
-import { connectMySQL } from "../src/mysqlDatabase.js";
+import sequelize, { connectMySQL } from "../src/mysqlDatabase.js";
+import connectMongo from "../src/database.js";
 import {
-  IntegrationEvent,
   SyncLog,
   EarningsSummary,
   VacationSummary,
   BenefitsSummary,
   AlertEmployee,
-  sequelize,
 } from "../src/models/sql/index.js";
 import Employee from "../src/models/Employee.js";
-import { MONGODB_URI } from "../src/config.js";
+import IntegrationEvent from "../src/models/IntegrationEvent.js";
 
 dotenv.config();
 
@@ -33,15 +32,15 @@ const main = async () => {
   try {
     // 1) Connect databases
     await connectMySQL();
-    await mongoose.connect(MONGODB_URI);
+    await connectMongo();
 
     // 2) Collect counts
     const mongoCounts = {
       employees: await Employee.countDocuments(),
+      integration_events: await IntegrationEvent.countDocuments(),
     };
 
     const mysqlCounts = {
-      integration_events: await IntegrationEvent.count(),
       sync_logs: await SyncLog.count(),
       earnings_summary: await EarningsSummary.count(),
       vacation_summary: await VacationSummary.count(),

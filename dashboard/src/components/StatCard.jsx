@@ -51,21 +51,15 @@ const StatCard = ({ title, value, subtext, icon, trend, loading, error, onRetry 
 
     const isPositive = trend === 'up';
     const isNegative = trend === 'down';
-    /* Logic: Explicitly handle neutral/no trend */
     const trendClass = isPositive ? 'text-success' : (isNegative ? 'text-danger' : 'text-muted');
     const trendSignal = isPositive ? 'Rising' : (isNegative ? 'Watch' : 'Stable');
-    const trendArrow = isPositive ? '↗' : (isNegative ? '↘' : '→');
 
     return (
         <div className={`stat-card stat-card--${tone}`}>
-            <div className="stat-card-glow" aria-hidden="true"></div>
             <div className="stat-header-row">
                 <div className="stat-headline">
                     <h3 className="stat-title">{title}</h3>
-                    <span className={`stat-signal ${trendClass}`}>
-                        <span aria-hidden="true">{trendArrow}</span>
-                        <span>{trendSignal}</span>
-                    </span>
+                    <span className={`stat-signal ${trendClass}`}>{trendSignal}</span>
                 </div>
                 <div className="stat-icon-wrapper">
                     {icon}
@@ -75,11 +69,6 @@ const StatCard = ({ title, value, subtext, icon, trend, loading, error, onRetry 
             <div className="stat-value-wrap">
                 <div className="stat-value">
                     {value}
-                </div>
-                <div className="stat-pulse" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
                 </div>
             </div>
 

@@ -7,6 +7,7 @@ import {
   exportDrilldownCsv,
 } from '../services/api';
 import { FiSearch } from 'react-icons/fi';
+import { formatDollar, getErrorMessage } from '../utils/formatters';
 import {
   buildRecommendedDrilldownPresets,
   deleteDrilldownPreset,
@@ -15,7 +16,7 @@ import {
 } from '../utils/drilldownPresets';
 import './DrilldownModal.css';
 
-function DrilldownModal({ filters: initialFilters, onClose }) {
+function DrilldownModal({ filters: initialFilters, onClose, variant = 'modal' }) {
  const [data, setData] = useState(null);
  const [summaryState, setSummaryState] = useState({ data: null, loading: false, key: '' });
  const [loading, setLoading] = useState(true);
@@ -44,9 +45,11 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const lastFocusedElementRef = useRef(null);
  const [containerHeight, setContainerHeight] = useState(420);
  const modalContext = initialFilters?.context || '';
+ const isPageVariant = variant === 'page';
  const isVacationContext = modalContext === 'vacation';
  const isBenefitsContext = modalContext === 'benefits';
  const shouldShowMinEarningsFilter = modalContext === 'earnings' || !modalContext;
+ const pageWorkspaceLabel = 'Analytics drilldown workspace';
 
  const loadDepartments = async () => {
   setDepartmentsError('');
@@ -55,7 +58,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
    setDepartments(depts);
   } catch (err) {
    setDepartments([]);
-   setDepartmentsError(err?.response?.data?.message || 'Unable to load department filters');
+   setDepartmentsError(getErrorMessage(err, 'Unable to load department filters'));
   }
  };
 
@@ -96,6 +99,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  }, [modalContext]);
 
  useEffect(() => {
+  if (isPageVariant) return undefined;
   lastFocusedElementRef.current = document.activeElement;
   closeButtonRef.current?.focus();
 
@@ -104,7 +108,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     lastFocusedElementRef.current.focus();
    }
   };
- }, []);
+ }, [isPageVariant]);
 
  // Debounce search input
  useEffect(() => {
@@ -129,9 +133,11 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   setTypeFilter(initialFilters?.employmentType || '');
   setGenderFilter(initialFilters?.gender || '');
   setEthnicityFilter(initialFilters?.ethnicity || '');
-  setShareholderFilter(initialFilters?.isShareholder !== undefined ? String(initialFilters.isShareholder) : '');
-  setBenefitPlanFilter(initialFilters?.benefitPlan || '');
-  setMinEarnings(initialFilters?.minEarnings ? String(initialFilters.minEarnings) : '');
+ setShareholderFilter(initialFilters?.isShareholder !== undefined ? String(initialFilters.isShareholder) : '');
+ setBenefitPlanFilter(initialFilters?.benefitPlan || '');
+ setMinEarnings(initialFilters?.minEarnings ? String(initialFilters.minEarnings) : '');
+  setLocalSearch(initialFilters?.search || '');
+  setDebouncedSearch(initialFilters?.search || '');
   setShowAdvancedFilters(Boolean(
    initialFilters?.gender
    || initialFilters?.ethnicity
@@ -293,7 +299,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     }
   } catch (err) {
    if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
-   setLoadError(err?.response?.data?.message || 'Unable to load drilldown data');
+   setLoadError(getErrorMessage(err, 'Unable to load drilldown data'));
   } finally {
    if (requestId === requestIdRef.current) {
     setLoading(false);
@@ -301,14 +307,26 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   }
  };
 
- const formatCurrency = (value) => `$${(value || 0).toLocaleString()}`;
+ const formatCurrency = formatDollar;
 
  const summaryData = summaryState.data || data?.summary;
  const summaryPartial = summaryData?.partial;
  const summaryLoading = summaryState.loading;
- const renderCurrency = (value) => (summaryLoading || summaryPartial) ? '--' : formatCurrency(value);
- const renderVacation = (value) => (summaryLoading || summaryPartial) ? '--' : `${(value || 0).toLocaleString()} days`;
- const renderBenefit = (value) => (summaryLoading || summaryPartial) ? '--' : formatCurrency(value);
+ const renderSummaryValue = (value, formatter) => {
+  const formattedValue = value === undefined || value === null ? '--' : formatter(value);
+  if (!summaryLoading && !summaryPartial) return formattedValue;
+  return (
+   <>
+    <span className="summary-metric-value-main">{formattedValue}</span>
+    <span className="summary-metric-hint">
+     {summaryLoading ? 'updating total' : 'fast estimate'}
+    </span>
+   </>
+  );
+ };
+ const renderCurrency = (value) => renderSummaryValue(value, formatCurrency);
+ const renderVacation = (value) => renderSummaryValue(value, (nextValue) => `${(nextValue || 0).toLocaleString()} days`);
+ const renderBenefit = (value) => renderSummaryValue(value, formatCurrency);
  const isVirtual = pageSize >= 1000;
  const virtualHeaderHeight = 44;
  const rowHeight = 56;
@@ -337,7 +355,14 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
   }
   if (benefitPlanFilter) chips.push({ key: 'benefitPlan', label: `Plan: ${benefitPlanFilter}`, onClear: () => setBenefitPlanFilter('') });
   if (shouldShowMinEarningsFilter && minEarnings) chips.push({ key: 'minEarnings', label: `Min Earnings: $${Number(minEarnings).toLocaleString()}`, onClear: () => setMinEarnings('') });
-  if (debouncedSearch) chips.push({ key: 'search', label: `Search: ${debouncedSearch}`, onClear: () => setLocalSearch('') });
+  if (debouncedSearch) chips.push({
+   key: 'search',
+   label: `Search: ${debouncedSearch}`,
+   onClear: () => {
+    setLocalSearch('');
+    setDebouncedSearch('');
+   }
+  });
   return chips;
  }, [deptFilter, typeFilter, genderFilter, ethnicityFilter, shareholderFilter, benefitPlanFilter, minEarnings, debouncedSearch, shouldShowMinEarningsFilter]);
 
@@ -345,6 +370,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  const showAdvancedSection = showAdvancedFilters || advancedFilterCount > 0;
 
  const handleModalKeyDown = (event) => {
+  if (isPageVariant) return;
   if (event.key === 'Escape') {
    event.preventDefault();
    onClose();
@@ -411,16 +437,31 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
  // Data to display (already filtered by backend)
  const displayData = data?.data || [];
 
- const totalPages = data?.meta?.pages || 1;
- const totalRecords = data?.meta?.total || 0;
- const visibleStart = totalRecords === 0 ? 0 : (page - 1) * pageSize + 1;
- const visibleEnd = totalRecords === 0 ? 0 : Math.min(page * pageSize, totalRecords);
+const totalPages = data?.meta?.pages || 1;
+const totalRecords = data?.meta?.total || 0;
+const visibleStart = totalRecords === 0 ? 0 : (page - 1) * pageSize + 1;
+const visibleEnd = totalRecords === 0 ? 0 : Math.min(page * pageSize, totalRecords);
+const hasLoadedData = Boolean(data);
+const showInitialLoading = loading && !hasLoadedData;
+const showTableRefresh = loading && hasLoadedData;
+const contextTitle = isBenefitsContext ? 'Benefits' : isVacationContext ? 'Vacation' : 'Earnings';
+const scopeTitle = deptFilter || 'All departments';
+const pageContextSummary = totalRecords > 0
+ ? `${scopeTitle} - ${totalRecords.toLocaleString()} matching employees`
+ : `${scopeTitle} - filter employee records`;
 
- // Handle Export CSV
- const [exporting, setExporting] = useState(false);
+// Handle Export CSV
+const [exporting, setExporting] = useState(false);
+const exportDisabled = exporting || loading || totalRecords === 0;
+const exportLabel = exporting
+ ? 'Exporting...'
+ : totalRecords > 0
+  ? `Export ${totalRecords.toLocaleString()} rows`
+  : 'Export CSV';
 
- const handleExport = async () => {
-  setExporting(true);
+const handleExport = async () => {
+ if (exportDisabled) return;
+ setExporting(true);
   setExportError('');
   try {
    const csvBlob = await exportDrilldownCsv({
@@ -439,64 +480,87 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
    URL.revokeObjectURL(url);
 
   } catch (err) {
-   setExportError(err?.response?.data?.message || 'Failed to export data');
+   setExportError(getErrorMessage(err, 'Failed to export data'));
   } finally {
    setExporting(false);
   }
  };
 
  return (
-  <div className="modal-overlay">
-   <div
-    className="modal-content"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="drilldown-modal-title"
+  <div className={isPageVariant ? 'drilldown-page-shell' : 'modal-overlay'}>
+  <div
+    className={`modal-content${isPageVariant ? ' modal-content--page' : ''}`}
+    role={isPageVariant ? 'region' : 'dialog'}
+    aria-modal={isPageVariant ? undefined : 'true'}
+    aria-labelledby={isPageVariant ? undefined : 'drilldown-modal-title'}
+    aria-label={isPageVariant ? pageWorkspaceLabel : undefined}
     ref={modalRef}
     onKeyDown={handleModalKeyDown}
    >
     {/* Header */}
-    <div className="modal-header">
-     <div>
-      <h2 id="drilldown-modal-title">Employee Details</h2>
-      <p className="subtitle">View and filter employee records</p>
+    <div className={`modal-header${isPageVariant ? ' modal-header--page' : ''}`}>
+     <div className={isPageVariant ? 'page-workspace-copy' : ''}>
+      {isPageVariant ? (
+       <div className="page-workspace-context">
+        <span className="page-workspace-kicker">Current selection</span>
+        <strong className="page-workspace-title">{contextTitle} records</strong>
+        <span className="page-workspace-note">{pageContextSummary}</span>
+       </div>
+      ) : (
+       <>
+        <h2 id="drilldown-modal-title">Employee Details</h2>
+        <p className="subtitle">View and filter employee records</p>
+       </>
+      )}
      </div>
      <div className="modal-actions">
       <button
         type="button"
         className="export-btn"
         onClick={handleExport}
-        disabled={exporting}
-        aria-label="Export current filtered records to CSV"
+        disabled={exportDisabled}
+        aria-busy={exporting}
+        aria-label={totalRecords > 0 ? `Export ${totalRecords.toLocaleString()} filtered records to CSV` : 'Export current filtered records to CSV'}
       >
-       {exporting ? 'Exporting...' : 'Export CSV'}
+       {exportLabel}
       </button>
-      <button type="button" className="close-btn" onClick={onClose} aria-label="Close drilldown" ref={closeButtonRef}>X</button>
+      <button
+       type="button"
+       className={`close-btn${isPageVariant ? ' close-btn--page' : ''}`}
+       onClick={onClose}
+       aria-label={isPageVariant ? 'Back to analytics' : 'Close drilldown'}
+       ref={closeButtonRef}
+      >
+       {isPageVariant ? 'Back' : 'X'}
+      </button>
      </div>
     </div>
 
     {/* Filter Bar */}
-    <div className="filter-bar">
-     <div className="filter-utility-row">
-      <div className="filter-utility-copy">
-       <span className="filter-utility-label">Quick Views</span>
-       <span className="filter-utility-caption">
-        {showPresetWorkbench
-         ? 'Preset shortcuts are open. Close them when you need more room for the table.'
-         : 'Open presets only when you need a quick follow-up path.'}
-       </span>
+    <div className={`filter-bar${isPageVariant ? ' filter-bar--page' : ''}`}>
+     {!isPageVariant && (
+      <div className="filter-utility-row">
+       <div className="filter-utility-copy">
+        <span className="filter-utility-label">Quick Views</span>
+        <span className="filter-utility-caption">
+         {showPresetWorkbench
+          ? 'Preset shortcuts are open. Close them when you need more room for the table.'
+          : 'Open presets only when you need a quick follow-up path.'}
+        </span>
+       </div>
+       <button
+        type="button"
+        className={`workspace-toggle-button ${showPresetWorkbench ? 'active' : ''}`}
+        onClick={() => setShowPresetWorkbench((value) => !value)}
+        aria-expanded={showPresetWorkbench}
+        aria-controls="drilldown-preset-workbench"
+       >
+        {showPresetWorkbench ? 'Hide Quick Views' : 'Open Quick Views'}
+       </button>
       </div>
-      <button
-       type="button"
-       className={`workspace-toggle-button ${showPresetWorkbench ? 'active' : ''}`}
-       onClick={() => setShowPresetWorkbench((value) => !value)}
-       aria-expanded={showPresetWorkbench}
-      >
-       {showPresetWorkbench ? 'Hide Quick Views' : 'Open Quick Views'}
-      </button>
-     </div>
+     )}
       {showPresetWorkbench && (
-       <div className="preset-workbench">
+       <div className="preset-workbench" id="drilldown-preset-workbench">
       <div className="preset-section">
        <div className="preset-section-header">
         <span className="preset-section-label">Memo Presets</span>
@@ -524,7 +588,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
        <div className="preset-section-header preset-section-header-inline">
         <div className="preset-section-copy">
          <span className="preset-section-label">Saved Views</span>
-         <span className="preset-section-caption">Keep a few repeat questions ready for demo follow-up.</span>
+         <span className="preset-section-caption">Keep repeat operational questions ready without rebuilding filters.</span>
         </div>
         <button
          type="button"
@@ -646,11 +710,23 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
        </div>
       </div>
       <div className="filter-toolbar-actions">
+       {isPageVariant && (
+        <button
+         type="button"
+         className={`workspace-toggle-button ${showPresetWorkbench ? 'active' : ''}`}
+         onClick={() => setShowPresetWorkbench((value) => !value)}
+         aria-expanded={showPresetWorkbench}
+         aria-controls="drilldown-preset-workbench"
+        >
+         {showPresetWorkbench ? 'Hide Views' : 'Views'}
+        </button>
+       )}
        <button
         type="button"
         className={`filter-toggle-button ${showAdvancedSection ? 'active' : ''}`}
         onClick={() => setShowAdvancedFilters((value) => !value)}
         aria-expanded={showAdvancedSection}
+        aria-controls="drilldown-advanced-filters"
        >
         {showAdvancedSection
          ? 'Hide More Filters'
@@ -662,7 +738,7 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
      </div>
 
      {showAdvancedSection && (
-      <div className="filter-row filter-row-advanced">
+      <div className="filter-row filter-row-advanced" id="drilldown-advanced-filters">
        <div className="advanced-filter-header">
         <span className="advanced-filter-title">Optional filters</span>
         {advancedFilterCount > 0 && (
@@ -809,11 +885,11 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
 
     {/* Financial Summary Header (New) */}
     {summaryData && (
-     <div className="financial-summary-header">
+     <div className={`financial-summary-header${isPageVariant ? ' financial-summary-header--page' : ''}`}>
       <h4 className="summary-title">Selection Totals</h4>
       {(summaryPartial || summaryLoading) && (
        <span className="summary-mode-pill">
-        FAST MODE
+        {summaryLoading ? 'UPDATING TOTALS' : 'FAST ESTIMATE'}
        </span>
       )}
 
@@ -851,16 +927,21 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
     )}
 
     {/* Data Area */}
-    <div className="table-container" ref={containerRef}>
+    <div className="table-container" ref={containerRef} aria-busy={loading ? 'true' : 'false'}>
      {loadError && !loading && (
       <div className="inline-error-banner inline-error-banner-table" role="alert">
        <span>{loadError}</span>
        <button type="button" className="inline-error-action" onClick={() => { void loadData(); }}>
-        Retry
-       </button>
+       Retry
+      </button>
+     </div>
+     )}
+     {showTableRefresh && (
+      <div className="table-refresh-overlay" role="status" aria-live="polite">
+       Updating selection...
       </div>
      )}
-     {loading ? (
+     {showInitialLoading ? (
       <div className="loading-state">
        <div className="spinner"></div>
        <p>Loading records...</p>
@@ -1001,17 +1082,14 @@ function DrilldownModal({ filters: initialFilters, onClose }) {
        </span>
       </div>
       <div className="btn-group">
-       <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</button>
-       <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+       <button type="button" disabled={page === 1} onClick={() => setPage((currentPage) => currentPage - 1)}>Previous</button>
+       <button type="button" disabled={page >= totalPages} onClick={() => setPage((currentPage) => currentPage + 1)}>Next</button>
       </div>
      </div>
     </div>
-   </div>
+   </div>
   </div >
  );
 }
 
 export default DrilldownModal;
-
-
-

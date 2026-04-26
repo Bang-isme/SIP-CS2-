@@ -10,20 +10,23 @@ const integrationAuditCreateMock = jest.fn();
 const integrationAuditBulkCreateMock = jest.fn();
 const recoverStuckProcessingIntegrationEventsMock = jest.fn();
 const buildIntegrationMetricsSnapshotMock = jest.fn();
+const buildIntegrationReconciliationSnapshotMock = jest.fn();
+const repairExtraPayrollCoverageMock = jest.fn();
 
-jest.unstable_mockModule("../models/sql/index.js", () => ({
-  IntegrationEvent: {
+jest.unstable_mockModule("../repositories/integrationStore.js", () => ({
+  IntegrationEventStore: {
     count: integrationCountMock,
     findAll: integrationFindAllMock,
     findByPk: integrationFindByPkMock,
     update: integrationUpdateMock,
   },
-  IntegrationEventAudit: {
+  IntegrationEventAuditStore: {
     count: integrationAuditCountMock,
     findAll: integrationAuditFindAllMock,
     create: integrationAuditCreateMock,
     bulkCreate: integrationAuditBulkCreateMock,
   },
+  groupIntegrationEventCountsByStatus: jest.fn(),
 }));
 
 jest.unstable_mockModule("../services/integrationEventService.js", () => ({
@@ -34,12 +37,19 @@ jest.unstable_mockModule("../services/integrationMetricsService.js", () => ({
   buildIntegrationMetricsSnapshot: buildIntegrationMetricsSnapshotMock,
 }));
 
+jest.unstable_mockModule("../services/integrationReconciliationService.js", () => ({
+  buildIntegrationReconciliationSnapshot: buildIntegrationReconciliationSnapshotMock,
+  repairExtraPayrollCoverage: repairExtraPayrollCoverageMock,
+}));
+
 const {
   getIntegrationEventAudit,
   getIntegrationMetrics,
+  getIntegrationReconciliation,
   listIntegrationEvents,
   recoverStuckIntegrationEvents,
   replayIntegrationEvents,
+  repairIntegrationReconciliation,
   retryDeadIntegrationEvents,
   retryIntegrationEvent,
 } = await import("../controllers/integration.controller.js");
@@ -91,6 +101,101 @@ describe("integration controller behavior", () => {
         }),
         meta: expect.objectContaining({
           dataset: "integrationMetrics",
+          actorId: "admin-1",
+          requestId: "req-integration-test",
+        }),
+      }),
+    );
+  });
+
+  test("repairIntegrationReconciliation returns operator repair metadata", async () => {
+    const req = { userId: "admin-1", requestId: "req-integration-test" };
+    const res = createRes();
+
+    repairExtraPayrollCoverageMock.mockResolvedValue({
+      repaired: true,
+      repairedEmployeeIds: ["EMP900001", "EMP900002"],
+      deactivatedCount: 2,
+      terminatedRowsCreated: 2,
+      remainingExtraCount: 0,
+    });
+
+    await repairIntegrationReconciliation(req, res);
+
+    expect(repairExtraPayrollCoverageMock).toHaveBeenCalledWith({
+      actorId: "admin-1",
+      requestId: "req-integration-test",
+    });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        message: "Payroll extras repaired",
+        data: {
+          repaired: true,
+          repairedEmployeeIds: ["EMP900001", "EMP900002"],
+          deactivatedCount: 2,
+          terminatedRowsCreated: 2,
+          remainingExtraCount: 0,
+        },
+        meta: expect.objectContaining({
+          dataset: "integrationReconciliationRepair",
+          actorId: "admin-1",
+          requestId: "req-integration-test",
+        }),
+      }),
+    );
+  });
+
+  test("getIntegrationReconciliation returns canonical reconciliation envelope", async () => {
+    const req = { userId: "admin-1", requestId: "req-integration-test" };
+    const res = createRes();
+
+    buildIntegrationReconciliationSnapshotMock.mockResolvedValue({
+      status: "attention",
+      checkedAt: "2026-04-21T08:00:00.000Z",
+      summary: {
+        sourceEmployeeCount: 500006,
+        downstreamCoveredEmployeeCount: 500001,
+        missingInPayrollCount: 3,
+        extraInPayrollCount: 2,
+        duplicateActivePayrollCount: 1,
+        payRateMismatchCount: 4,
+        issueCount: 10,
+        parityRate: 99.2,
+      },
+      samples: {
+        missingInPayroll: ["EMP500004", "EMP500005"],
+        extraInPayroll: ["EMP900001"],
+        duplicateActivePayroll: ["EMP123456"],
+        payRateMismatch: [
+          {
+            employeeId: "EMP100001",
+            sourcePayRate: 120000,
+            payrollPayRate: 118000,
+          },
+        ],
+      },
+    });
+
+    await getIntegrationReconciliation(req, res);
+
+    expect(buildIntegrationReconciliationSnapshotMock).toHaveBeenCalledTimes(1);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        data: expect.objectContaining({
+          status: "attention",
+          summary: expect.objectContaining({
+            missingInPayrollCount: 3,
+            payRateMismatchCount: 4,
+            parityRate: 99.2,
+          }),
+          samples: expect.objectContaining({
+            missingInPayroll: ["EMP500004", "EMP500005"],
+          }),
+        }),
+        meta: expect.objectContaining({
+          dataset: "integrationReconciliation",
           actorId: "admin-1",
           requestId: "req-integration-test",
         }),
@@ -293,7 +398,7 @@ describe("integration controller behavior", () => {
 
     expect(res.json).toHaveBeenCalledWith({
       success: true,
-      message: "Event queued for retry",
+      message: "Retry queued",
       data: {
         id: 12,
         previousStatus: "FAILED",
@@ -343,7 +448,7 @@ describe("integration controller behavior", () => {
 
     expect(res.json).toHaveBeenCalledWith({
       success: true,
-      message: "Re-queued 4 dead events",
+      message: "Dead events queued",
       data: { count: 4 },
       meta: expect.objectContaining({
         dataset: "integrationRetryDead",
@@ -374,7 +479,7 @@ describe("integration controller behavior", () => {
 
     expect(res.json).toHaveBeenCalledWith({
       success: true,
-      message: "Recovered 3 stale PROCESSING events",
+      message: "Processing recovered",
       data: {
         count: 3,
         recoveredIds: [11, 12, 13],
@@ -460,7 +565,7 @@ describe("integration controller behavior", () => {
     ]));
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       success: true,
-      message: "Re-queued 5 events",
+      message: "Replay queued",
       data: { count: 5 },
       meta: expect.objectContaining({
         dataset: "integrationReplay",

@@ -1,0 +1,24 @@
+{
+  "status": "ok",
+  "activeAlertTypes": [
+    "anniversary",
+    "vacation",
+    "benefits_change",
+    "birthday"
+  ],
+  "missingTriggeredTypes": [],
+  "visibleAlertTypes": [
+    "anniversary",
+    "benefits_change",
+    "birthday",
+    "vacation"
+  ],
+  "provisionedAlerts": [],
+  "provisionedBenefitDemoEmployeeId": null,
+  "preparedAlerts": [],
+  "executiveBrief": {
+    "freshness": "fresh",
+    "actionCenter": "healthy",
+    "needsAttentionCategories": 0
+  }
+}

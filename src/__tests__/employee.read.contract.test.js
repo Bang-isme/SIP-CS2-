@@ -4,6 +4,7 @@ const employeeFindOneMock = jest.fn();
 const employeeFindByIdMock = jest.fn();
 const employeeFindMock = jest.fn();
 const employeeCountDocumentsMock = jest.fn();
+const departmentFindMock = jest.fn();
 
 class EmployeeQueryMock {
   constructor(rows) {
@@ -30,6 +31,12 @@ jest.unstable_mockModule("../models/Employee.js", () => ({
   },
 }));
 
+jest.unstable_mockModule("../models/Department.js", () => ({
+  default: {
+    find: departmentFindMock,
+  },
+}));
+
 const {
   getEmployee,
   getEmployees,
@@ -53,6 +60,11 @@ const createRes = () => {
 describe("employee read contract", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    departmentFindMock.mockReturnValue({
+      sort: jest.fn().mockReturnValue({
+        lean: jest.fn().mockResolvedValue([]),
+      }),
+    });
   });
 
   test("getEmployee resolves by business employeeId before Mongo fallback", async () => {
@@ -154,6 +166,74 @@ describe("employee read contract", () => {
         filters: {},
       }),
     });
+  });
+
+  test("getEmployees applies optional search filter and exposes it in meta", async () => {
+    employeeFindMock.mockReturnValue(new EmployeeQueryMock([
+      { employeeId: "EMP100", firstName: "Amy" },
+    ]));
+    employeeCountDocumentsMock.mockResolvedValue(1);
+
+    const req = {
+      query: {
+        page: "1",
+        limit: "10",
+        search: "Amy",
+      },
+    };
+    const res = createRes();
+
+    await getEmployees(req, res);
+
+    const searchQuery = employeeFindMock.mock.calls[0]?.[0] || {};
+    expect(Array.isArray(searchQuery.$or)).toBe(true);
+    expect(searchQuery.$or).toEqual(expect.arrayContaining([
+      { firstName: "Amy" },
+      { lastName: "Amy" },
+      { employeeId: "AMY" },
+      { firstName: expect.any(RegExp) },
+      { lastName: expect.any(RegExp) },
+      { employeeId: expect.any(RegExp) },
+    ]));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      meta: expect.objectContaining({
+        filters: {
+          search: "Amy",
+        },
+      }),
+    }));
+  });
+
+  test("getEmployees applies source manager filters for department and employment type", async () => {
+    employeeFindMock.mockReturnValue(new EmployeeQueryMock([
+      { employeeId: "EMP200", firstName: "Noah", employmentType: "Full-time" },
+    ]));
+    employeeCountDocumentsMock.mockResolvedValue(1);
+
+    const req = {
+      query: {
+        page: "2",
+        limit: "20",
+        departmentId: "dept-1",
+        employmentType: "Full-time",
+      },
+    };
+    const res = createRes();
+
+    await getEmployees(req, res);
+
+    expect(employeeFindMock).toHaveBeenCalledWith({
+      departmentId: "dept-1",
+      employmentType: "Full-time",
+    });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      meta: expect.objectContaining({
+        filters: {
+          departmentId: "dept-1",
+          employmentType: "Full-time",
+        },
+      }),
+    }));
   });
 
   test("getEmployees rejects invalid pagination params with 422", async () => {

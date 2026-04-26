@@ -3,6 +3,7 @@ node_modules
 
 # Build
 build
+dist/
 
 # environment variables
 .env
@@ -10,3 +11,8 @@ build
 
 # local runtime artifacts
 run/
+output/
+test-results/
+.playwright-cli/
+.playwright-mcp/
+.codexai-backups/

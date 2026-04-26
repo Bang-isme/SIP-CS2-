@@ -1,4 +1,5 @@
 import Employee from "../models/Employee.js";
+import Department from "../models/Department.js";
 import { syncEmployeeToPayroll } from "../services/syncService.js";
 import { enqueueIntegrationEvent } from "../services/integrationEventService.js";
 import { OUTBOX_ENABLED } from "../config.js";
@@ -17,13 +18,73 @@ import {
     isMongoObjectId,
     normalizeEmployeeListQuery,
     normalizeEmployeeLookupParam,
+    normalizeEmployeeMutationPayload,
     sendEmployeeContractError,
 } from "../utils/employeeContracts.js";
+import { buildEmployeeSearchQuery } from "../utils/employeeSearch.js";
+import {
+    peekNextEmployeeId,
+    reserveNextEmployeeId,
+} from "../services/employeeIdService.js";
+import { buildEmployeeSyncEvidenceSnapshot } from "../services/employeeSyncEvidenceService.js";
+
+const EMPLOYEE_GENDER_OPTIONS = ["Male", "Female", "Other"];
+const EMPLOYEE_TYPE_OPTIONS = ["Full-time", "Part-time"];
 
 const buildEmployeePayload = (employee) => ({
     ...employee.toObject(),
     _id: employee._id?.toString(),
 });
+
+const normalizeStoredDateValue = (value) => {
+    if (!value) {
+        return value;
+    }
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+    return value;
+};
+
+const assertUpdateTimelineConsistency = ({
+    existingEmployee,
+    updateData,
+    sourcePayload = {},
+}) => {
+    const birthDateProvided = Object.prototype.hasOwnProperty.call(updateData, "birthDate");
+    const hireDateProvided = Object.prototype.hasOwnProperty.call(updateData, "hireDate");
+
+    if (!birthDateProvided && !hireDateProvided) {
+        return;
+    }
+
+    const nextBirthDate = updateData.birthDate ?? normalizeStoredDateValue(existingEmployee?.birthDate);
+    const nextHireDate = updateData.hireDate ?? normalizeStoredDateValue(existingEmployee?.hireDate);
+
+    if (!nextBirthDate || !nextHireDate) {
+        return;
+    }
+
+    if (new Date(nextBirthDate) < new Date(nextHireDate)) {
+        return;
+    }
+
+    const message = "Birth date must be earlier than hire date.";
+    throw new EmployeeContractError("Validation failed.", {
+        errors: [
+            {
+                field: "birthDate",
+                message,
+                value: birthDateProvided ? sourcePayload.birthDate : nextBirthDate,
+            },
+            {
+                field: "hireDate",
+                message,
+                value: hireDateProvided ? sourcePayload.hireDate : nextHireDate,
+            },
+        ],
+    });
+};
 
 const handleEmployeeMutationError = (req, res, error) => {
     if (error?.name === "ValidationError") {
@@ -58,7 +119,8 @@ const buildQueuedSyncState = ({ correlationId = null } = {}) => ({
     mode: "OUTBOX",
     consistency: "EVENTUAL",
     requiresAttention: false,
-    message: "Source record saved; integration event queued for async sync",
+    message: "Queued",
+    detail: "Saved in MongoDB. Payroll dispatch is queued.",
     correlationId,
 });
 
@@ -69,16 +131,17 @@ const buildDirectSyncState = ({
     correlationId = null,
 }) => {
     const success = Boolean(syncResult?.success);
-    const baseMessage = success
-        ? "Synced to downstream integrations"
-        : "Source record saved, but one or more downstream syncs failed";
+    const detail = success
+        ? "Payroll sync complete."
+        : "Source saved. Review downstream sync.";
 
     return {
         status: success ? "SUCCESS" : "FAILED",
         mode,
         consistency: success ? "EVENTUAL" : "AT_RISK",
         requiresAttention: !success || Boolean(fallbackWarning),
-        message: fallbackWarning ? `${baseMessage}. ${fallbackWarning}` : baseMessage,
+        message: success ? "Synced" : "Sync failed",
+        detail: fallbackWarning ? `${detail} ${fallbackWarning}` : detail,
         warning: fallbackWarning || null,
         results: syncResult?.results || [],
         correlationId: syncResult?.correlationId || correlationId,
@@ -162,7 +225,8 @@ const dispatchEmployeeMutation = async ({
                 mode: "DIRECT_FALLBACK",
                 consistency: "AT_RISK",
                 requiresAttention: true,
-                message: "Source record saved, but downstream sync dispatch failed after outbox fallback",
+                message: "Sync failed",
+                detail: "Source saved. Payroll dispatch failed.",
                 warning: `Outbox enqueue failed: ${enqueueError.message}. Direct sync failed: ${syncError.message}`,
                 results: [],
                 correlationId,
@@ -175,32 +239,44 @@ const dispatchEmployeeMutation = async ({
  * Create Employee - Case Study 3: Data Consistency
  * 
  * 1. Creates employee in HR system (MongoDB)
- * 2. Syncs to Payroll system (MySQL) via syncService
+ * 2. Queues an SA-owned outbox event in MongoDB
+ * 3. Syncs to Payroll through worker dispatch or direct fallback
  */
 export const createEmployee = async (req, res) => {
     try {
         const correlationId = getRequestId({ req });
-        const { employeeId, firstName, lastName, vacationDays, paidToDate, paidLastYear, payRate, payRateId,
-            gender, ethnicity, employmentType, isShareholder, departmentId, hireDate, birthDate } = req.body;
+        const sourcePayload = {
+            ...(req.body || {}),
+        };
 
-        // Step 1: Create in MongoDB (HR System)
-        const employee = new Employee({
-            employeeId,
-            firstName,
-            lastName,
-            gender,
-            ethnicity,
-            employmentType,
-            isShareholder,
-            departmentId,
-            hireDate,
-            birthDate,
-            vacationDays,
-            paidToDate,
-            paidLastYear,
-            payRate,
-            payRateId
-        });
+        if (Object.prototype.hasOwnProperty.call(sourcePayload, "employeeId")) {
+            throw new EmployeeContractError("Validation failed.", {
+                errors: [
+                    {
+                        field: "employeeId",
+                        message: "employeeId is server-generated on create.",
+                        value: sourcePayload.employeeId,
+                    },
+                ],
+            });
+        }
+
+        sourcePayload.employeeId = await reserveNextEmployeeId();
+
+        const employeeInput = normalizeEmployeeMutationPayload(sourcePayload, { mode: "create" });
+
+        if (employeeInput.departmentId) {
+            const department = await Department.findById(employeeInput.departmentId);
+            if (!department) {
+                return sendApiError(
+                    res,
+                    createBadRequestError("departmentId does not reference an existing department.", "EMPLOYEE_DEPARTMENT_NOT_FOUND"),
+                );
+            }
+        }
+
+        // Step 1: Create in MongoDB (HR system source-of-truth)
+        const employee = new Employee(employeeInput);
 
         const savedEmployee = await employee.save();
         const payload = buildEmployeePayload(savedEmployee);
@@ -212,7 +288,7 @@ export const createEmployee = async (req, res) => {
             correlationId,
         });
 
-        // Return success with sync status
+        // Return source write result plus sync-state evidence for Case Study 3
         return res.status(201).json({
             success: true,
             data: {
@@ -227,6 +303,9 @@ export const createEmployee = async (req, res) => {
             sync,
         });
     } catch (error) {
+        if (error instanceof EmployeeContractError) {
+            return sendEmployeeContractError(res, error);
+        }
         logUnexpectedEmployeeMutationError("createEmployee error", error, {
             req,
             res,
@@ -243,9 +322,30 @@ export const updateEmployee = async (req, res) => {
     try {
         const correlationId = getRequestId({ req });
         const { id } = req.params;
-        const updateData = req.body;
+        const updateData = normalizeEmployeeMutationPayload(req.body, { mode: "update" });
 
-        // Step 1: Update in MongoDB
+        if (updateData.departmentId) {
+            const department = await Department.findById(updateData.departmentId);
+            if (!department) {
+                return sendApiError(
+                    res,
+                    createBadRequestError("departmentId does not reference an existing department.", "EMPLOYEE_DEPARTMENT_NOT_FOUND"),
+                );
+            }
+        }
+
+        const existingEmployee = await Employee.findById(id);
+        if (!existingEmployee) {
+            return sendApiError(res, createNotFoundError("Employee not found", "EMPLOYEE_NOT_FOUND"));
+        }
+
+        assertUpdateTimelineConsistency({
+            existingEmployee,
+            updateData,
+            sourcePayload: req.body,
+        });
+
+        // Step 1: Update source-of-truth in MongoDB
         const employee = await Employee.findByIdAndUpdate(id, updateData, {
             new: true,
             runValidators: true,
@@ -271,6 +371,9 @@ export const updateEmployee = async (req, res) => {
             sync,
         });
     } catch (error) {
+        if (error instanceof EmployeeContractError) {
+            return sendEmployeeContractError(res, error);
+        }
         logUnexpectedEmployeeMutationError("updateEmployee error", error, {
             req,
             res,
@@ -304,7 +407,7 @@ export const deleteEmployee = async (req, res) => {
 
         return res.json({
             success: true,
-            message: "Employee deleted from source system",
+            message: "Employee deleted",
             sync,
         });
     } catch (error) {
@@ -359,12 +462,72 @@ export const getEmployee = async (req, res) => {
     }
 };
 
+export const getEmployeeSyncEvidence = async (req, res) => {
+    try {
+        const employeeLookup = normalizeEmployeeLookupParam(req.params.employeeId);
+        const snapshot = await buildEmployeeSyncEvidenceSnapshot(employeeLookup);
+
+        if (!snapshot) {
+            return sendApiError(
+                res,
+                createNotFoundError("Sync evidence not found", "EMPLOYEE_SYNC_EVIDENCE_NOT_FOUND", {
+                    meta: {
+                        detail: "No source, queue, or payroll evidence exists for this employee ID.",
+                    },
+                }),
+            );
+        }
+
+        return res.json({
+            success: true,
+            data: snapshot,
+            meta: buildEmployeeMeta({
+                dataset: "employeeSyncEvidence",
+                filters: {
+                    employeeId: employeeLookup,
+                },
+            }),
+        });
+    } catch (error) {
+        if (error instanceof EmployeeContractError) {
+            return sendEmployeeContractError(res, error);
+        }
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "EmployeeController",
+            defaultCode: "EMPLOYEE_SYNC_EVIDENCE_FAILED",
+        });
+    }
+};
+
 export const getEmployees = async (req, res) => {
     try {
-        const { page, limit, skip } = normalizeEmployeeListQuery(req.query);
+        const {
+            page,
+            limit,
+            skip,
+            search,
+            departmentId,
+            employmentType,
+        } = normalizeEmployeeListQuery(req.query);
+        const query = {};
 
-        const employees = await Employee.find().skip(skip).limit(limit);
-        const total = await Employee.countDocuments();
+        if (search) {
+            Object.assign(query, buildEmployeeSearchQuery(search));
+        }
+
+        if (departmentId) {
+            query.departmentId = departmentId;
+        }
+
+        if (employmentType) {
+            query.employmentType = employmentType;
+        }
+
+        const employees = await Employee.find(query).skip(skip).limit(limit);
+        const total = await Employee.countDocuments(query);
         const totalPages = Math.ceil(total / limit);
 
         return res.json({
@@ -382,7 +545,11 @@ export const getEmployees = async (req, res) => {
                 page,
                 limit,
                 totalPages,
-                filters: {},
+                filters: {
+                    ...(search ? { search } : {}),
+                    ...(departmentId ? { departmentId } : {}),
+                    ...(employmentType ? { employmentType } : {}),
+                },
             }),
         });
     } catch (error) {
@@ -395,6 +562,45 @@ export const getEmployees = async (req, res) => {
             error,
             context: "EmployeeController",
             defaultCode: "EMPLOYEE_LIST_FAILED",
+        });
+    }
+};
+
+export const getEmployeeOptions = async (req, res) => {
+    try {
+        const departments = await Department.find({}, "_id name code isActive")
+            .sort({ name: 1 })
+            .lean();
+        const nextEmployeeId = await peekNextEmployeeId();
+
+        return res.json({
+            success: true,
+            data: {
+                departments: departments.map((department) => ({
+                    _id: department._id?.toString(),
+                    name: department.name,
+                    code: department.code,
+                    isActive: Boolean(department.isActive),
+                })),
+                enums: {
+                    gender: EMPLOYEE_GENDER_OPTIONS,
+                    employmentType: EMPLOYEE_TYPE_OPTIONS,
+                },
+                nextEmployeeId,
+            },
+            meta: buildEmployeeMeta({
+                dataset: "employeeOptions",
+                filters: {},
+                departmentCount: departments.length,
+            }),
+        });
+    } catch (error) {
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "EmployeeController",
+            defaultCode: "EMPLOYEE_OPTIONS_FAILED",
         });
     }
 };

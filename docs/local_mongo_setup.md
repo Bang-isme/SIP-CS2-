@@ -1,6 +1,6 @@
 # Local Mongo Setup on Drive D
 
-> Last Updated: 2026-04-03
+> Last Updated: 2026-04-15
 
 ## Purpose
 
@@ -154,6 +154,20 @@ npm run stack:local:stop
 
 This is the recommended operator flow before demo or viva.
 
+Case 3 split runtime stack:
+
+```powershell
+npm run case3:stack:start
+npm run verify:case3
+npm run case3:stack:stop
+```
+
+This is the recommended flow when you specifically need to defend:
+
+- SA / Payroll / Dashboard runtime separation
+- Payroll ownership of payroll writes
+- dashboard memo readiness after startup preparation
+
 ## Recommended 500k Local Baseline
 
 For the coursework-scale local dataset, use this order:
@@ -179,3 +193,4 @@ Expected baseline after a clean enterprise seed on local:
 - Atlas clone is optional. The current recommended local baseline is the seeded `500000`-employee dataset above.
 - `scripts/seed.js` now writes SQL batch rows inside a transaction, so a failed batch no longer leaves partial writes across `earnings`, `vacation_records`, `employee_benefits`, and `pay_rates`.
 - The recommended runtime mode is now the Windows service, not the manual background process.
+- For live demo defense, prefer `case3:stack:start` over ad-hoc `npm run dev` flows.

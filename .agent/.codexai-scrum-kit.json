@@ -1,0 +1,16 @@
+{
+  "kit": "codex-scrum-subagents",
+  "installed_at": "2026-04-16T04:59:46.010816+00:00",
+  "force": false,
+  "operation": "update",
+  "bundle": {
+    "agent_files": 10,
+    "workflow_files": 7,
+    "service_files": 3,
+    "native_agent_files": 10,
+    "total_files": 32
+  },
+  "target_root": "D:\\SIP_CS 2\\SIP_CS",
+  "codex_agents_root": "D:\\SIP_CS 2\\SIP_CS\\.codex\\agents",
+  "project_codex_agents_rel": ".codex/agents"
+}

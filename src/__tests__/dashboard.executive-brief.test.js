@@ -146,6 +146,11 @@ describe("dashboard executive brief service", () => {
       status: "fresh",
       label: "Fresh",
     }));
+    expect(snapshot.freshness.readiness).toEqual(expect.objectContaining({
+      status: "current",
+      summary: "Summaries current",
+      actionMode: "reload",
+    }));
     expect(snapshot.alerts.stats).toEqual(expect.objectContaining({
       categories: 2,
       affected: 9,
@@ -208,5 +213,161 @@ describe("dashboard executive brief service", () => {
     expect(userFindByIdMock).toHaveBeenCalledTimes(1);
     expect(alertFindMock).not.toHaveBeenCalled();
     expect(buildIntegrationMetricsSnapshotMock).not.toHaveBeenCalled();
+  });
+
+  test("buildExecutiveBriefSnapshot stays ready when active alerts already have current owners", async () => {
+    const now = Date.now();
+    const twentyMinutesAgo = new Date(now - 20 * 60000).toISOString();
+    const tenMinutesAgo = new Date(now - 10 * 60000).toISOString();
+    const fiveMinutesAgo = new Date(now - 5 * 60000).toISOString();
+
+    userFindByIdMock.mockReturnValue(mockLeanChain({
+      _id: "user-1",
+      roles: ["role-admin"],
+    }));
+    roleFindMock.mockReturnValue(mockLeanChain([
+      { _id: "role-admin", name: "admin" },
+    ]));
+    earningsSummaryFindOneMock.mockResolvedValue({ computed_at: twentyMinutesAgo });
+    vacationSummaryFindOneMock.mockResolvedValue({ computed_at: tenMinutesAgo });
+    benefitsSummaryFindOneMock.mockResolvedValue({ computed_at: fiveMinutesAgo });
+    alertFindMock.mockReturnValue({
+      populate: jest.fn().mockReturnValue(mockLeanChain([
+        {
+          _id: "vac-1",
+          type: "vacation",
+          name: "Vacation Threshold",
+          acknowledgedAt: fiveMinutesAgo,
+          acknowledgementNote: "Queue reviewed and owned.",
+          acknowledgedCount: 6,
+          acknowledgedSummaryAt: fiveMinutesAgo,
+          acknowledgedBy: {
+            _id: "moderator-1",
+            username: "opslead",
+            email: "opslead@example.com",
+          },
+        },
+        {
+          _id: "benefits-1",
+          type: "benefits_change",
+          name: "Benefits Change",
+          acknowledgedAt: tenMinutesAgo,
+          acknowledgementNote: "Benefits impacts checked for the current snapshot.",
+          acknowledgedCount: 3,
+          acknowledgedSummaryAt: tenMinutesAgo,
+          acknowledgedBy: {
+            _id: "moderator-1",
+            username: "opslead",
+            email: "opslead@example.com",
+          },
+        },
+      ])),
+    });
+    alertsSummaryFindAllMock.mockResolvedValue([
+      {
+        alert_type: "vacation",
+        employee_count: 6,
+        computed_at: fiveMinutesAgo,
+      },
+      {
+        alert_type: "benefits_change",
+        employee_count: 3,
+        computed_at: tenMinutesAgo,
+      },
+    ]);
+    buildIntegrationMetricsSnapshotMock.mockResolvedValue({
+      actionable: 0,
+      backlog: 0,
+      oldestPendingAgeMinutes: 0,
+      counts: {
+        PENDING: 0,
+        PROCESSING: 0,
+        SUCCESS: 10,
+        FAILED: 0,
+        DEAD: 0,
+      },
+    });
+
+    const snapshot = await buildExecutiveBriefSnapshot({
+      userId: "user-1",
+      year: 2026,
+    });
+
+    expect(snapshot.alerts.followUp).toEqual(expect.objectContaining({
+      needsAttentionCategories: 0,
+      unassignedCategories: 0,
+      staleCategories: 0,
+      ownedCategories: 2,
+    }));
+    expect(snapshot.actionCenter).toEqual(expect.objectContaining({
+      status: "healthy",
+      label: "Ready for Memo",
+      items: [
+        expect.objectContaining({
+          key: "open-earnings",
+          tone: "healthy",
+        }),
+      ],
+    }));
+    expect(snapshot.freshness.readiness).toEqual(expect.objectContaining({
+      status: "current",
+      summary: "Summaries current",
+    }));
+  });
+
+  test("buildExecutiveBriefSnapshot marks stale summaries as rebuildable operator debt", async () => {
+    const now = Date.now();
+    const fourHoursAgo = new Date(now - 4 * 60 * 60000).toISOString();
+    const tenMinutesAgo = new Date(now - 10 * 60000).toISOString();
+
+    userFindByIdMock.mockReturnValue(mockLeanChain({
+      _id: "user-1",
+      roles: ["role-admin"],
+    }));
+    roleFindMock.mockReturnValue(mockLeanChain([
+      { _id: "role-admin", name: "admin" },
+    ]));
+    earningsSummaryFindOneMock.mockResolvedValue({ computed_at: fourHoursAgo });
+    vacationSummaryFindOneMock.mockResolvedValue({ computed_at: tenMinutesAgo });
+    benefitsSummaryFindOneMock.mockResolvedValue({ computed_at: tenMinutesAgo });
+    alertFindMock.mockReturnValue({
+      populate: jest.fn().mockReturnValue(mockLeanChain([])),
+    });
+    alertsSummaryFindAllMock.mockResolvedValue([]);
+    buildIntegrationMetricsSnapshotMock.mockResolvedValue({
+      actionable: 0,
+      backlog: 0,
+      oldestPendingAgeMinutes: 0,
+      counts: {
+        PENDING: 0,
+        PROCESSING: 0,
+        SUCCESS: 10,
+        FAILED: 0,
+        DEAD: 0,
+      },
+    });
+
+    const snapshot = await buildExecutiveBriefSnapshot({
+      userId: "user-1",
+      year: 2026,
+    });
+
+    expect(snapshot.freshness.global).toEqual(expect.objectContaining({
+      status: "stale",
+      staleDatasetCount: 1,
+    }));
+    expect(snapshot.freshness.readiness).toEqual(expect.objectContaining({
+      status: "refresh_lag",
+      summary: "Summary refresh lag",
+      actionMode: "rebuild",
+      actionLabel: "Rebuild summaries",
+    }));
+    expect(snapshot.actionCenter.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: "refresh-summary",
+        title: "Summary refresh lag",
+        actionLabel: "Rebuild summaries",
+      }),
+    ]));
   });
 });

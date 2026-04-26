@@ -1,0 +1,87 @@
+{
+  "sprint": {
+    "name": "UI/UX Stabilization Sprint",
+    "number": 1,
+    "goal": "Bring the dashboard UI/UX to a stable, clean, operator-friendly state across the highest-risk surfaces.",
+    "start_date": "2026-04-26",
+    "end_date": "2026-05-03",
+    "status": "active"
+  },
+  "stories": [
+    {
+      "id": "UIUX-001",
+      "title": "Desktop analytics drilldown command flow",
+      "status": "done",
+      "priority": "high",
+      "points": 3,
+      "owner": "codex",
+      "started_at": "2026-04-26",
+      "completed_at": "2026-04-26",
+      "verification": "npm --prefix dashboard run test -- src/components/DrilldownModal.test.jsx src/pages/AnalyticsDrilldownPage.test.jsx; npm --prefix dashboard run lint; npm --prefix dashboard run build; 1920x1080 runtime check overflowX=0 and Views overlay keeps table top stable",
+      "pr": null,
+      "notes": "Export state, route search hydration, search chip clearing, and table refresh overlay were improved."
+    },
+    {
+      "id": "UIUX-002",
+      "title": "Admin Users mobile overflow and action discoverability",
+      "status": "done",
+      "priority": "high",
+      "points": 3,
+      "owner": "codex",
+      "started_at": "2026-04-26",
+      "completed_at": "2026-04-26",
+      "verification": "npm --prefix dashboard run test -- src/styles/responsiveLayout.contract.test.js src/components/AdminUsersModal.test.jsx; 390px runtime check document overflowX=0 and first action button visible in viewport",
+      "pr": null,
+      "notes": "Mobile user admin rows now become cards so actions are visible without horizontal scrolling."
+    },
+    {
+      "id": "UIUX-003",
+      "title": "Drilldown mobile document-level overflow",
+      "status": "done",
+      "priority": "high",
+      "points": 3,
+      "owner": "codex",
+      "started_at": "2026-04-26",
+      "completed_at": "2026-04-26",
+      "verification": "npm --prefix dashboard run test -- src/styles/responsiveLayout.contract.test.js src/components/DrilldownModal.test.jsx; 390px runtime check document overflowX=0 while table-container owns horizontal scroll",
+      "pr": null,
+      "notes": "Mobile controls are constrained to the viewport; only the data table scrolls horizontally."
+    },
+    {
+      "id": "UIUX-004",
+      "title": "Mobile analytics vertical scanning reduction",
+      "status": "todo",
+      "priority": "high",
+      "points": 5,
+      "owner": "codex",
+      "started_at": null,
+      "completed_at": null,
+      "verification": null,
+      "pr": null,
+      "notes": "Review finding: mobile Earnings section remains too tall for efficient inspection. Needs a summary-first tab or accordion pattern."
+    },
+    {
+      "id": "UIUX-005",
+      "title": "Repository hygiene and generated artifact policy",
+      "status": "done",
+      "priority": "medium",
+      "points": 2,
+      "owner": "codex",
+      "started_at": "2026-04-26",
+      "completed_at": "2026-04-26",
+      "verification": "Added .gitignore rules for generated artifacts and removed dist/, test-results/, output/, .playwright-cli/, and .codexai-backups/ with path-scoped cleanup after workspace path verification.",
+      "pr": null,
+      "notes": "Generated artifacts are now ignored. Source, docs, memory, and project context remain eligible for commit."
+    }
+  ],
+  "metrics": {
+    "total_points": 16,
+    "completed_points": 11,
+    "stories_total": 5,
+    "stories_done": 4,
+    "stories_in_progress": 0,
+    "stories_blocked": 0,
+    "stories_todo": 1
+  },
+  "velocity_history": []
+}

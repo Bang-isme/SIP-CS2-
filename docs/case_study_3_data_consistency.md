@@ -1,131 +1,150 @@
-﻿# Case Study 3 - Data Consistency & Failure Scenarios
+# Case Study 3 - Data Consistency
 
-> Last Updated: 2026-04-03
+> Last Updated: 2026-04-15
 
-## 1) Mục tiêu consistency
-- Dữ liệu employee được nhập từ HR source-of-truth một lần.
-- Hệ thống có đường đồng bộ sang downstream integrations.
-- Failure mode được phản ánh rõ thay vì che giấu.
+## Positioning
 
-## 2) Luồng dữ liệu hiện tại
-1. API tạo/sửa/xóa employee trên MongoDB.
-2. Controller cố gắng enqueue `IntegrationEvent` vào MySQL outbox table.
-3. Worker nền đọc event `PENDING/FAILED`, xử lý, rồi cập nhật trạng thái.
-4. `syncEmployeeToAll` gọi adapters và ghi `SyncLog`.
-5. Nếu enqueue lỗi, controller chuyển sang direct fallback và vẫn trả trạng thái `sync` về cho client.
-6. `correlationId` của request được giữ xuyên employee mutation -> `integration_events` -> worker/direct fallback -> `sync_log`.
+Case Study 3 is now defended as `SA -> Payroll` integration between two separately running systems:
 
-## 3) Sync metadata trả về từ API
+- `SA / HR Service` on `4000`
+- `Payroll Service` on `4100`
 
-Employee mutation responses hiện có thêm object `sync` để client biết hệ thống đang ở trạng thái nào:
-- `status`: `QUEUED`, `SUCCESS`, hoặc `FAILED`
-- `mode`: `OUTBOX`, `DIRECT`, hoặc `DIRECT_FALLBACK`
-- `consistency`: `EVENTUAL` hoặc `AT_RISK`
-- `requiresAttention`: có cần theo dõi thủ công hay không
-- `message`: mô tả kết quả dispatch
-- `correlationId`: token để nối response hiện tại với queue row, sync log, và server logs
+This is no longer just one backend process with two databases.
 
-Ý nghĩa:
-- `QUEUED` nghĩa là source đã lưu, downstream sync sẽ chạy async.
-- `SUCCESS` nghĩa là direct path hoặc fallback path đã sync xong.
-- `FAILED` nghĩa là source đã lưu nhưng dispatch downstream vẫn còn rủi ro cần can thiệp.
+## Source And Target
 
-## 4) Trạng thái ở tầng queue và log
+### Source system
 
-Integration event:
-- `PENDING`
-- `PROCESSING`
-- `SUCCESS`
-- `FAILED`
-- `DEAD`
+- SA / HR Service
+- MongoDB is the source-of-truth for employee records
 
-Sync log:
-- `PENDING`
-- `SUCCESS`
-- `FAILED`
+### Target system
 
-Correlation fields:
-- `integration_events.correlation_id`
-- `sync_log.correlation_id`
+- Payroll Service
+- MySQL stores `pay_rates` and `sync_log`
+- Payroll exposes its own API and its own console UI
+- Payroll now boots without MongoDB; runtime dependency is MySQL only
 
-Lưu ý:
-- Queue status và API `sync` status không phải cùng một abstraction.
-- API trả góc nhìn của mutation request.
-- Queue/log phản ánh vòng đời tích hợp ở backend.
-- Manual retry từ `/api/sync/retry` sẽ ưu tiên giữ lại `correlation_id` cũ của failed sync; nếu log cũ không có thì route sẽ dùng correlation của request retry hiện tại.
+## Consistency Model
 
-## 4.1) Contract vận hành cho `/api/sync`
+The repo implements `controlled eventual consistency`.
 
-Các endpoint này giờ theo cùng envelope canonical với dashboard/integration:
-- `GET /api/sync/status` -> `{ success, data, meta }`
-- `GET /api/sync/logs` -> `{ success, data, meta }`
-- `POST /api/sync/retry` -> `{ success, data, meta }`
-- `GET /api/sync/entity/:type/:id` -> `{ success, data, meta }`
+It does not implement:
 
-Validation rules:
-- Query/path params sai trả `422` với `errors[]`
-- `GET /api/sync/logs` hỗ trợ filter theo `status`, `action`, `entityType`, `entityId`, `correlationId`, `page`, `limit`
-- `meta.requestId` và `meta.actorId` được trả về để operator path có evidence nhất quán
+- two-phase commit
+- strong consistency across MongoDB and MySQL
+- distributed transactions
 
-## 5) Các kịch bản lỗi chính
+This is the correct claim to make in demo.
 
-- Outbox enqueue lỗi:
-  - source Mongo vẫn được lưu
-  - controller thử direct fallback
-  - response trả `requiresAttention` nếu downstream chưa an toàn
+## Runtime Flow
 
-- Worker chết giữa chừng:
-  - event có thể bị kẹt `PROCESSING`
-  - service có timeout-based stale recovery
-  - admin path có `recover-stuck`
+1. User creates, updates, or deletes an employee in SA.
+2. SA saves the source record in MongoDB.
+3. SA enqueues an `IntegrationEvent` into MongoDB outbox storage owned by SA.
+4. The integration worker picks up the event.
+5. `SyncService` calls the active adapter list.
+6. Payroll adapter calls the Payroll internal API instead of writing payroll tables directly.
+7. Payroll Service applies the MySQL transaction, records `SyncLog`, and exposes the result through its own API/UI.
+8. Payroll now treats `correlationId` as a downstream idempotency key, so duplicate delivery of the same event does not append duplicate payroll history.
+9. Read-only Payroll APIs validate SA-issued JWT claims statelessly, without querying MongoDB.
+10. SA now boots without MySQL because queue state and operator audit history are no longer stored in Payroll-side tables.
 
-- Downstream integration lỗi:
-  - event chuyển `FAILED`
-  - retry/backoff áp dụng
-  - quá ngưỡng có thể thành `DEAD`
+## API Evidence
 
-- Validation hoặc duplicate từ source:
-  - validation trả `400`
-  - duplicate `employeeId` trả `409`
-  - source không tạo record sai
+### SA-owned mutation feedback
 
-## 5.1) Seed và repair consistency cho local 500k dataset
+Employee mutation responses include:
 
-Với bài có quy mô `500000` records, baseline local hiện tại đi theo luồng này:
-1. `node scripts/seed.js --profile enterprise --total 500000 --batch 5000`
-2. `node scripts/aggregate-dashboard.js`
-3. `node scripts/repair-cross-db-consistency.js`
+- `status`
+- `mode`
+- `consistency`
+- `requiresAttention`
+- `message`
+- `correlationId`
 
-Guardrails hiện có:
-- `scripts/seed.js` ghi Mongo trước để tránh SQL > Mongo divergence khi Mongo quota/error.
-- Mỗi batch SQL (`earnings`, `vacation_records`, `employee_benefits`, `pay_rates`) được bọc trong transaction.
-- Nếu SQL batch fail, script rollback transaction và xóa lại Mongo batch vừa insert.
-- Trước khi seed, script reset cả core tables lẫn derived tables (`earnings_employee_year`, `*_summary`, `alert_employees`) để tránh stale analytics.
-- `scripts/repair-cross-db-consistency.js` hiện dọn orphan cho `earnings`, `vacation_records`, `employee_benefits`, `pay_rates`, `earnings_employee_year`, và `alert_employees`.
+Typical demo result:
 
-Baseline đã verify trên local ngày `2026-04-03`:
-- Mongo `employees`: `500000`
-- Mongo `departments`: `8`
-- MySQL `vacation_records`: `500000`
-- MySQL `employee_benefits`: `500000`
-- MySQL `pay_rates`: `500000`
-- MySQL `earnings_employee_year`: `849977`
-- Cross-DB orphan cleanup run: `0` rows deleted
+- `status=QUEUED`
+- `mode=OUTBOX`
+- `consistency=EVENTUAL`
 
-## 6) Những gì hệ thống làm được và chưa làm được
+### Payroll-owned read evidence
 
-Làm được:
-- Eventual consistency có kiểm soát
-- Retry/replay/recovery path
-- Sync/log visibility
-- Response semantics rõ hơn cho mutation path
-- Local seed/aggregate/repair flow đủ sạch để dựng dataset lớn mà không để lại SQL partial writes
+Payroll Service exposes:
 
-Chưa làm:
-- Strict ACID / 2PC xuyên MongoDB + MySQL
-- Transactional outbox chuẩn với cùng transaction boundary
-- Background reconciliation job đầy đủ kiểu production
+- `GET /api/payroll/pay-rates`
+- `GET /api/payroll/pay-rates/:employeeId`
+- `GET /api/payroll/sync-log`
+- `GET /api/payroll/sync-log/:employeeId`
 
-## 7) Kết luận
-- Case Study 3 hiện phù hợp để bảo vệ theo hướng eventual consistency thực dụng.
-- Không nên gọi đây là strong consistency hoặc full ACID integration.
+This is the strongest evidence that a downstream system exists separately.
+
+## Failure Handling
+
+### If outbox enqueue fails
+
+- SA still keeps the source write
+- controller falls back to direct sync when possible
+- response clearly marks risk state
+
+### If worker processing gets stuck
+
+- stale processing recovery is available
+- admins can run `recover-stuck`
+
+### If downstream write fails
+
+- queue can move to `FAILED` or `DEAD`
+- retry and replay paths exist
+
+### If the same event is delivered twice
+
+- Payroll checks `correlationId` before mutating `pay_rates`
+- duplicate `SUCCESS` or in-flight `PENDING` delivery is short-circuited
+- a retried `FAILED` delivery reuses the same `sync_log` identity instead of appending drift
+
+## What Changed In This Refactor
+
+Before:
+
+- one runtime
+- easy to criticize as monolith with two databases
+
+After:
+
+- separate SA process
+- separate Payroll process
+- payroll console on its own port
+- payroll writes owned by Payroll Service via internal API
+- service-specific health endpoints
+- verification script that exercises create -> update -> delete across systems
+
+## Verification Result
+
+The repo now includes:
+
+```powershell
+npm run verify:case3
+```
+
+This script:
+
+1. starts SA, Payroll, and Dashboard
+2. signs in through SA
+3. creates an employee in SA
+4. polls Payroll until the new pay-rate record exists
+5. updates the employee and confirms Payroll history changes
+6. deletes the employee and confirms terminated payroll evidence
+
+Verified locally on `2026-04-14`.
+
+## Safe Claim For Viva
+
+Say:
+
+- "Our system uses eventual consistency with explicit sync state, outbox dispatch, retry/recovery, and a visible downstream Payroll service."
+
+Do not say:
+
+- "We implemented ACID across MongoDB and MySQL."

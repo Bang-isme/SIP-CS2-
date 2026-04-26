@@ -1,0 +1,114 @@
+.toast-viewport {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 3200;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border-soft);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 40px rgba(20, 29, 55, 0.16);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+
+.toast-card--success {
+  border-color: rgba(18, 179, 117, 0.28);
+}
+
+.toast-card--error {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.toast-card--warning {
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.toast-card--info {
+  border-color: rgba(99, 102, 241, 0.28);
+}
+
+.toast-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+}
+
+.toast-card--success .toast-card__icon {
+  background: rgba(18, 179, 117, 0.12);
+  color: var(--color-success);
+}
+
+.toast-card--error .toast-card__icon {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--color-danger);
+}
+
+.toast-card--warning .toast-card__icon {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent-alerts);
+}
+
+.toast-card--info .toast-card__icon {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--color-primary);
+}
+
+.toast-card__body strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.toast-card__body p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.toast-card__dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.toast-card__dismiss:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--color-primary);
+}
+
+@media (max-width: 768px) {
+  .toast-viewport {
+    right: 16px;
+    left: 16px;
+    bottom: 16px;
+    width: auto;
+  }
+}

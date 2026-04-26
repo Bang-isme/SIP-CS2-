@@ -15,7 +15,9 @@ jest.unstable_mockModule("../controllers/employee.controller.js", () => ({
   updateEmployee,
   deleteEmployee: jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId })),
   getEmployee: jest.fn((req, res) => res.status(200).json({ success: true })),
+  getEmployeeSyncEvidence: jest.fn((req, res) => res.status(200).json({ success: true, employeeId: req.params.employeeId })),
   getEmployees: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  getEmployeeOptions: jest.fn((req, res) => res.status(200).json({ success: true, data: { departments: [], enums: {} } })),
 }));
 
 jest.unstable_mockModule("../middlewares/authJwt.js", () => ({
@@ -39,12 +41,12 @@ jest.unstable_mockModule("../middlewares/authJwt.js", () => ({
     }
     return res.status(401).json({ message: "Unauthorized!" });
   },
-  isAdmin: (req, res, next) => {
+  isSuperAdmin: (req, res, next) => {
     const roles = req.roleNames || [];
-    if (roles.includes("admin") || roles.includes("super_admin")) {
+    if (roles.includes("super_admin")) {
       return next();
     }
-    return res.status(403).json({ message: "Require Admin Role!" });
+    return res.status(403).json({ message: "Require Super Admin Role!" });
   },
   canManageProducts: (req, res, next) => next(),
 }));
@@ -62,7 +64,7 @@ describe("Employee routes authz hardening", () => {
   });
 
   test("should reject anonymous create request", async () => {
-    const res = await request(app).post("/api/employee").send({ employeeId: "EMP0001" });
+    const res = await request(app).post("/api/employee").send({ firstName: "Amy" });
     expect(res.status).toBe(403);
   });
 
@@ -70,18 +72,18 @@ describe("Employee routes authz hardening", () => {
     const res = await request(app)
       .post("/api/employee")
       .set("x-access-token", "user-token")
-      .send({ employeeId: "EMP0002" });
+      .send({ firstName: "Amy" });
     expect(res.status).toBe(403);
     expect(createEmployee).not.toHaveBeenCalled();
   });
 
-  test("should allow admin create request", async () => {
+  test("should reject admin create request", async () => {
     const res = await request(app)
       .post("/api/employee")
       .set("x-access-token", "admin-token")
-      .send({ employeeId: "EMP0003" });
-    expect(res.status).toBe(201);
-    expect(createEmployee).toHaveBeenCalledTimes(1);
+      .send({ firstName: "Amy" });
+    expect(res.status).toBe(403);
+    expect(createEmployee).not.toHaveBeenCalled();
   });
 
   test("should reject non-admin update request", async () => {
@@ -100,5 +102,32 @@ describe("Employee routes authz hardening", () => {
       .send({ payRate: 48 });
     expect(res.status).toBe(200);
     expect(updateEmployee).toHaveBeenCalledTimes(1);
+  });
+
+  test("should allow super admin create request", async () => {
+    const res = await request(app)
+      .post("/api/employee")
+      .set("x-access-token", "super-admin-token")
+      .send({ firstName: "Amy" });
+    expect(res.status).toBe(201);
+    expect(createEmployee).toHaveBeenCalledTimes(1);
+  });
+
+  test("should reject normal user access to employee sync evidence", async () => {
+    const res = await request(app)
+      .get("/api/employee/EMP001/sync-evidence")
+      .set("x-access-token", "user-token");
+    expect(res.status).toBe(403);
+  });
+
+  test("should allow super admin access to employee sync evidence", async () => {
+    const res = await request(app)
+      .get("/api/employee/EMP001/sync-evidence")
+      .set("x-access-token", "super-admin-token");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.objectContaining({
+      success: true,
+      employeeId: "EMP001",
+    }));
   });
 });

@@ -8,12 +8,16 @@ import {
 } from "../controllers/user.controller.js";
 import { isAdmin, isSuperAdmin, verifyToken } from "../middlewares/authJwt.js";
 import { checkExistingUser } from "../middlewares/verifySignup.js";
+import {
+  adminWriteRateLimiter,
+  readApiRateLimiter,
+} from "../middlewares/rateLimit.js";
 const router = Router();
 
-router.post("/", [verifyToken, isAdmin, checkExistingUser], createUser);
-router.get("/", [verifyToken, isAdmin], getUsers);
-router.get("/:userId", [verifyToken, isAdmin], getUser);
-router.put("/:id/promote-admin", [verifyToken, isSuperAdmin], promoteUserToAdmin);
-router.put("/:id/demote-admin", [verifyToken, isSuperAdmin], demoteUserFromAdmin);
+router.post("/", [verifyToken, isAdmin, adminWriteRateLimiter, checkExistingUser], createUser);
+router.get("/", [verifyToken, isAdmin, readApiRateLimiter], getUsers);
+router.get("/:userId", [verifyToken, isAdmin, readApiRateLimiter], getUser);
+router.put("/:id/promote-admin", [verifyToken, isSuperAdmin, adminWriteRateLimiter], promoteUserToAdmin);
+router.put("/:id/demote-admin", [verifyToken, isSuperAdmin, adminWriteRateLimiter], demoteUserFromAdmin);
 
 export default router;

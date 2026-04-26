@@ -1,58 +1,91 @@
-# Case Study 1 - The Proposal (Đề xuất giải pháp)
+# Case Study 1 - Proposal
 
-> Last Updated: 2026-02-03
+> Last Updated: 2026-04-14
 
-## 1) Vấn đề và mục tiêu
-- Hiện có 2 hệ thống riêng (HR và Payroll) nên mỗi lần tổng hợp báo cáo phải làm thủ công, chậm ra quyết định.
-- Mục tiêu: xây dựng dashboard cho lãnh đạo để xem tổng quan, drilldown, và quản lý theo ngoại lệ.
+## Problem Statement
 
-## 2) Hai phương án khả thi
-### Phương án A: Presentation-style integration (Pre-aggregation)
-- Ý tưởng: không thay đổi hệ thống legacy, chạy batch tổng hợp dữ liệu vào bảng summary.
-- Ưu điểm: triển khai nhanh, rủi ro thấp, hiệu năng dashboard rất tốt.
-- Nhược điểm: dữ liệu không real-time, phụ thuộc lịch chạy batch.
+The coursework starts from a common enterprise situation:
 
-### Phương án B: Functional integration (Near real-time sync)
-- Ý tưởng: dữ liệu nhập 1 lần, sync gần real-time sang hệ thống còn lại qua middleware.
-- Ưu điểm: dữ liệu cập nhật nhanh, giảm lệch thông tin.
-- Nhược điểm: cần middleware, xử lý consistency phức tạp hơn.
+- HR data lives in one operational system.
+- Payroll data lives in another operational system.
+- Management still needs one place to review the situation quickly.
 
-## 3) So sánh nhanh
-| Tiêu chí | Phương án A | Phương án B |
-|---|---|---|
-| Thời gian triển khai | Nhanh | Trung bình |
-| Độ phức tạp | Thấp | Cao |
-| Độ mới dữ liệu | Batch (theo lịch) | Gần real-time |
-| Rủi ro thay đổi legacy | Thấp | Trung bình |
+The original weak point in this repo was runtime shape: the code behaved like one backend process talking to MongoDB and MySQL. That was enough for internal implementation, but weak for oral defense because it did not visibly demonstrate "System Integration".
 
-## 4) Kiến trúc sơ bộ
-### Phương án A
-- MongoDB (HR) + MySQL (Payroll) -> `aggregate-dashboard.js` -> Summary tables -> Dashboard API -> FE.
+## Candidate Options
 
-### Phương án B
-- Employee CRUD -> SyncService -> ServiceRegistry -> Adapters -> SyncLog.
+### Option A - One combined backend with two databases
 
-## 5) GUI sketch (mô tả)
-- Header: tiêu đề + trạng thái hệ thống + refresh.
-- KPI cards: Tổng payroll, total vacation, avg benefits, action items.
-- Charts: Earnings by department, Vacation by demographics, Benefits by plan.
-- Alerts: Anniversaries, High Vacation, Benefits Change, Birthday.
-- Drilldown modal: filters + table + export.
+- Fastest to build.
+- Easier to test locally.
+- Weak for demo defense because the instructor can reasonably call it a modular monolith.
 
-## 6) Lifecycle & Schedule (gợi ý)
-1. Tuần 1: Thu thập yêu cầu, xác nhận KPI và alerts.
-2. Tuần 2: Thiết kế dữ liệu, aggregation, summary tables.
-3. Tuần 3: FE dashboard + drilldown + alerts.
-4. Tuần 4: Test plan, demo, tài liệu.
+### Option B - Same repo, separate runtime systems
 
-## 7) Vai trò đề xuất
-- PM/Analyst: yêu cầu, ưu tiên, test criteria.
-- Backend: aggregation + API + sync.
-- Frontend: UI/UX + drilldown.
-- QA: test plan + test results.
+- Keep one repository and shared code.
+- Split runtime into distinct systems with distinct ports and route ownership.
+- Stronger for demo because system boundaries become visible without forcing a full microservice rewrite.
 
-## 8) Deliverables
-- Proposal doc (file này)
-- Decision record (ADR)
-- GUI sketch (ảnh hoặc Figma)
-- Schedule & milestones
+## Chosen Proposal
+
+The chosen direction is `Option B`.
+
+The repo now runs as:
+
+- `SA / HR Service` on `4000`
+- `Payroll Service` on `4100`
+- `Dashboard Service` on `4200`
+
+This keeps implementation scope realistic for coursework while making the demo architecture explicit.
+
+## Why This Proposal Fits The Course
+
+This proposal is strong enough for a system-integration course because it demonstrates:
+
+- multiple systems with separate responsibilities
+- shared authentication across systems
+- source-to-target propagation
+- reporting as a separate presentation layer
+- operational controls for failure and retry
+
+It avoids over-claiming microservice maturity while still moving far enough away from the "single app with two DBs" criticism.
+
+## Proposed Functional Split
+
+### SA / HR Service
+
+- source-of-truth employee CRUD
+- auth and role checks
+- sync dispatch
+- operator queue controls
+
+### Payroll Service
+
+- read-only downstream payroll evidence
+- pay-rate history
+- sync-log visibility
+- standalone payroll console
+
+### Dashboard Service
+
+- executive summaries
+- drilldown and export
+- alert review
+- memo-oriented reporting
+
+## Key Tradeoff
+
+This proposal does not aim for full microservice independence. Shared code and shared data access remain in the same repo. That tradeoff is intentional.
+
+The deliverable target is:
+
+- strong enough architecture to defend in class
+- small enough change set to complete and verify locally
+
+## Expected Deliverables
+
+- three startable services
+- service-specific health endpoints
+- dashboard frontend rewired to SA + Dashboard APIs
+- payroll console for downstream visibility
+- updated documentation and demo scripts

@@ -31,12 +31,14 @@ export class ApiError extends Error {
     statusCode = 500,
     code = null,
     errors = [],
+    meta = null,
     shouldLog,
   } = {}) {
     super(message || DEFAULT_ERROR_MESSAGE);
     this.name = "ApiError";
     this.statusCode = statusCode;
     this.errors = Array.isArray(errors) ? errors : [];
+    this.meta = meta && typeof meta === "object" ? meta : null;
     this.code = code || deriveErrorCode(statusCode, this.errors);
     this.shouldLog = typeof shouldLog === "boolean" ? shouldLog : statusCode >= 500;
   }
@@ -44,41 +46,47 @@ export class ApiError extends Error {
 
 export const createApiError = (message, options = {}) => new ApiError(message, options);
 
-export const createBadRequestError = (message, code = "BAD_REQUEST") => createApiError(message, {
+export const createBadRequestError = (message, code = "BAD_REQUEST", options = {}) => createApiError(message, {
   statusCode: 400,
   code,
   shouldLog: false,
+  ...options,
 });
 
-export const createUnauthorizedError = (message, code = "UNAUTHORIZED") => createApiError(message, {
+export const createUnauthorizedError = (message, code = "UNAUTHORIZED", options = {}) => createApiError(message, {
   statusCode: 401,
   code,
   shouldLog: false,
+  ...options,
 });
 
-export const createForbiddenError = (message, code = "FORBIDDEN") => createApiError(message, {
+export const createForbiddenError = (message, code = "FORBIDDEN", options = {}) => createApiError(message, {
   statusCode: 403,
   code,
   shouldLog: false,
+  ...options,
 });
 
-export const createNotFoundError = (message, code = "RESOURCE_NOT_FOUND") => createApiError(message, {
+export const createNotFoundError = (message, code = "RESOURCE_NOT_FOUND", options = {}) => createApiError(message, {
   statusCode: 404,
   code,
   shouldLog: false,
+  ...options,
 });
 
-export const createConflictError = (message, code = "CONFLICT") => createApiError(message, {
+export const createConflictError = (message, code = "CONFLICT", options = {}) => createApiError(message, {
   statusCode: 409,
   code,
   shouldLog: false,
+  ...options,
 });
 
-export const createValidationError = (message = "Validation failed.", errors = [], code = "VALIDATION_ERROR") => createApiError(message, {
+export const createValidationError = (message = "Validation failed.", errors = [], code = "VALIDATION_ERROR", options = {}) => createApiError(message, {
   statusCode: 422,
   code,
   errors,
   shouldLog: false,
+  ...options,
 });
 
 const isContractStyleError = (error) => Number.isInteger(error?.statusCode)
@@ -94,6 +102,7 @@ export const normalizeApiError = (error, { defaultCode = null } = {}) => {
       statusCode: error.statusCode,
       code: error.code || defaultCode || deriveErrorCode(error.statusCode, error.errors),
       errors: error.errors,
+      meta: error.meta || null,
       shouldLog: false,
     });
   }
@@ -132,6 +141,9 @@ export const sendApiError = (res, error, { defaultCode = null } = {}) => {
 
   if (Array.isArray(apiError.errors) && apiError.errors.length > 0) {
     body.errors = apiError.errors;
+  }
+  if (apiError.meta && typeof apiError.meta === "object") {
+    body.meta = apiError.meta;
   }
 
   return res.status(apiError.statusCode).json(body);

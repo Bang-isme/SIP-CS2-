@@ -2,6 +2,36 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import logger from "../utils/logger.js";
 
+const userTokenSchema = new mongoose.Schema(
+  {
+    sessionId: {
+      type: String,
+      trim: true,
+    },
+    token: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    signedAt: {
+      type: String,
+      trim: true,
+    },
+    kind: {
+      type: String,
+      enum: ["access", "refresh"],
+      default: "access",
+    },
+    expiresAt: {
+      type: Date,
+    },
+  },
+  {
+    _id: false,
+    versionKey: false,
+  }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -16,7 +46,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    tokens: [{ type: Object }],
+    tokens: [userTokenSchema],
     roles: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -36,8 +66,13 @@ userSchema.statics.encryptPassword = async (password) => {
 };
 
 userSchema.statics.comparePassword = async (password, receivedPassword) => {
-  return await bcrypt.compare(password, receivedPassword)
-}
+  try {
+    return await bcrypt.compare(password, receivedPassword);
+  } catch (error) {
+    logger.error("UserModel", "Static password comparison failed", error);
+    return false;
+  }
+};
 
 userSchema.pre("save", async function (next) {
   const user = this;
@@ -47,15 +82,16 @@ userSchema.pre("save", async function (next) {
   const hash = await bcrypt.hash(user.password, 10);
   user.password = hash;
   next();
-})
+});
 
 userSchema.methods.comparePassword = async function (password) {
-  if (!password) throw new Error('Password is mission, can not compare!');
+  if (!password) throw new Error("Password is missing, cannot compare.");
   try {
     const result = await bcrypt.compare(password, this.password);
     return result;
   } catch (error) {
     logger.error("UserModel", "Instance password comparison failed", error);
+    return false;
   }
 };
 

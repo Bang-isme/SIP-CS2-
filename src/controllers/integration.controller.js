@@ -1,8 +1,11 @@
-import { IntegrationEvent } from "../models/sql/index.js";
 import {
     recoverStuckProcessingIntegrationEvents,
 } from "../services/integrationEventService.js";
 import { buildIntegrationMetricsSnapshot } from "../services/integrationMetricsService.js";
+import {
+    buildIntegrationReconciliationSnapshot,
+    repairExtraPayrollCoverage,
+} from "../services/integrationReconciliationService.js";
 import {
     buildIntegrationMeta,
     IntegrationContractError,
@@ -24,6 +27,7 @@ import {
     requeueIntegrationEventById,
 } from "../services/integrationOperatorService.js";
 import { listIntegrationEventAudits } from "../services/integrationAuditService.js";
+import { IntegrationEventStore } from "../repositories/integrationStore.js";
 
 export const listIntegrationEvents = async (req, res) => {
     try {
@@ -38,13 +42,12 @@ export const listIntegrationEvents = async (req, res) => {
         if (status) where.status = status;
 
         const [total, events] = await Promise.all([
-            IntegrationEvent.count({ where }),
-            IntegrationEvent.findAll({
+            IntegrationEventStore.count({ where }),
+            IntegrationEventStore.findAll({
                 where,
                 order: [["createdAt", "DESC"]],
                 limit,
                 offset,
-                raw: true,
             }),
         ]);
 
@@ -98,6 +101,64 @@ export const getIntegrationMetrics = async (_req, res) => {
             error,
             context: "IntegrationController",
             defaultCode: "INTEGRATION_METRICS_FAILED",
+        });
+    }
+};
+
+export const getIntegrationReconciliation = async (req, res) => {
+    try {
+        const forceRefresh = ["1", "true", "yes"].includes(String(req.query?.fresh || "").toLowerCase());
+        const snapshot = await buildIntegrationReconciliationSnapshot({ forceRefresh });
+        res.json({
+            success: true,
+            data: snapshot,
+            meta: buildIntegrationMeta({
+                dataset: "integrationReconciliation",
+                generatedAt: snapshot.checkedAt,
+                actorId: req.userId || null,
+                filters: { fresh: forceRefresh },
+            }),
+        });
+    } catch (error) {
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_RECONCILIATION_FAILED",
+        });
+    }
+};
+
+export const repairIntegrationReconciliation = async (req, res) => {
+    try {
+        const result = await repairExtraPayrollCoverage({
+            actorId: req.userId || null,
+            requestId: req.requestId || null,
+        });
+
+        res.json({
+            success: true,
+            message: result.repaired
+                ? "Payroll extras repaired"
+                : "No payroll extras",
+            data: result,
+            meta: buildIntegrationMeta({
+                dataset: "integrationReconciliationRepair",
+                generatedAt: new Date().toISOString(),
+                actorId: req.userId || null,
+                filters: {
+                    repair: "extra-active-payroll",
+                },
+            }),
+        });
+    } catch (error) {
+        return respondWithApiError({
+            req,
+            res,
+            error,
+            context: "IntegrationController",
+            defaultCode: "INTEGRATION_RECONCILIATION_REPAIR_FAILED",
         });
     }
 };
@@ -160,7 +221,7 @@ export const retryIntegrationEvent = async (req, res) => {
 
         res.json({
             success: true,
-            message: "Event queued for retry",
+            message: "Retry queued",
             data: {
                 id,
                 previousStatus: event.status,
@@ -197,7 +258,7 @@ export const retryDeadIntegrationEvents = async (req, res) => {
 
         res.json({
             success: true,
-            message: `Re-queued ${count} dead events`,
+            message: "Dead events queued",
             data: { count },
             meta: buildIntegrationMeta({
                 dataset: "integrationRetryDead",
@@ -227,8 +288,8 @@ export const recoverStuckIntegrationEvents = async (req, res) => {
         res.json({
             success: true,
             message: result.count
-                ? `Recovered ${result.count} stale PROCESSING events`
-                : "No stale PROCESSING events found",
+                ? "Processing recovered"
+                : "No stale processing",
             data: result,
             meta: buildIntegrationMeta({
                 dataset: "integrationRecoverStuck",
@@ -273,7 +334,7 @@ export const replayIntegrationEvents = async (req, res) => {
 
         res.json({
             success: true,
-            message: `Re-queued ${result.count} events`,
+            message: "Replay queued",
             data: { count: result.count },
             meta: buildIntegrationMeta({
                 dataset: "integrationReplay",

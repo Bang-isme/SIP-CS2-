@@ -1,8 +1,7 @@
 .admin-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.46);
-    backdrop-filter: blur(2px);
+    background: rgba(15, 23, 42, 0.34);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -10,16 +9,42 @@
     padding: 20px;
 }
 
+.admin-page-shell {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .admin-modal-card {
     width: min(980px, 100%);
+    min-width: 0;
+    max-width: 100%;
     max-height: min(86vh, 780px);
     background: var(--color-bg-card);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 22px 40px -28px rgba(15, 23, 42, 0.34);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.admin-modal-card--page {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    max-height: none;
+    height: 100%;
+    min-height: 0;
+    min-height: min(68vh, 780px);
+    box-shadow: 0 18px 30px -28px rgba(15, 23, 42, 0.26);
+    border-color: #d9e2f5;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(252, 253, 255, 0.98) 100%);
 }
 
 .admin-modal-header {
@@ -43,7 +68,25 @@
 .admin-modal-header p {
     margin: 4px 0 0;
     font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
+    color: #6b7a90;
+}
+
+.admin-modal-card--page .admin-modal-header {
+    background: transparent;
+    padding: 12px 16px 10px;
+}
+
+.admin-modal-card--page .admin-modal-header h2 {
+    font-size: 1.02rem;
+    text-transform: none;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+}
+
+.admin-modal-card--page .admin-modal-header p {
+    font-size: 0.75rem;
+    line-height: 1.42;
+    max-width: 66ch;
 }
 
 .admin-modal-actions {
@@ -61,7 +104,7 @@
     color: var(--color-primary-700);
     cursor: pointer;
     font-weight: 700;
-    transition: all var(--duration-fast) var(--ease-out);
+    transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
 .admin-refresh-btn {
@@ -110,13 +153,28 @@
     padding: 10px 16px;
     border-bottom: 1px solid var(--color-border);
     font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
+    color: #526176;
 }
 
 .admin-modal-summary span {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+
+.admin-modal-card--page .admin-modal-summary {
+    background: transparent;
+    gap: 10px;
+    padding: 8px 16px;
+}
+
+.admin-modal-card--page .admin-modal-summary span {
+    min-height: 28px;
+    padding: 0 9px;
+    border-radius: 999px;
+    border: 1px solid #dce4f3;
+    background: #f8fbff;
+    font-size: 0.72rem;
 }
 
 .admin-inline-message {
@@ -141,39 +199,52 @@
 }
 
 .admin-users-table-wrap {
+    width: 100%;
+    box-sizing: border-box;
     padding: 10px 16px 16px;
+    min-width: 0;
+    max-width: 100%;
     overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    contain: layout paint;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.admin-modal-card--page .admin-users-table-wrap {
+    padding: 8px 16px 14px;
 }
 
 .admin-users-table {
-    width: 100%;
+    width: max-content;
+    min-width: max(760px, 100%);
     border-collapse: collapse;
-    min-width: 760px;
 }
 
 .admin-users-table th,
 .admin-users-table td {
     border-bottom: 1px solid var(--color-border);
-    padding: 10px 8px;
+    padding: 9px 8px;
     text-align: left;
     vertical-align: middle;
 }
 
 .admin-users-table th {
-    font-size: 0.69rem;
+    font-size: 0.67rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--color-text-tertiary);
     font-weight: 700;
-    background: var(--color-bg-subtle);
+    background: #f8fafc;
     position: sticky;
     top: 0;
     z-index: 1;
 }
 
 .admin-users-table td {
-    font-size: 0.85rem;
-    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+    color: #4f5d73;
 }
 
 .admin-col-username,
@@ -198,9 +269,9 @@
     display: inline-flex;
     align-items: center;
     border-radius: var(--radius-sm);
-    padding: 2px 8px;
+    padding: 2px 7px;
     border: 1px solid var(--color-border);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -232,7 +303,7 @@
 .admin-promote-btn {
     height: 30px;
     padding: 0 10px;
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     white-space: nowrap;
 }
 
@@ -280,5 +351,127 @@
     .admin-modal-actions {
         width: 100%;
         justify-content: flex-end;
+    }
+}
+
+@media (max-width: 640px) {
+    .admin-modal-overlay {
+        padding: 10px;
+        align-items: stretch;
+    }
+
+    .admin-modal-card {
+        width: 100%;
+        max-height: calc(100dvh - 20px);
+    }
+
+    .admin-modal-card--page {
+        height: 100%;
+        min-height: 0;
+    }
+
+    .admin-modal-header,
+    .admin-modal-card--page .admin-modal-header {
+        padding: 11px 12px 9px;
+        gap: 10px;
+    }
+
+    .admin-modal-summary,
+    .admin-modal-card--page .admin-modal-summary {
+        padding: 8px 12px;
+        gap: 8px;
+    }
+
+    .admin-users-table-wrap {
+        padding: 8px 10px 12px;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    .admin-users-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .admin-users-table thead {
+        display: none;
+    }
+
+    .admin-users-table tbody {
+        display: grid;
+        gap: 10px;
+    }
+
+    .admin-users-table tr {
+        display: grid;
+        min-width: 0;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        background: #ffffff;
+        overflow: hidden;
+    }
+
+    .admin-users-table td {
+        display: grid;
+        grid-template-columns: minmax(82px, 0.34fr) minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e8eef7;
+        font-size: 0.78rem;
+    }
+
+    .admin-users-table td::before {
+        color: var(--color-text-tertiary);
+        font-size: 0.64rem;
+        font-weight: 800;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+    }
+
+    .admin-users-table td:nth-child(1)::before {
+        content: 'Username';
+    }
+
+    .admin-users-table td:nth-child(2)::before {
+        content: 'Email';
+    }
+
+    .admin-users-table td:nth-child(3)::before {
+        content: 'Roles';
+    }
+
+    .admin-users-table td:nth-child(4)::before {
+        content: 'Updated';
+    }
+
+    .admin-users-table td:nth-child(5) {
+        grid-template-columns: 1fr;
+        border-bottom: 0;
+        padding-top: 12px;
+    }
+
+    .admin-users-table td:nth-child(5)::before {
+        content: 'Action';
+    }
+
+    .admin-col-username,
+    .admin-col-email,
+    .admin-col-updated {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .admin-role-chips {
+        min-width: 0;
+    }
+
+    .admin-promote-btn {
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 }

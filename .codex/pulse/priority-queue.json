@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-04-26T00:00:00+07:00",
+  "queue": [
+    {
+      "rank": 1,
+      "id": "UIUX-004",
+      "title": "Reduce mobile analytics vertical scanning",
+      "type": "start",
+      "score": 90,
+      "reason": "Review finding remains open: mobile Earnings is technically usable but too tall for efficient data inspection.",
+      "action": "Design and implement a summary-first mobile pattern for Analytics, likely tabs or accordions that keep Earnings, Vacation, and Benefits reachable.",
+      "estimated_effort": "3-5h"
+    },
+    {
+      "rank": 2,
+      "id": "UIUX-006",
+      "title": "Run full post-fix visual audit",
+      "type": "review",
+      "score": 50,
+      "reason": "Several high-risk surfaces changed. A full desktop and mobile pass should confirm no regressions across routes.",
+      "action": "Run targeted Playwright checks for overview, analytics, drilldown, admin users, admin employees, alerts, and integration.",
+      "estimated_effort": "1-2h"
+    }
+  ]
+}

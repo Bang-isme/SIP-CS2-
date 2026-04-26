@@ -1,7 +1,7 @@
 import {
+  ACTIVE_SQL_MIGRATION_IDS,
   connectMySQL,
   ensureMigrationsTable,
-  REQUIRED_MIGRATION_IDS,
   getMissingRequiredTables,
   listAppliedMigrations,
   runBootstrapMigration,
@@ -25,7 +25,7 @@ const runStatus = async () => {
   const applied = await listAppliedMigrations();
   const missingTables = await getMissingRequiredTables();
   const appliedIds = new Set(applied.map((item) => item.id));
-  const missingMigrations = REQUIRED_MIGRATION_IDS.filter((id) => !appliedIds.has(id));
+  const missingMigrations = ACTIVE_SQL_MIGRATION_IDS.filter((id) => !appliedIds.has(id));
 
   console.log("[MySQL Migration Status]");
   console.log(`Applied migrations: ${applied.length}`);

@@ -181,10 +181,15 @@ export const escapeLikePattern = (value = "") => String(value).replace(/[\\%_]/g
 export const normalizeSummaryQuery = (query = {}) => {
   const errors = [];
   const year = normalizeYear(query.year, errors);
+  const department = normalizeBoundedString(query.department, {
+    field: "department",
+    errors,
+  });
   assertNoValidationErrors(errors);
   return {
     year,
     previousYear: year - 1,
+    department,
   };
 };
 

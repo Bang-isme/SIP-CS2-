@@ -1,0 +1,15 @@
+
+> company-products-api@0.0.2 verify:case4:operations-demo
+> powershell -ExecutionPolicy Bypass -File scripts/verify-case4-operations-demo.ps1
+
+Database is connected to apicompany
+[DemoQueue] Cleanup complete.
+Database is connected to apicompany
+[DemoQueue] Seeded scenario: warning (44 rows).
+[DemoQueue] Seeded operator audit entries: 5.
+[DemoQueue] Snapshot: { PENDING: 30, PROCESSING: 0, FAILED: 8, DEAD: 4, SUCCESS: 2 }
+[DemoQueue] backlog=38, actionable=12
+[DemoQueue] auditEntries=5
+Case 4 operations demo verification passed.
+Database is connected to apicompany
+[DemoQueue] Cleanup complete.

@@ -14,7 +14,7 @@ dotenv.config();
 
 import mongoose from "mongoose";
 import { MONGODB_URI } from "../src/config.js";
-import { connectMySQL, syncDatabase } from "../src/mysqlDatabase.js";
+import { connectMySQL, DASHBOARD_COMPANY_SCOPE_VALUE, syncDatabase } from "../src/mysqlDatabase.js";
 import Employee from "../src/models/Employee.js";
 import Department from "../src/models/Department.js";
 import Alert from "../src/models/Alert.js";
@@ -37,10 +37,15 @@ const BATCH_SIZE = 5000;
 function parseRuntimeOptions(argv) {
     const options = {
         targetYear: new Date().getFullYear(),
+        includeDepartmentScope: false,
         skipSnapshot: false,
     };
 
     for (const arg of argv) {
+        if (arg === "--include-department-scope") {
+            options.includeDepartmentScope = true;
+            continue;
+        }
         if (arg === "--skip-snapshot") {
             options.skipSnapshot = true;
             continue;
@@ -53,6 +58,9 @@ function parseRuntimeOptions(argv) {
     if (process.env.AGG_SKIP_EMPLOYEE_SNAPSHOT === "1") {
         options.skipSnapshot = true;
     }
+    if (process.env.AGG_INCLUDE_DEPARTMENT_SCOPE === "1") {
+        options.includeDepartmentScope = true;
+    }
 
     return options;
 }
@@ -63,11 +71,171 @@ function isMongoQuotaError(error) {
     return error.code === 8000 || error?.errorResponse?.code === 8000 || message.includes("space quota");
 }
 
+function createScopedTotals() {
+    return { current: 0, previous: 0, employee_count: 0 };
+}
+
+function getOrCreateScopedTotals(container, key) {
+    if (!container[key]) {
+        container[key] = createScopedTotals();
+    }
+    return container[key];
+}
+
+function addToScopedTotals(bucket, current, previous) {
+    bucket.current += current;
+    bucket.previous += previous;
+    bucket.employee_count += 1;
+}
+
+function createDepartmentScopedMetricAggregate() {
+    return {
+        total: createScopedTotals(),
+        byEmploymentType: {},
+        byGender: {},
+        byEthnicity: {},
+        byShareholder: {},
+    };
+}
+
+function getOrCreateDepartmentScopedMetricAggregate(container, departmentId) {
+    if (!container.has(departmentId)) {
+        container.set(departmentId, createDepartmentScopedMetricAggregate());
+    }
+    return container.get(departmentId);
+}
+
+function getEmployeeSummaryDimensions(employee, departmentMap) {
+    const departmentId = employee.departmentId?.toString() || null;
+    return {
+        departmentId,
+        departmentName: departmentId ? departmentMap.get(departmentId) || "Unassigned" : "Unassigned",
+        gender: employee.gender || "Unknown",
+        ethnicity: employee.ethnicity || "Unknown",
+        employmentType: employee.employmentType || "Full-time",
+        shareholderType: employee.isShareholder ? "shareholder" : "nonShareholder",
+    };
+}
+
+function createScopedMetricRow(year, scopeType, scopeValue, groupType, groupValue, totals, computedAt) {
+    return {
+        year,
+        scope_type: scopeType,
+        scope_value: scopeValue,
+        group_type: groupType,
+        group_value: groupValue,
+        current_total: totals.current,
+        previous_total: totals.previous,
+        employee_count: totals.employee_count,
+        computed_at: computedAt,
+    };
+}
+
+function appendMetricSummaryRows(rows, year, companyAggregate, departmentAggregates, computedAt, includeDepartmentScope = false) {
+    rows.push(createScopedMetricRow(year, "company", DASHBOARD_COMPANY_SCOPE_VALUE, "total", "all", companyAggregate.total, computedAt));
+
+    for (const [departmentName, totals] of Object.entries(companyAggregate.byDepartment)) {
+        rows.push(createScopedMetricRow(year, "company", DASHBOARD_COMPANY_SCOPE_VALUE, "department", departmentName, totals, computedAt));
+    }
+    for (const [gender, totals] of Object.entries(companyAggregate.byGender)) {
+        rows.push(createScopedMetricRow(year, "company", DASHBOARD_COMPANY_SCOPE_VALUE, "gender", gender, totals, computedAt));
+    }
+    for (const [ethnicity, totals] of Object.entries(companyAggregate.byEthnicity)) {
+        rows.push(createScopedMetricRow(year, "company", DASHBOARD_COMPANY_SCOPE_VALUE, "ethnicity", ethnicity, totals, computedAt));
+    }
+    for (const [employmentType, totals] of Object.entries(companyAggregate.byEmploymentType)) {
+        rows.push(createScopedMetricRow(year, "company", DASHBOARD_COMPANY_SCOPE_VALUE, "employmentType", employmentType, totals, computedAt));
+    }
+    for (const [shareholderType, totals] of Object.entries(companyAggregate.byShareholder)) {
+        rows.push(createScopedMetricRow(year, "company", DASHBOARD_COMPANY_SCOPE_VALUE, "shareholder", shareholderType, totals, computedAt));
+    }
+
+    if (!includeDepartmentScope) {
+        return;
+    }
+
+    for (const [departmentId, aggregate] of departmentAggregates.entries()) {
+        rows.push(createScopedMetricRow(year, "department", departmentId, "total", "all", aggregate.total, computedAt));
+
+        for (const [employmentType, totals] of Object.entries(aggregate.byEmploymentType)) {
+            rows.push(createScopedMetricRow(year, "department", departmentId, "employmentType", employmentType, totals, computedAt));
+        }
+        for (const [gender, totals] of Object.entries(aggregate.byGender)) {
+            rows.push(createScopedMetricRow(year, "department", departmentId, "gender", gender, totals, computedAt));
+        }
+        for (const [ethnicity, totals] of Object.entries(aggregate.byEthnicity)) {
+            rows.push(createScopedMetricRow(year, "department", departmentId, "ethnicity", ethnicity, totals, computedAt));
+        }
+        for (const [shareholderType, totals] of Object.entries(aggregate.byShareholder)) {
+            rows.push(createScopedMetricRow(year, "department", departmentId, "shareholder", shareholderType, totals, computedAt));
+        }
+    }
+}
+
+function createBenefitsTotals() {
+    return {
+        shareholder: { total: 0, count: 0 },
+        nonShareholder: { total: 0, count: 0 },
+    };
+}
+
+function createDepartmentBenefitsAggregate() {
+    return {
+        overall: createBenefitsTotals(),
+        byPlan: {},
+    };
+}
+
+function getOrCreateDepartmentBenefitsAggregate(container, departmentId) {
+    if (!container.has(departmentId)) {
+        container.set(departmentId, createDepartmentBenefitsAggregate());
+    }
+    return container.get(departmentId);
+}
+
+function getOrCreateBenefitsPlanAggregate(container, planName) {
+    if (!container[planName]) {
+        container[planName] = createBenefitsTotals();
+    }
+    return container[planName];
+}
+
+function addToBenefitsTotals(bucket, shareholderType, amount) {
+    bucket[shareholderType].total += amount;
+    bucket[shareholderType].count += 1;
+}
+
+function createBenefitsSummaryRow(scopeType, scopeValue, planName, shareholderType, totals, computedAt) {
+    return {
+        scope_type: scopeType,
+        scope_value: scopeValue,
+        plan_name: planName,
+        shareholder_type: shareholderType,
+        total_paid: totals.total,
+        enrollment_count: totals.count,
+        average_paid: totals.count > 0 ? totals.total / totals.count : 0,
+        computed_at: computedAt,
+    };
+}
+
+function appendBenefitsRows(rows, scopeType, scopeValue, overallTotals, planTotals, computedAt) {
+    rows.push(createBenefitsSummaryRow(scopeType, scopeValue, "_overall", "shareholder", overallTotals.shareholder, computedAt));
+    rows.push(createBenefitsSummaryRow(scopeType, scopeValue, "_overall", "nonShareholder", overallTotals.nonShareholder, computedAt));
+
+    for (const [planName, totals] of Object.entries(planTotals)) {
+        rows.push(createBenefitsSummaryRow(scopeType, scopeValue, planName, "shareholder", totals.shareholder, computedAt));
+        rows.push(createBenefitsSummaryRow(scopeType, scopeValue, planName, "nonShareholder", totals.nonShareholder, computedAt));
+    }
+}
+
 async function main() {
-    const { targetYear, skipSnapshot } = parseRuntimeOptions(process.argv.slice(2));
+    const { includeDepartmentScope, targetYear, skipSnapshot } = parseRuntimeOptions(process.argv.slice(2));
 
     console.log("========================================");
     console.log(`Dashboard Aggregation - Year: ${targetYear}`);
+    if (includeDepartmentScope) {
+        console.log("Mode: include department-scoped summary rows");
+    }
     if (skipSnapshot) {
         console.log("Mode: skip Mongo annualEarnings snapshot updates");
     }
@@ -84,13 +252,13 @@ async function main() {
         console.log("✓ Connected\n");
 
         // === STEP 1: Aggregate Earnings ===
-        await aggregateEarnings(targetYear, { skipSnapshot });
+        await aggregateEarnings(targetYear, { includeDepartmentScope, skipSnapshot });
 
         // === STEP 2: Aggregate Vacation ===
-        await aggregateVacation(targetYear);
+        await aggregateVacation(targetYear, { includeDepartmentScope });
 
         // === STEP 3: Aggregate Benefits ===
-        await aggregateBenefits();
+        await aggregateBenefits({ includeDepartmentScope });
 
         // === STEP 4: Aggregate Alerts ===
         await aggregateAlerts();
@@ -134,14 +302,16 @@ async function aggregateEarnings(targetYear, options = {}) {
     const currentMap = new Map((currentEarnings || []).map(e => [e.employee_id, parseFloat(e.total) || 0]));
     const previousMap = new Map((previousEarnings || []).map(e => [e.employee_id, parseFloat(e.total) || 0]));
 
-    // Initialize aggregators
-    const byDepartment = {};
-    const byGender = {};
-    const byEthnicity = {};
-    const byEmploymentType = {};
-    const byShareholder = { shareholder: { current: 0, previous: 0 }, nonShareholder: { current: 0, previous: 0 } };
-    let total = { current: 0, previous: 0 };
-    let employeeCount = 0;
+    const companyAggregate = {
+        total: createScopedTotals(),
+        byDepartment: {},
+        byGender: {},
+        byEthnicity: {},
+        byEmploymentType: {},
+        byShareholder: {},
+    };
+    const departmentAggregates = new Map();
+    let processedEmployeeCount = 0;
     let earningsUpdates = [];
     let snapshotWritesEnabled = !options.skipSnapshot;
     let snapshotWritesSkippedReason = options.skipSnapshot ? "cli_or_env_skip" : null;
@@ -153,7 +323,7 @@ async function aggregateEarnings(targetYear, options = {}) {
         .cursor({ batchSize: BATCH_SIZE });
 
     for await (const emp of cursor) {
-        employeeCount++;
+        processedEmployeeCount++;
         const empId = emp.employeeId;
         const current = currentMap.get(empId) || 0;
         const previous = previousMap.get(empId) || 0;
@@ -186,40 +356,25 @@ async function aggregateEarnings(targetYear, options = {}) {
 
         if (current === 0 && previous === 0) continue;
 
-        total.current += current;
-        total.previous += previous;
+        const dimensions = getEmployeeSummaryDimensions(emp, deptMap);
+        addToScopedTotals(companyAggregate.total, current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byDepartment, dimensions.departmentName), current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byGender, dimensions.gender), current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byEthnicity, dimensions.ethnicity), current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byEmploymentType, dimensions.employmentType), current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byShareholder, dimensions.shareholderType), current, previous);
 
-        // Department
-        const dept = deptMap.get(emp.departmentId?.toString()) || "Unassigned";
-        if (!byDepartment[dept]) byDepartment[dept] = { current: 0, previous: 0 };
-        byDepartment[dept].current += current;
-        byDepartment[dept].previous += previous;
+        if (dimensions.departmentId) {
+            const scopedAggregate = getOrCreateDepartmentScopedMetricAggregate(departmentAggregates, dimensions.departmentId);
+            addToScopedTotals(scopedAggregate.total, current, previous);
+            addToScopedTotals(getOrCreateScopedTotals(scopedAggregate.byEmploymentType, dimensions.employmentType), current, previous);
+            addToScopedTotals(getOrCreateScopedTotals(scopedAggregate.byGender, dimensions.gender), current, previous);
+            addToScopedTotals(getOrCreateScopedTotals(scopedAggregate.byEthnicity, dimensions.ethnicity), current, previous);
+            addToScopedTotals(getOrCreateScopedTotals(scopedAggregate.byShareholder, dimensions.shareholderType), current, previous);
+        }
 
-        // Gender
-        const gender = emp.gender || "Unknown";
-        if (!byGender[gender]) byGender[gender] = { current: 0, previous: 0 };
-        byGender[gender].current += current;
-        byGender[gender].previous += previous;
-
-        // Ethnicity
-        const ethnicity = emp.ethnicity || "Unknown";
-        if (!byEthnicity[ethnicity]) byEthnicity[ethnicity] = { current: 0, previous: 0 };
-        byEthnicity[ethnicity].current += current;
-        byEthnicity[ethnicity].previous += previous;
-
-        // Employment Type
-        const empType = emp.employmentType || "Full-time";
-        if (!byEmploymentType[empType]) byEmploymentType[empType] = { current: 0, previous: 0 };
-        byEmploymentType[empType].current += current;
-        byEmploymentType[empType].previous += previous;
-
-        // Shareholder
-        const shKey = emp.isShareholder ? "shareholder" : "nonShareholder";
-        byShareholder[shKey].current += current;
-        byShareholder[shKey].previous += previous;
-
-        if (employeeCount % 100000 === 0) {
-            console.log(`   Processed ${employeeCount} employees...`);
+        if (processedEmployeeCount % 100000 === 0) {
+            console.log(`   Processed ${processedEmployeeCount} employees...`);
         }
     }
 
@@ -244,23 +399,7 @@ async function aggregateEarnings(targetYear, options = {}) {
     const rows = [];
     const now = new Date();
 
-    rows.push({ year: targetYear, group_type: "total", group_value: "all", current_total: total.current, previous_total: total.previous, employee_count: employeeCount, computed_at: now });
-
-    for (const [k, v] of Object.entries(byDepartment)) {
-        rows.push({ year: targetYear, group_type: "department", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
-    for (const [k, v] of Object.entries(byGender)) {
-        rows.push({ year: targetYear, group_type: "gender", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
-    for (const [k, v] of Object.entries(byEthnicity)) {
-        rows.push({ year: targetYear, group_type: "ethnicity", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
-    for (const [k, v] of Object.entries(byEmploymentType)) {
-        rows.push({ year: targetYear, group_type: "employmentType", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
-    for (const [k, v] of Object.entries(byShareholder)) {
-        rows.push({ year: targetYear, group_type: "shareholder", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
+    appendMetricSummaryRows(rows, targetYear, companyAggregate, departmentAggregates, now, options.includeDepartmentScope);
 
     await EarningsSummary.bulkCreate(rows);
     console.log(`   ✓ Saved ${rows.length} earnings summary rows`);
@@ -293,7 +432,7 @@ async function aggregateEarnings(targetYear, options = {}) {
     }
 }
 
-async function aggregateVacation(targetYear) {
+async function aggregateVacation(targetYear, options = {}) {
     console.log("\n2. Aggregating Vacation...");
 
     const { map: deptMap, usedFallback } = await buildDepartmentNameMap({
@@ -318,13 +457,15 @@ async function aggregateVacation(targetYear) {
     const currentMap = new Map((currentVacation || []).map(v => [v.employee_id, parseInt(v.total) || 0]));
     const previousMap = new Map((previousVacation || []).map(v => [v.employee_id, parseInt(v.total) || 0]));
 
-    const byDepartment = {};
-    const byGender = {};
-    const byEthnicity = {};
-    const byEmploymentType = {};
-    const byShareholder = { shareholder: { current: 0, previous: 0 }, nonShareholder: { current: 0, previous: 0 } };
-    let total = { current: 0, previous: 0 };
-    let employeeCount = 0;
+    const companyAggregate = {
+        total: createScopedTotals(),
+        byDepartment: {},
+        byGender: {},
+        byEthnicity: {},
+        byEmploymentType: {},
+        byShareholder: {},
+    };
+    const departmentAggregates = new Map();
 
     const cursor = Employee.find()
         .select("employeeId departmentId isShareholder gender ethnicity employmentType")
@@ -332,39 +473,28 @@ async function aggregateVacation(targetYear) {
         .cursor({ batchSize: BATCH_SIZE });
 
     for await (const emp of cursor) {
-        employeeCount++;
         const empId = emp.employeeId;
         const current = currentMap.get(empId) || 0;
         const previous = previousMap.get(empId) || 0;
 
         if (current === 0 && previous === 0) continue;
 
-        total.current += current;
-        total.previous += previous;
+        const dimensions = getEmployeeSummaryDimensions(emp, deptMap);
+        addToScopedTotals(companyAggregate.total, current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byDepartment, dimensions.departmentName), current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byGender, dimensions.gender), current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byEthnicity, dimensions.ethnicity), current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byEmploymentType, dimensions.employmentType), current, previous);
+        addToScopedTotals(getOrCreateScopedTotals(companyAggregate.byShareholder, dimensions.shareholderType), current, previous);
 
-        const dept = deptMap.get(emp.departmentId?.toString()) || "Unassigned";
-        if (!byDepartment[dept]) byDepartment[dept] = { current: 0, previous: 0 };
-        byDepartment[dept].current += current;
-        byDepartment[dept].previous += previous;
-
-        const gender = emp.gender || "Unknown";
-        if (!byGender[gender]) byGender[gender] = { current: 0, previous: 0 };
-        byGender[gender].current += current;
-        byGender[gender].previous += previous;
-
-        const ethnicity = emp.ethnicity || "Unknown";
-        if (!byEthnicity[ethnicity]) byEthnicity[ethnicity] = { current: 0, previous: 0 };
-        byEthnicity[ethnicity].current += current;
-        byEthnicity[ethnicity].previous += previous;
-
-        const empType = emp.employmentType || "Full-time";
-        if (!byEmploymentType[empType]) byEmploymentType[empType] = { current: 0, previous: 0 };
-        byEmploymentType[empType].current += current;
-        byEmploymentType[empType].previous += previous;
-
-        const shKey = emp.isShareholder ? "shareholder" : "nonShareholder";
-        byShareholder[shKey].current += current;
-        byShareholder[shKey].previous += previous;
+        if (dimensions.departmentId) {
+            const scopedAggregate = getOrCreateDepartmentScopedMetricAggregate(departmentAggregates, dimensions.departmentId);
+            addToScopedTotals(scopedAggregate.total, current, previous);
+            addToScopedTotals(getOrCreateScopedTotals(scopedAggregate.byEmploymentType, dimensions.employmentType), current, previous);
+            addToScopedTotals(getOrCreateScopedTotals(scopedAggregate.byGender, dimensions.gender), current, previous);
+            addToScopedTotals(getOrCreateScopedTotals(scopedAggregate.byEthnicity, dimensions.ethnicity), current, previous);
+            addToScopedTotals(getOrCreateScopedTotals(scopedAggregate.byShareholder, dimensions.shareholderType), current, previous);
+        }
     }
 
     await VacationSummary.destroy({ where: { year: targetYear } });
@@ -372,34 +502,27 @@ async function aggregateVacation(targetYear) {
     const rows = [];
     const now = new Date();
 
-    rows.push({ year: targetYear, group_type: "total", group_value: "all", current_total: total.current, previous_total: total.previous, employee_count: employeeCount, computed_at: now });
-
-    for (const [k, v] of Object.entries(byDepartment)) {
-        rows.push({ year: targetYear, group_type: "department", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
-    for (const [k, v] of Object.entries(byGender)) {
-        rows.push({ year: targetYear, group_type: "gender", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
-    for (const [k, v] of Object.entries(byEthnicity)) {
-        rows.push({ year: targetYear, group_type: "ethnicity", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
-    for (const [k, v] of Object.entries(byEmploymentType)) {
-        rows.push({ year: targetYear, group_type: "employmentType", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
-    for (const [k, v] of Object.entries(byShareholder)) {
-        rows.push({ year: targetYear, group_type: "shareholder", group_value: k, current_total: v.current, previous_total: v.previous, employee_count: employeeCount, computed_at: now });
-    }
+    appendMetricSummaryRows(rows, targetYear, companyAggregate, departmentAggregates, now, options.includeDepartmentScope);
 
     await VacationSummary.bulkCreate(rows);
     console.log(`   ✓ Saved ${rows.length} vacation summary rows`);
 }
 
-async function aggregateBenefits() {
+async function aggregateBenefits(options = {}) {
     console.log("\n3. Aggregating Benefits...");
 
-    // Get shareholders from MongoDB
-    const shareholders = await Employee.find({ isShareholder: true }).select("employeeId").lean();
-    const shareholderSet = new Set(shareholders.map(e => e.employeeId));
+    const employeeMeta = new Map();
+    const employeeCursor = Employee.find()
+        .select("employeeId departmentId isShareholder")
+        .lean()
+        .cursor({ batchSize: BATCH_SIZE });
+
+    for await (const employee of employeeCursor) {
+        employeeMeta.set(employee.employeeId, {
+            departmentId: employee.departmentId?.toString() || null,
+            isShareholder: Boolean(employee.isShareholder),
+        });
+    }
 
     // Get benefits from MySQL
     const benefitsData = await sequelize.query(`
@@ -411,28 +534,24 @@ async function aggregateBenefits() {
 
     // Aggregate
     const byPlan = {};
-    const overall = {
-        shareholder: { total: 0, count: 0 },
-        nonShareholder: { total: 0, count: 0 }
-    };
+    const overall = createBenefitsTotals();
+    const departmentAggregates = new Map();
 
     for (const row of (benefitsData || [])) {
         const plan = row.plan_name || "Unknown";
-        const isSH = shareholderSet.has(row.employee_id);
+        const employee = employeeMeta.get(row.employee_id) || { departmentId: null, isShareholder: false };
+        const isSH = employee.isShareholder;
         const amount = parseFloat(row.total) || 0;
         const key = isSH ? "shareholder" : "nonShareholder";
 
-        if (!byPlan[plan]) {
-            byPlan[plan] = {
-                shareholder: { total: 0, count: 0 },
-                nonShareholder: { total: 0, count: 0 }
-            };
-        }
+        addToBenefitsTotals(getOrCreateBenefitsPlanAggregate(byPlan, plan), key, amount);
+        addToBenefitsTotals(overall, key, amount);
 
-        byPlan[plan][key].total += amount;
-        byPlan[plan][key].count += 1;
-        overall[key].total += amount;
-        overall[key].count += 1;
+        if (employee.departmentId) {
+            const departmentAggregate = getOrCreateDepartmentBenefitsAggregate(departmentAggregates, employee.departmentId);
+            addToBenefitsTotals(departmentAggregate.overall, key, amount);
+            addToBenefitsTotals(getOrCreateBenefitsPlanAggregate(departmentAggregate.byPlan, plan), key, amount);
+        }
     }
 
     // Save to BenefitsSummary
@@ -441,42 +560,12 @@ async function aggregateBenefits() {
     const rows = [];
     const now = new Date();
 
-    // Overall
-    rows.push({
-        plan_name: "_overall",
-        shareholder_type: "shareholder",
-        total_paid: overall.shareholder.total,
-        enrollment_count: overall.shareholder.count,
-        average_paid: overall.shareholder.count > 0 ? overall.shareholder.total / overall.shareholder.count : 0,
-        computed_at: now
-    });
-    rows.push({
-        plan_name: "_overall",
-        shareholder_type: "nonShareholder",
-        total_paid: overall.nonShareholder.total,
-        enrollment_count: overall.nonShareholder.count,
-        average_paid: overall.nonShareholder.count > 0 ? overall.nonShareholder.total / overall.nonShareholder.count : 0,
-        computed_at: now
-    });
+    appendBenefitsRows(rows, "company", DASHBOARD_COMPANY_SCOPE_VALUE, overall, byPlan, now);
 
-    // By Plan
-    for (const [plan, data] of Object.entries(byPlan)) {
-        rows.push({
-            plan_name: plan,
-            shareholder_type: "shareholder",
-            total_paid: data.shareholder.total,
-            enrollment_count: data.shareholder.count,
-            average_paid: data.shareholder.count > 0 ? data.shareholder.total / data.shareholder.count : 0,
-            computed_at: now
-        });
-        rows.push({
-            plan_name: plan,
-            shareholder_type: "nonShareholder",
-            total_paid: data.nonShareholder.total,
-            enrollment_count: data.nonShareholder.count,
-            average_paid: data.nonShareholder.count > 0 ? data.nonShareholder.total / data.nonShareholder.count : 0,
-            computed_at: now
-        });
+    if (options.includeDepartmentScope) {
+        for (const [departmentId, aggregate] of departmentAggregates.entries()) {
+            appendBenefitsRows(rows, "department", departmentId, aggregate.overall, aggregate.byPlan, now);
+        }
     }
 
     await BenefitsSummary.bulkCreate(rows);

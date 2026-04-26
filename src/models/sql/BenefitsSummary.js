@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import sequelize from "../../mysqlDatabase.js";
+import sequelize, { DASHBOARD_COMPANY_SCOPE_VALUE } from "../../mysqlDatabase.js";
 
 /**
  * BenefitsSummary - Pre-aggregated benefits data for dashboard
@@ -11,6 +11,16 @@ const BenefitsSummary = sequelize.define(
             type: DataTypes.INTEGER,
             primaryKey: true,
             autoIncrement: true,
+        },
+        scope_type: {
+            type: DataTypes.STRING(20),
+            allowNull: false,
+            defaultValue: "company",
+        },
+        scope_value: {
+            type: DataTypes.STRING(100),
+            allowNull: false,
+            defaultValue: DASHBOARD_COMPANY_SCOPE_VALUE,
         },
         // Group by plan name
         plan_name: {
@@ -43,7 +53,11 @@ const BenefitsSummary = sequelize.define(
         tableName: "benefits_summary",
         timestamps: false,
         indexes: [
-            { unique: true, fields: ["plan_name", "shareholder_type"] },
+            {
+                name: "ux_benefits_summary_scope_plan_shareholder",
+                unique: true,
+                fields: ["scope_type", "scope_value", "plan_name", "shareholder_type"],
+            },
         ],
     }
 );

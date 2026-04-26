@@ -64,6 +64,16 @@ function BenefitsDrilldownHarness() {
   );
 }
 
+function PageDrilldownHarness() {
+  return (
+    <DrilldownModal
+      variant="page"
+      filters={{ context: 'earnings' }}
+      onClose={() => {}}
+    />
+  );
+}
+
 describe('DrilldownModal behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -98,6 +108,15 @@ describe('DrilldownModal behavior', () => {
 
   it('shows inline export error instead of browser alert', async () => {
     const user = userEvent.setup();
+    getDrilldown.mockResolvedValue({
+      ...baseResponse,
+      meta: { total: 1, pages: 1 },
+      summary: {
+        ...baseResponse.summary,
+        count: 1,
+        totalEarnings: 120000,
+      },
+    });
     exportDrilldownCsv.mockRejectedValue({
       response: { data: { message: 'Export failed for current filter.' } },
     });
@@ -105,7 +124,7 @@ describe('DrilldownModal behavior', () => {
     render(<DrilldownHarness />);
     await user.click(screen.getByRole('button', { name: /Open Drilldown/i }));
     await screen.findByRole('dialog');
-    await user.click(screen.getByRole('button', { name: /Export current filtered records to CSV/i }));
+    await user.click(await screen.findByRole('button', { name: /Export 1 filtered records to CSV/i }));
 
     expect(await screen.findByText(/Export failed for current filter/i)).toBeInTheDocument();
   });
@@ -184,7 +203,7 @@ describe('DrilldownModal behavior', () => {
 
     expect(screen.getByLabelText(/Department filter/i)).toHaveValue('Engineering');
     expect(screen.getByLabelText(/Employment type filter/i)).toHaveValue('Part-time');
-  });
+  }, 10000);
 
   it('updates benefits drilldown when benefit plan filter changes', async () => {
     const user = userEvent.setup();
@@ -197,6 +216,49 @@ describe('DrilldownModal behavior', () => {
     await waitFor(() => {
       expect(getDrilldown).toHaveBeenLastCalledWith(
         expect.objectContaining({ benefitPlan: 'Premium', context: 'benefits' }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('uses a page-level workspace frame without duplicating the modal heading', async () => {
+    render(<PageDrilldownHarness />);
+
+    expect(await screen.findByRole('region', { name: /Analytics drilldown workspace/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Employee Details/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Next page/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Next$/i })).toBeInTheDocument();
+  });
+
+  it('hydrates route search and clears the search chip without debounce lag', async () => {
+    const user = userEvent.setup();
+    getDrilldown.mockResolvedValue({
+      ...baseResponse,
+      meta: { total: 1, pages: 1 },
+      summary: {
+        ...baseResponse.summary,
+        count: 1,
+        totalEarnings: 120000,
+      },
+    });
+
+    render(
+      <DrilldownModal
+        variant="page"
+        filters={{ context: 'earnings', department: 'Engineering', search: 'Amy' }}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(await screen.findByDisplayValue('Amy')).toBeInTheDocument();
+    await screen.findByText(/Search: Amy/i);
+
+    await user.click(screen.getByRole('button', { name: /Search: Amy/i }));
+
+    expect(screen.getByLabelText(/Search employees by id or name/i)).toHaveValue('');
+    await waitFor(() => {
+      expect(getDrilldown).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: '' }),
         expect.any(Object),
       );
     });

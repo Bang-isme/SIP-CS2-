@@ -1,9 +1,9 @@
 import User from "../models/User.js";
 import { ROLES } from "../models/Role.js";
-import { getRequestId } from "../utils/requestTracking.js";
 import {
   createApiError,
   createConflictError,
+  createValidationError,
   respondWithApiError,
   sendApiError,
 } from "../utils/apiErrors.js";
@@ -55,12 +55,14 @@ export const checkExistingRole = (req, res, next) => {
 
   for (let i = 0; i < req.body.roles.length; i++) {
     if (!ROLES.includes(req.body.roles[i])) {
-      return res.status(422).json({
-        success: false,
-        message: `Role ${req.body.roles[i]} does not exist`,
-        code: "AUTH_ROLE_UNKNOWN",
-        requestId: getRequestId({ req, res }),
-      });
+      return sendApiError(
+        res,
+        createValidationError(
+          `Role ${req.body.roles[i]} does not exist`,
+          [{ field: "roles", message: `Unknown role: ${req.body.roles[i]}` }],
+          "AUTH_ROLE_UNKNOWN",
+        ),
+      );
     }
   }
 

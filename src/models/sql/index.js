@@ -1,4 +1,4 @@
-// SQL Models Index - Export all Sequelize models
+// SQL Models Index - Export active Sequelize models used by Payroll/Dashboard runtime.
 import sequelize from "../../mysqlDatabase.js";
 import Earning from "./Earning.js";
 import VacationRecord from "./VacationRecord.js";
@@ -12,8 +12,6 @@ import BenefitsSummary from "./BenefitsSummary.js";
 import AlertsSummary from "./AlertsSummary.js";
 import AlertEmployee from "./AlertEmployee.js";
 import SyncLog from "./SyncLog.js";
-import IntegrationEvent from "./IntegrationEvent.js";
-import IntegrationEventAudit from "./IntegrationEventAudit.js";
 
 export {
     sequelize,
@@ -29,6 +27,4 @@ export {
     AlertsSummary,
     AlertEmployee,
     SyncLog,
-    IntegrationEvent,
-    IntegrationEventAudit,
 };

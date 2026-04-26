@@ -1,41 +1,73 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   FiAlertTriangle,
-  FiBarChart2,
+  FiCheckCircle,
   FiHelpCircle,
   FiInfo,
   FiLogIn,
   FiLock,
   FiMail,
   FiShield,
-  FiUser,
+  FiUserPlus,
 } from 'react-icons/fi';
 import { login } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { getErrorMessage } from '../utils/formatters';
+import { isDemoShortcutsEnabled, isSelfSignupEnabled } from '../utils/featureFlags';
 import './Login.css';
 
 const DEMO_ADMIN_EMAIL = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'admin@localhost';
 const DEMO_ADMIN_PASSWORD = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'admin_dev';
 
-function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
-  const [email, setEmail] = useState(DEMO_ADMIN_EMAIL);
-  const [password, setPassword] = useState(DEMO_ADMIN_PASSWORD);
+function Login() {
+  const { handleLogin, authNotice, clearNotice } = useAuth();
+  const { notifyError, notifyInfo, notifySuccess } = useToast();
+  const location = useLocation();
+  const sessionNotice = authNotice || location.state?.notice || '';
+  const demoShortcutsEnabled = isDemoShortcutsEnabled();
+  const selfSignupEnabled = isSelfSignupEnabled();
+  const autoLoginAttemptedRef = useRef(false);
+  const [email, setEmail] = useState(demoShortcutsEnabled ? DEMO_ADMIN_EMAIL : '');
+  const [password, setPassword] = useState(demoShortcutsEnabled ? DEMO_ADMIN_PASSWORD : '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const demoLoginRequested =
+    demoShortcutsEnabled
+    && typeof window !== 'undefined'
+    && new URLSearchParams(location.search).get('demoLogin') === '1';
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const submitLogin = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      await login(email, password);
-      onLogin();
+      const response = await login(email, password);
+      clearNotice();
+      notifySuccess('Signed in', 'Dashboard access is ready.');
+      handleLogin(response);
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check credentials.');
+      const message = getErrorMessage(err, 'Login failed. Please check credentials.');
+      setError(message);
+      notifyError('Sign in failed', message);
     } finally {
       setLoading(false);
     }
+  }, [clearNotice, email, handleLogin, notifyError, notifySuccess, password]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await submitLogin();
   };
+
+  useEffect(() => {
+    if (!demoLoginRequested || loading || autoLoginAttemptedRef.current) {
+      return;
+    }
+    autoLoginAttemptedRef.current = true;
+    void submitLogin();
+  }, [demoLoginRequested, loading, submitLogin]);
 
   return (
 
@@ -44,36 +76,46 @@ function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
         {/* Left Side - Brand & Visual */}
         <div className="login-brand-panel">
           <div className="brand-content">
-            <h1>SIP-CS <span className="highlight">Analytics</span></h1>
-            <p className="brand-tagline">Comprehensive HR & Payroll Intelligence for the Modern Enterprise.</p>
+            <p className="brand-kicker">People Operations Console</p>
+            <h1>Review HR and payroll data with less noise.</h1>
+            <p className="brand-tagline">
+              {selfSignupEnabled
+                ? 'Open one shared workspace to review executive status, operational alerts, and integration health.'
+                : 'Open one internal workspace to review executive status, operational alerts, and integration health.'}
+            </p>
 
             <div className="feature-list">
               <div className="feature-item">
-                <span className="icon" aria-hidden="true"><FiBarChart2 size={20} /></span>
+                <span className="icon" aria-hidden="true"><FiCheckCircle size={18} /></span>
                 <div>
-                  <h4>Real-time Insights</h4>
-                  <p>Monitor KPIs instantly</p>
+                  <h4>Shared source records</h4>
+                  <p>HR records stay in one source and feed the main views.</p>
                 </div>
               </div>
               <div className="feature-item">
                 <span className="icon" aria-hidden="true"><FiShield size={20} /></span>
                 <div>
-                  <h4>Secure Access</h4>
-                  <p>Enterprise-grade security</p>
+                  <h4>Role aware</h4>
+                  <p>Admin actions stay behind permission checks.</p>
                 </div>
               </div>
             </div>
           </div>
-          <div className="brand-overlay"></div>
         </div>
 
         {/* Right Side - Login Form */}
         <div className="login-form-panel">
           <div className="form-wrapper">
-            <div className="form-header">
-              <h2>Welcome Back</h2>
-              <p>Please enter your details to sign in.</p>
-            </div>
+              <div className="form-header">
+                <h2>Sign in</h2>
+                <p>
+                  {demoShortcutsEnabled
+                    ? 'Use your account or the local review credentials below.'
+                    : selfSignupEnabled
+                      ? 'Use your workspace account to continue.'
+                      : 'Use your internal account to continue.'}
+                </p>
+              </div>
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -86,6 +128,7 @@ function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@company.com"
+                    autoComplete="username"
                     required
                     className="input-field input-with-icon"
                   />
@@ -102,20 +145,22 @@ function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="********"
+                    autoComplete="current-password"
                     required
                     className="input-field input-with-icon"
                   />
                 </div>
               </div>
 
-              <div className="form-actions">
-                <label className="remember-me" htmlFor="remember-me">
-                  <input id="remember-me" type="checkbox" /> Remember me
-                </label>
+              <div className="form-actions form-actions--compact">
                 <button
                   type="button"
                   className="forgot-password-btn"
-                  onClick={() => setError('Password reset is not available in demo mode.')}
+                  onClick={() => {
+                    const message = 'Password reset is handled outside this console. Contact your administrator or identity provider.';
+                    setError(message);
+                    notifyInfo('Password reset', message);
+                  }}
                 >
                   <FiHelpCircle size={14} aria-hidden="true" />
                   <span>Forgot password?</span>
@@ -144,17 +189,31 @@ function Login({ onLogin, onSwitchToRegister, sessionNotice = '' }) {
               </button>
             </form>
 
-            <div className="login-footer">
-              <p>
-                Don&apos;t have an account?
-                <button type="button" className="login-link-btn" onClick={onSwitchToRegister}>Sign Up</button>
-              </p>
-              <div className="demo-credentials">
-                <FiUser size={13} aria-hidden="true" />
-                <span>Demo:</span>
-                <code>{DEMO_ADMIN_EMAIL}</code> / <code>{DEMO_ADMIN_PASSWORD}</code>
+              <div className="login-footer">
+                {selfSignupEnabled ? (
+                  <>
+                    <p>Need an account?</p>
+                    <div className="login-footer-actions">
+                      <Link to="/register" className="login-link-btn login-link-btn--cta">
+                        <FiUserPlus size={14} aria-hidden="true" />
+                        <span>Create one</span>
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <div className="login-access-note">
+                    <FiShield size={14} aria-hidden="true" />
+                    <span>Access is provisioned by an administrator for this workspace.</span>
+                  </div>
+                )}
+                {demoShortcutsEnabled && (
+                  <div className="demo-credentials">
+                    <FiShield size={13} aria-hidden="true" />
+                    <span>Local review account</span>
+                    <code>{DEMO_ADMIN_EMAIL}</code> / <code>{DEMO_ADMIN_PASSWORD}</code>
+                  </div>
+                )}
               </div>
-            </div>
           </div>
         </div>
       </div>

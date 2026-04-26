@@ -11,12 +11,15 @@ import {
 } from "./config.js";
 
 const MIGRATIONS_TABLE = "_schema_migrations";
+// Payroll and dashboard still require MySQL, but the active outbox path now
+// lives in MongoDB under the SA service.
 const INITIAL_BOOTSTRAP_MIGRATION_ID = "20260221_000001_initial_sequelize_bootstrap";
 const PAY_RATE_SCHEMA_CONTRACT_MIGRATION_ID = "20260403_000005_pay_rate_schema_contract_cleanup";
-const INTEGRATION_EVENT_OPERATOR_AUDIT_MIGRATION_ID = "20260402_000002_integration_event_operator_audit";
-const INTEGRATION_EVENT_AUDIT_HISTORY_MIGRATION_ID = "20260402_000003_integration_event_audit_history";
+const DASHBOARD_SUMMARY_SCOPE_MIGRATION_ID = "20260419_000006_dashboard_summary_scope";
+const DASHBOARD_COMPANY_SCOPE_VALUE = "__company__";
 const INTEGRATION_CORRELATION_TRACE_MIGRATION_ID = "20260402_000004_integration_correlation_trace";
-const REQUIRED_SQL_TABLES = [
+const SYNC_LOG_IDEMPOTENCY_MIGRATION_ID = "20260416_000006_sync_log_idempotency_contract";
+const ACTIVE_SQL_TABLES = [
   "earnings",
   "vacation_records",
   "benefits_plans",
@@ -29,9 +32,10 @@ const REQUIRED_SQL_TABLES = [
   "alerts_summary",
   "alert_employees",
   "sync_log",
-  "integration_events",
-  "integration_event_audits",
 ];
+// Backward-compatible alias for existing callers/tests. "Required" now means
+// active runtime schema required by Payroll and Dashboard services.
+const REQUIRED_SQL_TABLES = ACTIVE_SQL_TABLES;
 
 // Create Sequelize instance for MySQL connection
 const sequelize = new Sequelize(MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD, {
@@ -77,6 +81,127 @@ const getTableColumnNames = async (tableName) => {
 const getTableIndexes = async (tableName) => {
   const [rows] = await sequelize.query(`SHOW INDEX FROM \`${tableName}\``);
   return Array.isArray(rows) ? rows : [];
+};
+
+const getOrderedIndexColumns = (rows) =>
+  [...rows]
+    .sort((a, b) => Number(a.Seq_in_index) - Number(b.Seq_in_index))
+    .map((row) => row.Column_name);
+
+const ensureExactUniqueIndex = async (tableName, indexName, targetColumns, legacyColumnSets = []) => {
+  const indexes = await getTableIndexes(tableName);
+  const targetSignature = targetColumns.join(",");
+  const legacySignatures = new Set(legacyColumnSets.map((columns) => columns.join(",")));
+  const groupedIndexes = indexes.reduce((acc, row) => {
+    if (!acc.has(row.Key_name)) acc.set(row.Key_name, []);
+    acc.get(row.Key_name).push(row);
+    return acc;
+  }, new Map());
+
+  let hasTargetIndex = false;
+  const indexNamesToDrop = new Set();
+
+  for (const [existingIndexName, rows] of groupedIndexes.entries()) {
+    if (existingIndexName === "PRIMARY") continue;
+
+    const signature = getOrderedIndexColumns(rows).join(",");
+    const isUnique = Number(rows[0]?.Non_unique) === 0;
+
+    if (existingIndexName === indexName && (!isUnique || signature !== targetSignature)) {
+      indexNamesToDrop.add(existingIndexName);
+      continue;
+    }
+
+    if (signature === targetSignature) {
+      if (isUnique && existingIndexName === indexName) {
+        hasTargetIndex = true;
+      } else {
+        indexNamesToDrop.add(existingIndexName);
+      }
+      continue;
+    }
+
+    if (legacySignatures.has(signature)) {
+      indexNamesToDrop.add(existingIndexName);
+    }
+  }
+
+  for (const existingIndexName of indexNamesToDrop) {
+    await sequelize.query(`ALTER TABLE \`${tableName}\` DROP INDEX \`${existingIndexName}\``);
+  }
+
+  if (!hasTargetIndex) {
+    const columnList = targetColumns.map((columnName) => `\`${columnName}\``).join(", ");
+    await sequelize.query(`CREATE UNIQUE INDEX \`${indexName}\` ON \`${tableName}\` (${columnList})`);
+  }
+};
+
+const DASHBOARD_SUMMARY_SCOPE_TABLES = [
+  {
+    tableName: "earnings_summary",
+    scopeTypeDefinition: "`scope_type` VARCHAR(20) NOT NULL DEFAULT 'company' AFTER `year`",
+    scopeTypeModify: "`scope_type` VARCHAR(20) NOT NULL DEFAULT 'company' AFTER `year`",
+    scopeValueDefinition: `\`scope_value\` VARCHAR(100) NOT NULL DEFAULT '${DASHBOARD_COMPANY_SCOPE_VALUE}' AFTER \`scope_type\``,
+    scopeValueModify: `\`scope_value\` VARCHAR(100) NOT NULL DEFAULT '${DASHBOARD_COMPANY_SCOPE_VALUE}' AFTER \`scope_type\``,
+    indexName: "ux_earnings_summary_scope_group",
+    targetColumns: ["year", "scope_type", "scope_value", "group_type", "group_value"],
+    legacyColumnSets: [["year", "group_type", "group_value"]],
+  },
+  {
+    tableName: "vacation_summary",
+    scopeTypeDefinition: "`scope_type` VARCHAR(20) NOT NULL DEFAULT 'company' AFTER `year`",
+    scopeTypeModify: "`scope_type` VARCHAR(20) NOT NULL DEFAULT 'company' AFTER `year`",
+    scopeValueDefinition: `\`scope_value\` VARCHAR(100) NOT NULL DEFAULT '${DASHBOARD_COMPANY_SCOPE_VALUE}' AFTER \`scope_type\``,
+    scopeValueModify: `\`scope_value\` VARCHAR(100) NOT NULL DEFAULT '${DASHBOARD_COMPANY_SCOPE_VALUE}' AFTER \`scope_type\``,
+    indexName: "ux_vacation_summary_scope_group",
+    targetColumns: ["year", "scope_type", "scope_value", "group_type", "group_value"],
+    legacyColumnSets: [["year", "group_type", "group_value"]],
+  },
+  {
+    tableName: "benefits_summary",
+    scopeTypeDefinition: "`scope_type` VARCHAR(20) NOT NULL DEFAULT 'company' AFTER `id`",
+    scopeTypeModify: "`scope_type` VARCHAR(20) NOT NULL DEFAULT 'company' AFTER `id`",
+    scopeValueDefinition: `\`scope_value\` VARCHAR(100) NOT NULL DEFAULT '${DASHBOARD_COMPANY_SCOPE_VALUE}' AFTER \`scope_type\``,
+    scopeValueModify: `\`scope_value\` VARCHAR(100) NOT NULL DEFAULT '${DASHBOARD_COMPANY_SCOPE_VALUE}' AFTER \`scope_type\``,
+    indexName: "ux_benefits_summary_scope_plan_shareholder",
+    targetColumns: ["scope_type", "scope_value", "plan_name", "shareholder_type"],
+    legacyColumnSets: [["plan_name", "shareholder_type"]],
+  },
+];
+
+export const ensureDashboardSummaryScopeSupport = async () => {
+  const summaries = DASHBOARD_SUMMARY_SCOPE_TABLES;
+
+  for (const summary of summaries) {
+    const exists = await doesTableExist(summary.tableName);
+    if (!exists) continue;
+
+    const columnNames = await getTableColumnNames(summary.tableName);
+    if (!columnNames.has("scope_type")) {
+      await sequelize.query(`ALTER TABLE \`${summary.tableName}\` ADD COLUMN ${summary.scopeTypeDefinition}`);
+      columnNames.add("scope_type");
+    }
+    if (!columnNames.has("scope_value")) {
+      await sequelize.query(`ALTER TABLE \`${summary.tableName}\` ADD COLUMN ${summary.scopeValueDefinition}`);
+      columnNames.add("scope_value");
+    }
+
+    await sequelize.query(
+      `UPDATE \`${summary.tableName}\` SET \`scope_type\` = 'company' WHERE \`scope_type\` IS NULL OR \`scope_type\` = ''`,
+    );
+    await sequelize.query(
+      `UPDATE \`${summary.tableName}\` SET \`scope_value\` = '${DASHBOARD_COMPANY_SCOPE_VALUE}' WHERE \`scope_type\` = 'company' AND (\`scope_value\` IS NULL OR \`scope_value\` = '')`,
+    );
+    await sequelize.query(`ALTER TABLE \`${summary.tableName}\` MODIFY COLUMN ${summary.scopeTypeModify}`);
+    await sequelize.query(`ALTER TABLE \`${summary.tableName}\` MODIFY COLUMN ${summary.scopeValueModify}`);
+
+    await ensureExactUniqueIndex(
+      summary.tableName,
+      summary.indexName,
+      summary.targetColumns,
+      summary.legacyColumnSets,
+    );
+  }
 };
 
 const repairLegacyPayRatesSchema = async () => {
@@ -210,112 +335,7 @@ const ensurePayRateHistorySupport = async () => {
   }
 };
 
-const ensureIntegrationEventOperatorAuditSupport = async () => {
-  const tableName = "integration_events";
-  const exists = await doesTableExist(tableName);
-  if (!exists) return;
-
-  const columnNames = await getTableColumnNames(tableName);
-  const addColumnIfMissing = async (columnName, ddl) => {
-    if (columnNames.has(columnName)) return;
-    await sequelize.query(`ALTER TABLE \`${tableName}\` ADD COLUMN ${ddl}`);
-    columnNames.add(columnName);
-  };
-
-  await addColumnIfMissing("last_operator_action", "`last_operator_action` VARCHAR(40) NULL AFTER `processed_at`");
-  await addColumnIfMissing("last_operator_actor_id", "`last_operator_actor_id` VARCHAR(100) NULL AFTER `last_operator_action`");
-  await addColumnIfMissing("last_operator_request_id", "`last_operator_request_id` VARCHAR(120) NULL AFTER `last_operator_actor_id`");
-  await addColumnIfMissing("last_operator_at", "`last_operator_at` DATETIME NULL AFTER `last_operator_request_id`");
-
-  const indexes = await getTableIndexes(tableName);
-  const hasOperatorAtIndex = indexes.some((row) => row.Key_name === "idx_integration_events_last_operator_at");
-  if (!hasOperatorAtIndex) {
-    await sequelize.query(
-      "CREATE INDEX `idx_integration_events_last_operator_at` ON `integration_events` (`last_operator_at`)",
-    );
-  }
-};
-
-const ensureIntegrationEventAuditHistorySupport = async () => {
-  const tableName = "integration_event_audits";
-  const exists = await doesTableExist(tableName);
-  if (!exists) {
-    await sequelize.query(`
-      CREATE TABLE IF NOT EXISTS \`${tableName}\` (
-        \`id\` INT NOT NULL AUTO_INCREMENT,
-        \`integration_event_id\` INT NOT NULL,
-        \`operator_action\` VARCHAR(40) NOT NULL,
-        \`operator_actor_id\` VARCHAR(100) NULL,
-        \`operator_request_id\` VARCHAR(120) NULL,
-        \`source_status\` ENUM('PENDING','PROCESSING','SUCCESS','FAILED','DEAD') NULL,
-        \`target_status\` ENUM('PENDING','PROCESSING','SUCCESS','FAILED','DEAD') NULL,
-        \`details\` JSON NULL,
-        \`createdAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (\`id\`),
-        CONSTRAINT \`fk_integration_event_audits_event\`
-          FOREIGN KEY (\`integration_event_id\`) REFERENCES \`integration_events\`(\`id\`)
-          ON DELETE CASCADE ON UPDATE CASCADE
-      )
-    `);
-  }
-
-  const columnNames = await getTableColumnNames(tableName);
-  const addColumnIfMissing = async (columnName, ddl) => {
-    if (columnNames.has(columnName)) return;
-    await sequelize.query(`ALTER TABLE \`${tableName}\` ADD COLUMN ${ddl}`);
-    columnNames.add(columnName);
-  };
-
-  await addColumnIfMissing("integration_event_id", "`integration_event_id` INT NOT NULL");
-  await addColumnIfMissing("operator_action", "`operator_action` VARCHAR(40) NOT NULL DEFAULT 'unknown'");
-  await addColumnIfMissing("operator_actor_id", "`operator_actor_id` VARCHAR(100) NULL");
-  await addColumnIfMissing("operator_request_id", "`operator_request_id` VARCHAR(120) NULL");
-  await addColumnIfMissing("source_status", "`source_status` ENUM('PENDING','PROCESSING','SUCCESS','FAILED','DEAD') NULL");
-  await addColumnIfMissing("target_status", "`target_status` ENUM('PENDING','PROCESSING','SUCCESS','FAILED','DEAD') NULL");
-  await addColumnIfMissing("details", "`details` JSON NULL");
-
-  const indexes = await getTableIndexes(tableName);
-  const ensureIndex = async (indexName, ddl) => {
-    const hasIndex = indexes.some((row) => row.Key_name === indexName);
-    if (!hasIndex) {
-      await sequelize.query(ddl);
-    }
-  };
-
-  await ensureIndex(
-    "idx_integration_event_audits_event_created",
-    "CREATE INDEX `idx_integration_event_audits_event_created` ON `integration_event_audits` (`integration_event_id`, `createdAt`)",
-  );
-  await ensureIndex(
-    "idx_integration_event_audits_operator_action",
-    "CREATE INDEX `idx_integration_event_audits_operator_action` ON `integration_event_audits` (`operator_action`)",
-  );
-  await ensureIndex(
-    "idx_integration_event_audits_operator_request",
-    "CREATE INDEX `idx_integration_event_audits_operator_request` ON `integration_event_audits` (`operator_request_id`)",
-  );
-};
-
-const ensureIntegrationCorrelationTraceSupport = async () => {
-  const integrationEventsTable = "integration_events";
-  if (await doesTableExist(integrationEventsTable)) {
-    const columnNames = await getTableColumnNames(integrationEventsTable);
-    if (!columnNames.has("correlation_id")) {
-      await sequelize.query(
-        "ALTER TABLE `integration_events` ADD COLUMN `correlation_id` VARCHAR(120) NULL AFTER `payload`",
-      );
-    }
-
-    const indexes = await getTableIndexes(integrationEventsTable);
-    const hasCorrelationIndex = indexes.some((row) => row.Key_name === "idx_integration_events_correlation");
-    if (!hasCorrelationIndex) {
-      await sequelize.query(
-        "CREATE INDEX `idx_integration_events_correlation` ON `integration_events` (`correlation_id`)",
-      );
-    }
-  }
-
+const ensureSyncLogCorrelationTraceSupport = async () => {
   const syncLogTable = "sync_log";
   if (await doesTableExist(syncLogTable)) {
     const columnNames = await getTableColumnNames(syncLogTable);
@@ -335,39 +355,110 @@ const ensureIntegrationCorrelationTraceSupport = async () => {
   }
 };
 
-const POST_BOOTSTRAP_MIGRATIONS = [
+const deduplicateSyncLogCorrelationRows = async () => {
+  const [duplicates] = await sequelize.query(`
+    SELECT entity_type, entity_id, action, correlation_id, COUNT(*) AS row_count
+    FROM sync_log
+    WHERE correlation_id IS NOT NULL AND correlation_id <> ''
+    GROUP BY entity_type, entity_id, action, correlation_id
+    HAVING COUNT(*) > 1
+  `);
+
+  for (const duplicate of duplicates || []) {
+    const [rows] = await sequelize.query(`
+      SELECT id, status, completed_at, createdAt, updatedAt
+      FROM sync_log
+      WHERE entity_type = ? AND entity_id = ? AND action = ? AND correlation_id = ?
+      ORDER BY
+        CASE status
+          WHEN 'SUCCESS' THEN 3
+          WHEN 'PENDING' THEN 2
+          ELSE 1
+        END DESC,
+        COALESCE(completed_at, updatedAt, createdAt) DESC,
+        id DESC
+    `, {
+      replacements: [
+        duplicate.entity_type,
+        duplicate.entity_id,
+        duplicate.action,
+        duplicate.correlation_id,
+      ],
+    });
+
+    const rowsToDelete = (rows || []).slice(1);
+    if (rowsToDelete.length === 0) continue;
+
+    const placeholders = rowsToDelete.map(() => "?").join(", ");
+    await sequelize.query(
+      `DELETE FROM sync_log WHERE id IN (${placeholders})`,
+      {
+        replacements: rowsToDelete.map((row) => row.id),
+      },
+    );
+  }
+};
+
+const ensureSyncLogIdempotencySupport = async () => {
+  const syncLogTable = "sync_log";
+  if (!(await doesTableExist(syncLogTable))) {
+    return;
+  }
+
+  await deduplicateSyncLogCorrelationRows();
+
+  const indexes = await getTableIndexes(syncLogTable);
+  const hasUniqueCorrelationIndex = indexes.some((row) => row.Key_name === "uniq_sync_log_entity_action_correlation");
+  if (!hasUniqueCorrelationIndex) {
+    await sequelize.query(`
+      CREATE UNIQUE INDEX \`uniq_sync_log_entity_action_correlation\`
+      ON \`sync_log\` (\`entity_type\`, \`entity_id\`, \`action\`, \`correlation_id\`)
+    `);
+  }
+};
+
+const ACTIVE_POST_BOOTSTRAP_MIGRATIONS = [
   {
     id: PAY_RATE_SCHEMA_CONTRACT_MIGRATION_ID,
     apply: repairLegacyPayRatesSchema,
   },
   {
-    id: INTEGRATION_EVENT_OPERATOR_AUDIT_MIGRATION_ID,
-    apply: ensureIntegrationEventOperatorAuditSupport,
-  },
-  {
-    id: INTEGRATION_EVENT_AUDIT_HISTORY_MIGRATION_ID,
-    apply: ensureIntegrationEventAuditHistorySupport,
+    id: DASHBOARD_SUMMARY_SCOPE_MIGRATION_ID,
+    apply: ensureDashboardSummaryScopeSupport,
   },
   {
     id: INTEGRATION_CORRELATION_TRACE_MIGRATION_ID,
-    apply: ensureIntegrationCorrelationTraceSupport,
+    apply: ensureSyncLogCorrelationTraceSupport,
+  },
+  {
+    id: SYNC_LOG_IDEMPOTENCY_MIGRATION_ID,
+    apply: ensureSyncLogIdempotencySupport,
   },
 ];
 
-const REQUIRED_MIGRATION_IDS = [
+const POST_BOOTSTRAP_MIGRATIONS = [...ACTIVE_POST_BOOTSTRAP_MIGRATIONS];
+
+const ACTIVE_SQL_MIGRATION_IDS = [
   INITIAL_BOOTSTRAP_MIGRATION_ID,
-  ...POST_BOOTSTRAP_MIGRATIONS.map((migration) => migration.id),
+  ...ACTIVE_POST_BOOTSTRAP_MIGRATIONS.map((migration) => migration.id),
 ];
+// Backward-compatible alias for existing callers/tests. "Required" now means
+// active runtime migrations required by Payroll and Dashboard services.
+const REQUIRED_MIGRATION_IDS = ACTIVE_SQL_MIGRATION_IDS;
 
 const runIncrementalMigrations = async () => {
   const appliedMigrations = [];
   for (const migration of POST_BOOTSTRAP_MIGRATIONS) {
-    const alreadyApplied = await hasAppliedMigration(migration.id);
-    if (alreadyApplied) continue;
+    try {
+      const alreadyApplied = await hasAppliedMigration(migration.id);
+      if (alreadyApplied) continue;
 
-    await migration.apply();
-    await recordAppliedMigration(migration.id);
-    appliedMigrations.push(migration.id);
+      await migration.apply();
+      await recordAppliedMigration(migration.id);
+      appliedMigrations.push(migration.id);
+    } catch (error) {
+      throw new Error(`MySQL migration '${migration.id}' failed: ${error.message}`);
+    }
   }
 
   return appliedMigrations;
@@ -407,7 +498,13 @@ export const recordAppliedMigration = async (id) => {
 export const getMissingRequiredTables = async () => {
   const existingTables = await getExistingTables();
   const existingSet = new Set(existingTables.map((tableName) => tableName.toLowerCase()));
-  return REQUIRED_SQL_TABLES.filter((tableName) => !existingSet.has(tableName.toLowerCase()));
+  return ACTIVE_SQL_TABLES.filter((tableName) => !existingSet.has(tableName.toLowerCase()));
+};
+
+export const getMissingActiveMigrations = async () => {
+  const appliedMigrations = await listAppliedMigrations();
+  const appliedIds = new Set(appliedMigrations.map((row) => row.id));
+  return ACTIVE_SQL_MIGRATION_IDS.filter((id) => !appliedIds.has(id));
 };
 
 // Test connection function
@@ -433,10 +530,10 @@ export const syncDatabase = async ({ force = false, allowProductionSync = false 
   try {
     await repairLegacyPayRatesSchema();
     await sequelize.sync({ force });
+    await ensureDashboardSummaryScopeSupport();
     await ensurePayRateHistorySupport();
-    await ensureIntegrationEventOperatorAuditSupport();
-    await ensureIntegrationEventAuditHistorySupport();
-    await ensureIntegrationCorrelationTraceSupport();
+    await ensureSyncLogCorrelationTraceSupport();
+    await ensureSyncLogIdempotencySupport();
     console.log("MySQL tables synchronized.");
   } catch (error) {
     console.error("Error syncing MySQL tables:", error.message);
@@ -493,7 +590,7 @@ export const assertMySQLReadiness = async () => {
   const appliedMigrations = await listAppliedMigrations();
   const missingTables = await getMissingRequiredTables();
   const appliedIds = new Set(appliedMigrations.map((row) => row.id));
-  const missingMigrations = REQUIRED_MIGRATION_IDS.filter((id) => !appliedIds.has(id));
+  const missingMigrations = ACTIVE_SQL_MIGRATION_IDS.filter((id) => !appliedIds.has(id));
   const ready = missingMigrations.length === 0 && missingTables.length === 0;
 
   if (!ready) {
@@ -512,8 +609,8 @@ export const assertMySQLReadiness = async () => {
   return {
     ready: true,
     dbName,
-      migrationRequired: true,
-      missingTables: [],
+    migrationRequired: false,
+    missingTables: [],
   };
 };
 
@@ -529,16 +626,20 @@ export const initializeMySQLSchema = async () => {
     return;
   }
 
-  await syncDatabase();
+  await runBootstrapMigration();
 };
 
 export {
+  ACTIVE_SQL_MIGRATION_IDS,
+  ACTIVE_SQL_TABLES,
   MIGRATIONS_TABLE,
   INITIAL_BOOTSTRAP_MIGRATION_ID,
   PAY_RATE_SCHEMA_CONTRACT_MIGRATION_ID,
-  INTEGRATION_EVENT_OPERATOR_AUDIT_MIGRATION_ID,
-  INTEGRATION_EVENT_AUDIT_HISTORY_MIGRATION_ID,
+  DASHBOARD_SUMMARY_SCOPE_MIGRATION_ID,
+  DASHBOARD_COMPANY_SCOPE_VALUE,
   INTEGRATION_CORRELATION_TRACE_MIGRATION_ID,
+  SYNC_LOG_IDEMPOTENCY_MIGRATION_ID,
+  DASHBOARD_SUMMARY_SCOPE_TABLES,
   REQUIRED_MIGRATION_IDS,
   REQUIRED_SQL_TABLES,
 };

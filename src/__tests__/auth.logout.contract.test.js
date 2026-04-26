@@ -56,11 +56,12 @@ describe("Auth logout contract", () => {
       .post("/api/auth/logout")
       .set("x-request-id", "req-auth-logout-1")
       .set("x-access-token", "active-token")
+      .set("Cookie", "refresh_token=refresh-token")
       .expect("Content-Type", /json/);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.message).toBe("Sign out successfully!");
+    expect(res.body.message).toBe("Signed out");
     expect(res.body.meta).toEqual(expect.objectContaining({
       dataset: "authLogout",
       requestId: "req-auth-logout-1",
@@ -69,6 +70,9 @@ describe("Auth logout contract", () => {
       "507f1f77bcf86cd799439011",
       { tokens: [{ token: "other-token" }] },
     );
+    expect(res.headers["set-cookie"]).toEqual(expect.arrayContaining([
+      expect.stringContaining("refresh_token="),
+    ]));
   });
 
   it("should keep deprecated GET /api/auth/logout alias working", async () => {

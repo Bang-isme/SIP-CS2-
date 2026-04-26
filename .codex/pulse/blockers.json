@@ -1,0 +1,25 @@
+{
+  "active_blockers": [],
+  "resolved_blockers": [
+    {
+      "id": "BLK-001",
+      "story_id": "UIUX-005",
+      "description": "Full repository cleanup is blocked by a broad dirty worktree with many modified and untracked files that may belong to the user.",
+      "created_at": "2026-04-26T00:00:00+07:00",
+      "age_days": 0,
+      "owner": "codex",
+      "escalation_contact": "user",
+      "category": "knowledge",
+      "attempted_resolution": [
+        {
+          "date": "2026-04-26",
+          "action": "Inspected scoped git status and avoided destructive cleanup commands."
+        }
+      ],
+      "stale": false,
+      "impact": "Repository can be organized safely only after generated artifacts and user-owned changes are separated.",
+      "resolved_at": "2026-04-26T15:30:00+07:00",
+      "resolution": "Generated artifact directories were path-scoped and removed; .gitignore now excludes those artifacts from future commits."
+    }
+  ]
+}

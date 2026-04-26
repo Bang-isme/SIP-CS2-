@@ -1,6 +1,6 @@
 import { Op } from "sequelize";
-import { IntegrationEvent } from "../models/sql/index.js";
 import { recordIntegrationEventAudit, recordIntegrationEventAudits } from "./integrationAuditService.js";
+import { IntegrationEventStore } from "../repositories/integrationStore.js";
 
 const RESET_EVENT_STATE = Object.freeze({
   status: "PENDING",
@@ -45,11 +45,11 @@ const buildOperatorAuditEntries = (events, {
 }));
 
 export const requeueIntegrationEventById = async (id, operatorContext = {}) => {
-  const event = await IntegrationEvent.findByPk(id, { raw: true });
+  const event = await IntegrationEventStore.findByPk(id, { raw: true });
   if (!event) return null;
   const occurredAt = operatorContext.occurredAt || new Date();
 
-  const [updatedCount] = await IntegrationEvent.update(
+  const [updatedCount] = await IntegrationEventStore.update(
     {
       ...RESET_EVENT_STATE,
       ...buildOperatorAuditPatch({
@@ -77,7 +77,7 @@ export const requeueIntegrationEventById = async (id, operatorContext = {}) => {
 };
 
 export const requeueDeadIntegrationEvents = async (operatorContext = {}) => {
-  const deadEvents = await IntegrationEvent.findAll({
+  const deadEvents = await IntegrationEventStore.findAll({
     where: { status: "DEAD" },
     attributes: ["id", "status", "entity_type", "entity_id", "action"],
     raw: true,
@@ -85,7 +85,7 @@ export const requeueDeadIntegrationEvents = async (operatorContext = {}) => {
   if (deadEvents.length === 0) return 0;
 
   const occurredAt = operatorContext.occurredAt || new Date();
-  const [count] = await IntegrationEvent.update(
+  const [count] = await IntegrationEventStore.update(
     {
       ...RESET_EVENT_STATE,
       ...buildOperatorAuditPatch({
@@ -133,7 +133,7 @@ export const replayIntegrationEventsByFilter = async ({
     where.createdAt = { [Op.gte]: since };
   }
 
-  const matchedEvents = await IntegrationEvent.findAll({
+  const matchedEvents = await IntegrationEventStore.findAll({
     where,
     attributes: ["id", "status", "entity_type", "entity_id", "action"],
     raw: true,
@@ -152,7 +152,7 @@ export const replayIntegrationEventsByFilter = async ({
 
   const occurredAt = operatorContext.occurredAt || new Date();
 
-  const [count] = await IntegrationEvent.update(
+  const [count] = await IntegrationEventStore.update(
     {
       ...RESET_EVENT_STATE,
       ...buildOperatorAuditPatch({

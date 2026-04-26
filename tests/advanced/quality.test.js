@@ -155,27 +155,28 @@ describe('LOCAL TRANSACTION / INTEGRITY TESTS', () => {
             status: 'PENDING'
         });
 
-        // Verify creation
-        expect(log.status).toBe('PENDING');
+        try {
+            // Verify creation
+            expect(log.status).toBe('PENDING');
 
-        // Update status using static method
-        await SyncLog.update(
-            { status: 'SUCCESS' },
-            { where: { id: log.id } }
-        );
+            // Update status using static method
+            await SyncLog.update(
+                { status: 'SUCCESS' },
+                { where: { id: log.id } }
+            );
 
-        // Reload and verify
-        await log.reload();
-        expect(log.status).toBe('SUCCESS');
-
-        // Cleanup
-        await log.destroy();
+            // Reload and verify
+            await log.reload();
+            expect(log.status).toBe('SUCCESS');
+        } finally {
+            await SyncLog.destroy({ where: { id: log.id } });
+        }
     });
 
     test('ACID3: Isolation - Concurrent updates do not corrupt data', async () => {
         const testId = 'isolation-test-' + Date.now();
 
-        await SyncLog.create({
+        const log = await SyncLog.create({
             source_system: 'TEST',
             target_system: 'TEST',
             entity_type: 'test',
@@ -185,18 +186,21 @@ describe('LOCAL TRANSACTION / INTEGRITY TESTS', () => {
             retry_count: 0
         });
 
-        // Simulate concurrent retry_count increments
-        const updates = Array(5).fill().map(() =>
-            SyncLog.increment('retry_count', { where: { entity_id: testId } })
-        );
+        try {
+            // Scope the concurrent increments to the exact row we just created.
+            // `entity_id` is not unique in the table and can leave this test flaky
+            // when a previous failed run leaves behind an orphaned test row.
+            const updates = Array(5).fill().map(() =>
+                SyncLog.increment('retry_count', { where: { id: log.id } })
+            );
 
-        await Promise.all(updates);
+            await Promise.all(updates);
 
-        const log = await SyncLog.findOne({ where: { entity_id: testId } });
-        expect(log.retry_count).toBe(5); // Should be exactly 5
-
-        // Cleanup
-        await log.destroy();
+            await log.reload();
+            expect(log.retry_count).toBe(5); // Should be exactly 5
+        } finally {
+            await SyncLog.destroy({ where: { id: log.id } });
+        }
     });
 });
 

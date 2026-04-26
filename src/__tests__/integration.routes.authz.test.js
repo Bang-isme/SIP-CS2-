@@ -5,6 +5,8 @@ import { jest } from "@jest/globals";
 const listIntegrationEvents = jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId }));
 const getIntegrationEventAudit = jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId }));
 const getIntegrationMetrics = jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId }));
+const getIntegrationReconciliation = jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId }));
+const repairIntegrationReconciliation = jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId }));
 const retryIntegrationEvent = jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId }));
 const retryDeadIntegrationEvents = jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId }));
 const recoverStuckIntegrationEvents = jest.fn((req, res) => res.status(200).json({ success: true, actor: req.userId }));
@@ -14,6 +16,8 @@ jest.unstable_mockModule("../controllers/integration.controller.js", () => ({
   listIntegrationEvents,
   getIntegrationEventAudit,
   getIntegrationMetrics,
+  getIntegrationReconciliation,
+  repairIntegrationReconciliation,
   retryIntegrationEvent,
   retryDeadIntegrationEvents,
   recoverStuckIntegrationEvents,
@@ -62,6 +66,8 @@ describe("Integration routes authz", () => {
     listIntegrationEvents.mockClear();
     getIntegrationEventAudit.mockClear();
     getIntegrationMetrics.mockClear();
+    getIntegrationReconciliation.mockClear();
+    repairIntegrationReconciliation.mockClear();
     retryIntegrationEvent.mockClear();
     retryDeadIntegrationEvents.mockClear();
     recoverStuckIntegrationEvents.mockClear();
@@ -96,6 +102,22 @@ describe("Integration routes authz", () => {
       .set("x-access-token", "admin-token");
     expect(res.status).toBe(200);
     expect(getIntegrationMetrics).toHaveBeenCalledTimes(1);
+  });
+
+  test("should allow admin integration reconciliation request", async () => {
+    const res = await request(app)
+      .get("/api/integrations/events/reconciliation")
+      .set("x-access-token", "admin-token");
+    expect(res.status).toBe(200);
+    expect(getIntegrationReconciliation).toHaveBeenCalledTimes(1);
+  });
+
+  test("should allow admin reconciliation repair request", async () => {
+    const res = await request(app)
+      .post("/api/integrations/events/reconciliation/repair")
+      .set("x-access-token", "admin-token");
+    expect(res.status).toBe(200);
+    expect(repairIntegrationReconciliation).toHaveBeenCalledTimes(1);
   });
 
   test("should allow admin retry event request", async () => {

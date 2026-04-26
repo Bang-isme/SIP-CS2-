@@ -1,31 +1,8 @@
 import { jest } from "@jest/globals";
+import { INTERNAL_SERVICE_SECRET } from "../config.js";
 
-const transaction = {
-  commit: jest.fn(),
-  rollback: jest.fn(),
-};
-const transactionMock = jest.fn();
-const payRateFindOneMock = jest.fn();
-const payRateCreateMock = jest.fn();
-const payRateUpdateMock = jest.fn();
-const syncLogCreateMock = jest.fn();
 const loggerInfoMock = jest.fn();
 const loggerWarnMock = jest.fn();
-
-jest.unstable_mockModule("../models/sql/index.js", () => ({
-  PayRate: {
-    findOne: payRateFindOneMock,
-    create: payRateCreateMock,
-    update: payRateUpdateMock,
-  },
-  SyncLog: {
-    create: syncLogCreateMock,
-  },
-  sequelize: {
-    transaction: transactionMock,
-    authenticate: jest.fn(),
-  },
-}));
 
 jest.unstable_mockModule("../utils/logger.js", () => ({
   default: {
@@ -37,20 +14,29 @@ jest.unstable_mockModule("../utils/logger.js", () => ({
 const { default: PayrollAdapter } = await import("../adapters/payroll.adapter.js");
 
 describe("PayrollAdapter correlation tracing", () => {
+  const originalFetch = globalThis.fetch;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    transaction.commit.mockResolvedValue(undefined);
-    transaction.rollback.mockResolvedValue(undefined);
-    transactionMock.mockResolvedValue(transaction);
-    payRateFindOneMock.mockResolvedValue(null);
-    payRateCreateMock.mockResolvedValue({});
-    payRateUpdateMock.mockResolvedValue([1]);
-    syncLogCreateMock.mockResolvedValue({});
+    globalThis.fetch = jest.fn();
   });
 
-  test("writes correlation_id and completed_at on successful sync logs", async () => {
-    const adapter = new PayrollAdapter();
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
+  });
 
+  test("forwards correlation metadata to the payroll internal API and logs success", async () => {
+    globalThis.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: jest.fn().mockResolvedValue(JSON.stringify({
+        success: true,
+        message: "Synced to Payroll",
+      })),
+    });
+
+    const adapter = new PayrollAdapter();
     const result = await adapter.sync(
       {
         employeeId: "EMP500",
@@ -69,12 +55,32 @@ describe("PayrollAdapter correlation tracing", () => {
       success: true,
       message: "Synced to Payroll",
     });
-    expect(syncLogCreateMock).toHaveBeenCalledWith(expect.objectContaining({
-      entity_id: "EMP500",
-      status: "SUCCESS",
-      correlation_id: "req-payroll-1",
-      completed_at: expect.any(Date),
-    }));
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/sync"),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+          "x-internal-service-secret": INTERNAL_SERVICE_SECRET,
+          "x-internal-service-name": "sa-service",
+        }),
+        body: expect.any(String),
+      }),
+    );
+    const [, options] = globalThis.fetch.mock.calls[0];
+    expect(JSON.parse(options.body)).toEqual({
+      action: "CREATE",
+      employeeData: {
+        employeeId: "EMP500",
+        payRate: 55,
+        payType: "SALARY",
+      },
+      syncContext: {
+        correlationId: "req-payroll-1",
+        source: "OUTBOX_WORKER",
+        integrationEventId: 77,
+      },
+    });
     expect(loggerInfoMock).toHaveBeenCalledWith(
       "PayrollAdapter",
       "Employee synced to payroll",
@@ -87,10 +93,18 @@ describe("PayrollAdapter correlation tracing", () => {
     );
   });
 
-  test("writes correlation_id on failed sync logs as well", async () => {
-    const adapter = new PayrollAdapter();
-    payRateCreateMock.mockRejectedValue(new Error("mysql unavailable"));
+  test("returns a failed sync result when the payroll service rejects the mutation", async () => {
+    globalThis.fetch.mockResolvedValue({
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+      text: jest.fn().mockResolvedValue(JSON.stringify({
+        success: false,
+        message: "mysql unavailable",
+      })),
+    });
 
+    const adapter = new PayrollAdapter();
     const result = await adapter.sync(
       {
         employeeId: "EMP501",
@@ -107,14 +121,6 @@ describe("PayrollAdapter correlation tracing", () => {
       success: false,
       message: "mysql unavailable",
     });
-    expect(transaction.rollback).toHaveBeenCalled();
-    expect(syncLogCreateMock).toHaveBeenCalledWith(expect.objectContaining({
-      entity_id: "EMP501",
-      status: "FAILED",
-      error_message: "mysql unavailable",
-      correlation_id: "req-payroll-fail-1",
-      completed_at: expect.any(Date),
-    }));
     expect(loggerWarnMock).toHaveBeenCalledWith(
       "PayrollAdapter",
       "Payroll sync failed",

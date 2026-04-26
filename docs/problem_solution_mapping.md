@@ -1,7 +1,7 @@
 ﻿# Problem-Solution Mapping (Chi Tiết Vấn Đề → Giải Pháp)
 
 > **Phiên bản**: 1.0  
-> **Cập nhật**: 2026-02-05
+> **Cập nhật**: 2026-04-15
 
 > **Data Volume Assumption (Updated 2026-03-02)**:
 > `500k` is the baseline for the HR employee master dataset (MongoDB `employees`), not for every database/table.
@@ -108,8 +108,8 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 
 | Vấn đề Developer | Chi tiết | Giải pháp | File liên quan |
 |------------------|----------|-----------|----------------|
-| Employee created in Mongo nhưng chưa có trong MySQL | Sync delay hoặc failure | **SyncService broadcast** - Gọi tất cả adapters khi CRUD | `syncService.js` |
-| Adapter failure không được track | Mất data nếu không log | **SyncLog table** - Log mọi sync operation với status | `SyncLog.js`, `payroll.adapter.js` |
+| Employee created in Mongo nhưng chưa có trong Payroll | Sync delay hoặc failure | **SA outbox + SyncService broadcast** - SA enqueue event, worker gọi adapters đang active, và demo profile mặc định đẩy sang Payroll | `employee.controller.js`, `integrationEventService.js`, `syncService.js` |
+| Adapter failure không được track | Mất data nếu không log | **SyncLog table** - Payroll ghi downstream sync evidence với status và correlation trace | `SyncLog.js`, `payrollMutationService.js` |
 | Retry failed syncs | Cần mechanism tự động retry | **retryFailedSyncs()** - Query FAILED logs, retry với fresh data | `syncService.js` lines 77-167 |
 | Không biết service nào đang active | Hard-code adapter list không flexible | **ServiceRegistry** - Dynamic load adapters từ config | `serviceRegistry.js` |
 | Thêm integration mới phải sửa nhiều file | Coupling cao | **Adapter pattern + Config-driven** - Chỉ cần thêm 1 adapter file + 1 dòng config | `integrations.js` |
@@ -120,8 +120,8 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 
 | Vấn đề Developer | Chi tiết | Giải pháp | File liên quan |
 |------------------|----------|-----------|----------------|
-| Sync trực tiếp có thể fail giữa chừng | Data in Mongo, sync failed → inconsistent | **DB-backed outbox-style queue** - Ghi event vào MySQL outbox, worker xử lý async | `IntegrationEvent.js`, `integrationEventService.js` |
-| Worker crash mất event | Memory-only queue không persist | **IntegrationEvent MySQL table** - Persist events, survive restart | `IntegrationEvent.js` |
+| Sync trực tiếp có thể fail giữa chừng | Data in Mongo, sync failed → inconsistent | **MongoDB-backed outbox-style queue** - Ghi event vào SA-owned outbox collection, worker xử lý async | `IntegrationEvent.js`, `integrationEventService.js` |
+| Worker crash mất event | Memory-only queue không persist | **IntegrationEvent MongoDB collection** - Persist events, survive restart | `IntegrationEvent.js` |
 | Retry storm khi target down | Retry liên tục làm overload | **Exponential backoff** - 5s → 10s → 20s → 40s → 60s cap | `integrationEventService.js` lines 9-13 |
 | Event stuck trong queue mãi | Worker chết giữa chừng hoặc retry vô hạn không tốt | **Max attempts + DEAD status + stale PROCESSING recovery** - Event quá hạn trong `PROCESSING` sẽ được recover theo timeout | `integrationEventService.js`, `integration.controller.js` |
 | Không biết queue status | No visibility | **Admin APIs + UI** - `/api/integrations/events`, `/metrics`, `/recover-stuck` + IntegrationEventsPanel | `integration.routes.js` |
@@ -133,9 +133,9 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 
 | Vấn đề Developer | Chi tiết | Giải pháp | File liên quan |
 |------------------|----------|-----------|----------------|
-| Tightly coupled sync logic | syncService biết về từng target | **Adapter abstraction** - BaseAdapter interface | `base.adapter.js` |
+| Tightly coupled sync logic | syncService không nên biết chi tiết write path của từng target | **Adapter abstraction** - BaseAdapter interface + target-owned mutation path | `base.adapter.js`, `payroll.adapter.js` |
 | Hard-coded adapter list | Sửa code để thêm/bỏ | **Config file** - `integrations.js` chỉ cần edit array | `integrations.js` |
-| Different sync logic per target | Payroll vs Security vs Analytics | **Separate adapters** - Mỗi target có adapter riêng | `payroll.adapter.js`, `security.mock.adapter.js` |
+| Different sync logic per target | Payroll vs optional mock/analytics targets | **Separate adapters** - Mỗi target có adapter riêng; demo profile mặc định chỉ bật Payroll | `payroll.adapter.js`, `security.mock.adapter.js`, `integrations.js` |
 | Health check per integration | Cần biết target có up không | **healthCheck() method** - Mỗi adapter implement riêng | `ServiceRegistry.healthCheckAll()` |
 
 ---
@@ -208,8 +208,8 @@ Tài liệu này trình bày **từng vấn đề nhỏ** và **giải pháp tư
 | 7 | Birthday = current month | Original logic was 30-day window | Strict month check | Accuracy, CEO expectation |
 | 8 | Export CSV | Large payload crash | Stream response | Memory, reliability |
 | 9 | Keep legacy unchanged | Integration without alteration | Summary tables only | Risk reduction, compatibility |
-| 10 | Single-system appearance | Multi-DB complexity | SyncService + Adapters | Abstraction, maintainability |
-| 11 | Near real-time sync | Sync failures lose data | Outbox + Worker | Reliability, recoverability |
+| 10 | Single-system appearance | Multi-system complexity | Service split + adapters + reporting boundary | Abstraction, maintainability |
+| 11 | Near real-time sync | Sync failures lose data | Mongo outbox + Worker + Payroll internal API | Reliability, recoverability |
 | 12 | Network/DR/Security | Production readiness | Documented plans + scripts | Compliance, operability |
 
 ---
@@ -238,11 +238,12 @@ Developer Problems Solved:
 CEO Problems Solved:
 ├── Data entered once ✓
 ├── Near real-time availability ✓
-└── Single-system appearance ✓
+└── Visible integration path across systems ✓
 
 Developer Problems Solved:
 ├── Coupling between systems reduced ✓
 ├── Extensibility for new integrations ✓
+├── Target-owned write path preserved ✓
 ├── Health check per target ✓
 └── Consistent sync interface ✓
 ```
@@ -255,7 +256,7 @@ CEO Problems Solved:
 └── Recovery from failures ✓
 
 Developer Problems Solved:
-├── Atomic writes (Mongo + Outbox) ✓
+├── Durable dispatch intent in SA-owned store ✓
 ├── Retry with backoff ✓
 ├── Dead letter handling ✓
 └── Replay capability ✓
@@ -307,11 +308,11 @@ Thứ tự giải quyết từng vấn đề:
 ### Phase 3: Real-time Sync (Case 3)
 8. **SyncLog Table** → Track sync status
 9. **BaseAdapter** → Interface abstraction
-10. **PayrollAdapter** → MySQL sync implementation
+10. **PayrollAdapter** → SA-to-Payroll internal API bridge
 11. **SyncService** → Orchestration layer
 
 ### Phase 4: Middleware (Case 4)
-12. **IntegrationEvent Table** → Outbox pattern
+12. **IntegrationEvent Store** → Outbox pattern
 13. **IntegrationEventService** → Enqueue + process
 14. **IntegrationEventWorker** → Background polling
 15. **Admin APIs** → Monitor + retry
@@ -319,7 +320,7 @@ Thứ tự giải quyết từng vấn đề:
 ### Phase 5: Extensibility (Case 4 extended)
 16. **ServiceRegistry** → Dynamic adapter loading
 17. **integrations.js** → Config-driven
-18. **SecurityMockAdapter** → Demo second integration
+18. **SecurityMockAdapter** → Optional secondary integration for extensibility demos, not the default profile
 
 ### Phase 6: Operations (Case 5)
 19. **DR Documentation** → Runbook + templates

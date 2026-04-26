@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-04-22T11:42:28.889Z",
+  "evidenceDate": "2026-04-22",
+  "bundleDir": "D:\\SIP_CS 2\\SIP_CS\\docs\\demo\\evidence\\2026-04-22",
+  "commands": {
+    "verifyBackend": {
+      "status": "passed",
+      "logPath": "D:\\SIP_CS 2\\SIP_CS\\docs\\demo\\evidence\\2026-04-22\\logs\\verify-backend.log"
+    },
+    "verifyFrontend": {
+      "status": "passed",
+      "logPath": "D:\\SIP_CS 2\\SIP_CS\\docs\\demo\\evidence\\2026-04-22\\logs\\verify-frontend.log"
+    },
+    "verifyCase3": {
+      "status": "passed",
+      "logPath": "D:\\SIP_CS 2\\SIP_CS\\docs\\demo\\evidence\\2026-04-22\\logs\\verify-case3.log"
+    }
+  },
+  "demoPrepare": null,
+  "evidenceEmployeeId": null,
+  "capture": {
+    "status": "skipped",
+    "reason": "not attempted"
+  }
+}

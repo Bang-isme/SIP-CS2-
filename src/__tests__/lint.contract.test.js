@@ -8,7 +8,9 @@ const __dirname = path.dirname(__filename);
 describe("backend lint contract", () => {
   test("package.json exposes syntax and static lint stages", () => {
     const packagePath = path.resolve(__dirname, "..", "..", "package.json");
+    const verifyBackendPath = path.resolve(__dirname, "..", "..", "scripts", "verify-backend-safe.ps1");
     const pkg = JSON.parse(fs.readFileSync(packagePath, "utf-8"));
+    const verifyBackendScript = fs.readFileSync(verifyBackendPath, "utf-8");
 
     expect(pkg.scripts).toHaveProperty("lint");
     expect(pkg.scripts).toHaveProperty("lint:syntax");
@@ -19,11 +21,14 @@ describe("backend lint contract", () => {
     expect(pkg.scripts.lint).toContain("lint:syntax");
     expect(pkg.scripts.lint).toContain("lint:static");
     expect(pkg.scripts["lint:static"]).toContain("eslint");
-    expect(pkg.scripts["verify:backend"]).toContain("doctor:local");
-    expect(pkg.scripts["verify:backend"]).toContain("npm audit --omit=dev");
+    expect(pkg.scripts["verify:backend"]).toContain("verify-backend-safe.ps1");
+    expect(verifyBackendScript).toContain('npm" -Arguments @("run", "doctor:local")');
+    expect(verifyBackendScript).toContain("LOCAL_DOCTOR_SKIP_BACKEND_PROBES");
+    expect(verifyBackendScript).toContain('npm" -Arguments @("audit", "--omit=dev")');
     expect(pkg.scripts["verify:frontend"]).toContain("dashboard");
     expect(pkg.scripts["verify:all"]).toContain("verify:backend");
     expect(pkg.scripts["verify:all"]).toContain("verify:frontend");
+    expect(pkg.scripts["verify:all"]).toContain("verify:case3");
   });
 
   test("eslint config targets backend sources and enforces core runtime safety rules", () => {

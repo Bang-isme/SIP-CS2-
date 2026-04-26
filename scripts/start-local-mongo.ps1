@@ -3,6 +3,36 @@ $mongod = Join-Path $mongoRoot "Server\8.2\bin\mongod.exe"
 $config = Join-Path $mongoRoot "mongod.conf"
 $pidFile = Join-Path $mongoRoot "run\mongod.pid"
 $serviceName = "SIPLocalMongoDB"
+$startupTimeoutSeconds = if ($env:MONGO_LOCAL_START_TIMEOUT_SECONDS) {
+  [Math]::Max(10, [int]$env:MONGO_LOCAL_START_TIMEOUT_SECONDS)
+} else {
+  60
+}
+$mongoLogPath = "D:\MongoDB\log\mongod.log"
+
+function Get-MongoStartupFailureDetail {
+  param(
+    [int]$ProcessId
+  )
+
+  $messages = @()
+  if ($ProcessId) {
+    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $process) {
+      $messages += "Process $ProcessId exited before MongoDB started listening."
+    }
+  }
+
+  if (Test-Path $mongoLogPath) {
+    $logTail = Get-Content -Path $mongoLogPath -Tail 12 -ErrorAction SilentlyContinue
+    if ($logTail) {
+      $messages += "Recent mongod.log lines:"
+      $messages += ($logTail -join [Environment]::NewLine)
+    }
+  }
+
+  return ($messages -join [Environment]::NewLine)
+}
 
 if (-not (Test-Path $mongod)) {
   throw "mongod.exe not found at $mongod"
@@ -18,7 +48,7 @@ if ($service) {
     Start-Service -Name $serviceName
   }
 
-  for ($i = 0; $i -lt 30; $i++) {
+  for ($i = 0; $i -lt $startupTimeoutSeconds; $i++) {
     Start-Sleep -Seconds 1
     $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq "Running") {
@@ -27,7 +57,7 @@ if ($service) {
     }
   }
 
-  throw "MongoDB Windows service '$serviceName' did not reach Running state in time."
+  throw "MongoDB Windows service '$serviceName' did not reach Running state within $startupTimeoutSeconds seconds."
 }
 
 $existing = Get-NetTCPConnection -LocalPort 27017 -ErrorAction SilentlyContinue |
@@ -50,7 +80,7 @@ $process = Start-Process -FilePath $mongod `
 Set-Content -Path $pidFile -Value $process.Id
 
 $ready = $false
-for ($i = 0; $i -lt 30; $i++) {
+for ($i = 0; $i -lt $startupTimeoutSeconds; $i++) {
   Start-Sleep -Seconds 1
   $listening = Get-NetTCPConnection -LocalPort 27017 -ErrorAction SilentlyContinue |
     Where-Object { $_.State -eq "Listen" } |
@@ -62,7 +92,12 @@ for ($i = 0; $i -lt 30; $i++) {
 }
 
 if (-not $ready) {
-  throw "MongoDB local did not start listening on port 27017 in time."
+  $failureDetail = Get-MongoStartupFailureDetail -ProcessId $process.Id
+  $message = "MongoDB local did not start listening on port 27017 within $startupTimeoutSeconds seconds."
+  if ($failureDetail) {
+    $message = "$message`n$failureDetail"
+  }
+  throw $message
 }
 
 Write-Output "MongoDB local started on 127.0.0.1:27017 (PID $($process.Id))."

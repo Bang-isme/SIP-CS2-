@@ -169,6 +169,33 @@ export const createOpenApiContract = () => ({
         },
       },
     },
+    "/auth/refresh": {
+      post: {
+        tags: ["Auth"],
+        summary: "Rotate refresh cookie and issue a new access token",
+        description: "Uses the httpOnly refresh token cookie when available. `refreshToken` in the body is accepted as a compatibility fallback for non-browser callers.",
+        parameters: [requestIdHeader],
+        requestBody: {
+          required: false,
+          content: jsonContent({
+            type: "object",
+            properties: {
+              refreshToken: { type: "string" },
+            },
+          }),
+        },
+        responses: {
+          200: {
+            description: "Access token rotated successfully",
+            content: jsonContent(ref("AuthRefreshResponse")),
+          },
+          401: {
+            description: "Missing, revoked, or expired refresh token",
+            content: jsonContent(ref("ErrorEnvelope")),
+          },
+        },
+      },
+    },
     "/auth/me": {
       get: {
         tags: ["Auth"],
@@ -531,7 +558,32 @@ export const createOpenApiContract = () => ({
         tags: ["Employee"],
         summary: "List employees",
         security,
-        parameters: [requestIdHeader, pageQuery, { ...limitQuery, schema: { type: "integer", minimum: 1, maximum: 200, default: 50 } }],
+        parameters: [
+          requestIdHeader,
+          pageQuery,
+          { ...limitQuery, schema: { type: "integer", minimum: 1, maximum: 200, default: 50 } },
+          {
+            name: "search",
+            in: "query",
+            required: false,
+            schema: { type: "string", maxLength: 120 },
+            description: "Optional admin-friendly search across employeeId, firstName, and lastName.",
+          },
+          {
+            name: "departmentId",
+            in: "query",
+            required: false,
+            schema: { type: "string", maxLength: 80 },
+            description: "Optional department filter for the source manager table.",
+          },
+          {
+            name: "employmentType",
+            in: "query",
+            required: false,
+            schema: { type: "string", maxLength: 80 },
+            description: "Optional employment type filter for the source manager table.",
+          },
+        ],
         responses: {
           200: {
             description: "Paginated employee list",
@@ -544,7 +596,7 @@ export const createOpenApiContract = () => ({
       post: {
         tags: ["Employee"],
         summary: "Create employee and dispatch sync",
-        description: "Admin-only mutation. Response includes `sync.correlationId` for downstream tracing.",
+        description: "Super-admin-only mutation. Response includes `sync.correlationId` for downstream tracing.",
         security,
         parameters: [requestIdHeader],
         requestBody: {
@@ -563,6 +615,22 @@ export const createOpenApiContract = () => ({
           409: {
             description: "Duplicate employeeId",
             content: jsonContent(ref("ErrorEnvelope")),
+          },
+          ...bearerErrors,
+        },
+      },
+    },
+    "/employee/options": {
+      get: {
+        tags: ["Employee"],
+        summary: "Get employee editor options",
+        description: "Super-admin-only helper endpoint for employee create/edit forms. Returns department ids plus form enum options.",
+        security,
+        parameters: [requestIdHeader],
+        responses: {
+          200: {
+            description: "Employee editor options",
+            content: jsonContent(ref("EmployeeOptionsResponse")),
           },
           ...bearerErrors,
         },
@@ -599,7 +667,7 @@ export const createOpenApiContract = () => ({
       put: {
         tags: ["Employee"],
         summary: "Update employee and dispatch sync",
-        description: "Admin-only mutation. Path value is the Mongo document id used by the existing route contract.",
+        description: "Super-admin-only mutation. Path value is the Mongo document id used by the existing route contract.",
         security,
         parameters: [
           requestIdHeader,
@@ -626,7 +694,7 @@ export const createOpenApiContract = () => ({
       delete: {
         tags: ["Employee"],
         summary: "Delete employee and dispatch sync",
-        description: "Admin-only mutation. Path value is the Mongo document id used by the existing route contract.",
+        description: "Super-admin-only mutation. Path value is the Mongo document id used by the existing route contract.",
         security,
         parameters: [
           requestIdHeader,
@@ -1197,6 +1265,44 @@ export const createOpenApiContract = () => ({
           sync: ref("EmployeeSyncState"),
         },
       },
+      EmployeeDepartmentOption: {
+        type: "object",
+        properties: {
+          _id: { type: "string" },
+          name: { type: "string" },
+          code: { type: "string" },
+          isActive: { type: "boolean" },
+        },
+      },
+      EmployeeOptionsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", const: true },
+          data: {
+            type: "object",
+            properties: {
+              departments: {
+                type: "array",
+                items: ref("EmployeeDepartmentOption"),
+              },
+              enums: {
+                type: "object",
+                properties: {
+                  gender: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                  employmentType: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          meta: ref("MetaEnvelope"),
+        },
+      },
       EmployeeListResponse: {
         type: "object",
         properties: {
@@ -1267,17 +1373,27 @@ export const createOpenApiContract = () => ({
           },
         },
       },
-      AuthSigninResponse: {
-        type: "object",
-        required: ["success", "data", "token", "meta"],
-        properties: {
-          success: { type: "boolean", const: true },
-          data: ref("UserSummary"),
-          token: { type: "string" },
-          meta: ref("MetaEnvelope"),
+        AuthSigninResponse: {
+          type: "object",
+          required: ["success", "data", "token", "meta"],
+          properties: {
+            success: { type: "boolean", const: true },
+            data: ref("UserSummary"),
+            token: { type: "string" },
+            meta: ref("MetaEnvelope"),
+          },
         },
-      },
-      AuthSignupResponse: {
+        AuthRefreshResponse: {
+          type: "object",
+          required: ["success", "data", "token", "meta"],
+          properties: {
+            success: { type: "boolean", const: true },
+            data: ref("UserSummary"),
+            token: { type: "string" },
+            meta: ref("MetaEnvelope"),
+          },
+        },
+        AuthSignupResponse: {
         type: "object",
         required: ["success", "data", "meta"],
         properties: {

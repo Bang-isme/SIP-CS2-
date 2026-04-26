@@ -1,6 +1,6 @@
 ﻿# Case Study Guide - SIP_CS (CEO Memo + Case Study 1-5)
 
-> Last Updated: 2026-04-03
+> Last Updated: 2026-04-15
 > Chính sách: chỉ claim những gì đang có evidence thật trong codebase.
 
 ## 0) Tài liệu nên đọc trước
@@ -27,8 +27,9 @@
 - Auth signin giờ cũng quota-aware hơn: nếu Mongo token storage bị khóa ghi vì over-quota, backend trả `503 AUTH_SESSION_STORAGE_UNAVAILABLE` thay vì phát token rồi để `/auth/me` đá người dùng ra ngay sau đó.
 - Legacy product module cũng đã được làm sạch HTTP semantics: không còn `204` kèm body, có `404/422` canonical, và search path giờ dùng lookup chạy thật thay vì aggregation syntax lỗi.
 - Local runtime cho BE cũng đã được kéo về trạng thái ổn định hơn cho dataset lớn: Mongo local 500k tránh quota Atlas, có `doctor:local`, `backend:local:*`, `stack:local:*`, và fallback autostart theo user logon để demo/viva bớt phụ thuộc thao tác tay.
+- Runtime tách service cho demo/viva giờ đã rõ: `SA`, `Payroll`, và `Dashboard` chạy riêng theo 3 port, 3 entrypoint, 3 app factory.
 - Case Study 3: triển khai được theo hướng eventual consistency có kiểm soát, và giờ có correlation trace xuyên request -> outbox/direct fallback -> sync log; chưa claim ACID xuyên MongoDB + MySQL.
-- Case Study 4: có middleware-lite bằng DB-backed outbox + worker, monitor API/UI, replay/retry, stale-`PROCESSING` recovery, integration operator contract với validation `422` + operator metadata, end-to-end correlation trace xuyên worker/adapters, latest audit trail trên `integration_events`, và durable history riêng trong `integration_event_audits`; chưa có broker-grade stack.
+- Case Study 4: có middleware-lite bằng MongoDB-backed outbox + worker, monitor API/UI, replay/retry, stale-`PROCESSING` recovery, integration operator contract với validation `422` + operator metadata, end-to-end correlation trace xuyên worker/adapters, latest audit trail trên collection `integration_events`, và durable history riêng trong collection `integration_event_audits`; chưa có broker-grade stack.
 - Case Study 5: có network/DR/security docs + rehearsal-safe evidence; chưa rollout hạ tầng thật.
 
 ## 2) Đối chiếu CEO Memo
@@ -116,24 +117,30 @@
 
 ### Cách triển khai hiện tại
 - Employee mutation ghi source-of-truth vào Mongo trước.
-- Sau đó hệ thống enqueue integration event vào MySQL outbox table.
-- Worker nền đọc event, gọi `syncEmployeeToAll`, và ghi `SyncLog`.
+- Sau đó hệ thống enqueue integration event vào MongoDB outbox collection của SA.
+- Worker nền đọc event, gọi `syncEmployeeToAll`, và `PayrollAdapter` forward mutation sang Payroll internal API.
+- Payroll service mới là nơi sở hữu write path của `pay_rates` và `sync_log`.
 - Nếu enqueue lỗi, controller có direct fallback và trả `sync` metadata về cho client.
-- `sync.correlationId` ở response nối được với `integration_events.correlation_id` và `sync_log.correlation_id`, nên failure mode có thể trace theo từng workflow thay vì chỉ theo timestamp.
+- `sync.correlationId` ở response nối được với Mongo `integration_events.correlation_id` và MySQL `sync_log.correlation_id`, nên failure mode có thể trace theo từng workflow thay vì chỉ theo timestamp.
 - Nhóm `/api/sync` giờ cũng theo canonical `{ success, data, meta }`, có validation `422`, và hỗ trợ filter logs theo `correlationId` để operator/FE truy evidence đúng workflow.
 - Employee read APIs cũng không còn lệch contract cũ: `GET /api/employee/:employeeId` ưu tiên business `employeeId`, vẫn có Mongo-id fallback cho caller legacy, và list/detail responses đều trả envelope + metadata nhất quán hơn.
 - Auth/user operator flows giờ cũng có request metadata thống nhất hơn, nên operator evidence không còn bị đứt đoạn giữa dashboard/integration và admin/auth surfaces.
 - Shared API error envelope giờ phủ luôn users/employee/dashboard/alerts/integrations/sync, nên FE không còn phải đoán theo từng controller khi phân nhánh lỗi.
 
 ### Ý nghĩa của trạng thái hiện tại
-- Đây là eventual consistency có kiểm soát.
+- Đây là eventual consistency có kiểm soát với source write + outbox state cùng nằm ở SA-owned MongoDB.
 - Không phải strict ACID hoặc 2PC giữa MongoDB và MySQL.
-- Cũng chưa phải transactional outbox chuẩn vì source write và outbox write không nằm trong cùng transaction boundary xuyên hệ.
+- Cũng chưa phải transactional outbox chuẩn vì source write và outbox write vẫn chưa dùng Mongo transaction boundary chính thức.
 
 ### Bằng chứng chính
+- `src/sa-server.js`
+- `src/payroll-server.js`
+- `src/dashboard-server.js`
 - `src/controllers/employee.controller.js`
+- `src/adapters/payroll.adapter.js`
 - `src/services/syncService.js`
 - `src/services/integrationEventService.js`
+- `src/services/payrollMutationService.js`
 - `src/models/sql/SyncLog.js`
 - `src/routes/sync.routes.js`
 
@@ -147,14 +154,14 @@
 - Có lớp middleware để mở rộng tích hợp và quản trị lỗi.
 
 ### Cách triển khai hiện tại
-- DB-backed outbox + polling worker.
+- MongoDB-backed outbox + polling worker.
 - Integration monitor UI/API cho `admin/super_admin`.
 - Có metrics, retry, retry-dead, replay theo filter, và recover stale `PROCESSING`.
 - Integration operator APIs giờ theo contract rõ ràng hơn: query/payload/path params được validate, và response mutation có metadata để chứng minh operator action nào đã chạy.
 - App-level fallback for unknown routes/unhandled errors is now JSON-contract based, which keeps operator/demo evidence consistent even outside happy-path controller logic.
 - Operator/debug flow giờ có correlation token ở API layer và xuyên cả outbox/worker/adapters, nên auth failure, validation failure, employee mutations, và sync logs nối được về cùng một workflow.
-- `GET /api/integrations/events/:id/audit` cho phép FE/admin path đọc lại durable operator history của từng event thay vì chỉ nhìn latest state trên queue row.
-- Queue row cũng lưu operator audit fields cho retry/replay/recover, nên sau demo hoặc incident review vẫn truy được ai bấm thao tác nào, lúc nào, theo request nào.
+- `GET /api/integrations/events/:id/audit` cho phép FE/admin path đọc lại durable operator history của từng event thay vì chỉ nhìn latest state trên queue document.
+- Queue document cũng lưu operator audit fields cho retry/replay/recover, nên sau demo hoặc incident review vẫn truy được ai bấm thao tác nào, lúc nào, theo request nào.
 - Migration readiness không còn dừng ở mức “đủ bảng”; script status/readiness giờ còn kiểm required migration IDs để tránh schema drift giữa code và MySQL.
 
 ### Chưa nên overclaim
@@ -204,7 +211,7 @@
 | Test / verification / validation | Y | Y | Y | Y | Y | PARTIAL-TO-STRONG |
 | Network / backup / DR / security infra |  |  |  |  | Y | DOCS-LEVEL |
 
-## 9) Quality gate snapshot (2026-04-03)
+## 9) Quality gate snapshot (2026-04-15)
 
 Backend:
 - `npm run doctor:local` -> HEALTHY (`500000` Mongo employees, required MySQL migrations present, `/health/live` + `/health/ready` đều `200`)
@@ -212,6 +219,7 @@ Backend:
 - `npm test` -> PASS
 - `npm run test:advanced` -> PASS
 - `npm audit --omit=dev` -> PASS (`0 vulnerabilities`)
+- `npm run verify:case3` -> PASS
 
 Frontend (`dashboard/`):
 - `npm run lint` -> PASS
@@ -229,7 +237,7 @@ Advisory-only backlog:
 - Case 4: middleware-lite có retry/replay/recovery, chưa phải enterprise middleware.
 - Case 5: có thiết kế và rehearsal-safe evidence, chưa phải triển khai hạ tầng thật.
 
-## 11) Backend improvement verdict (2026-04-03)
+## 11) Backend improvement verdict (2026-04-15)
 - Không còn blocker chức năng mới nào cho scope coursework/demo; BE hiện đủ ổn để FE bám theo như nguồn chuẩn.
 - Phần còn lại là non-blocking polish:
   1. Cài `SIPLocalMongoDB` thành Windows service bằng PowerShell elevated nếu muốn system-wide autostart; hiện tại scheduled-task autostart đã đủ cho demo local.

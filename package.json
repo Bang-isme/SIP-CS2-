@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
+    "start": "node src/sa-server.js",
+    "sa:start": "node src/sa-server.js",
+    "payroll:start": "node src/payroll-server.js",
+    "dashboard:start": "node src/dashboard-server.js",
     "lint": "npm run lint:syntax && npm run lint:static",
     "lint:syntax": "node scripts/lint-backend.js",
     "lint:static": "eslint src scripts tests jest.config.js --max-warnings=0",
@@ -19,6 +22,7 @@
     "backend:local:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-local-backend.ps1",
     "backend:local:status": "powershell -ExecutionPolicy Bypass -File scripts/backend-local-status.ps1",
     "mongo:local:start": "powershell -ExecutionPolicy Bypass -File scripts/start-local-mongo.ps1",
+    "mongo:local:foreground": "powershell -ExecutionPolicy Bypass -File scripts/start-local-mongo-foreground.ps1",
     "mongo:local:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-local-mongo.ps1",
     "mongo:local:service:install": "powershell -ExecutionPolicy Bypass -File scripts/install-local-mongo-service.ps1",
     "mongo:local:service:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/uninstall-local-mongo-service.ps1",
@@ -30,16 +34,31 @@
     "doctor:local": "node scripts/local-runtime-doctor.js",
     "stack:local:start": "powershell -ExecutionPolicy Bypass -File scripts/start-local-stack.ps1",
     "stack:local:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-local-stack.ps1",
-    "verify:backend": "npm run doctor:local && npm run lint && npm test && npm run test:advanced && npm run db:migrate:mysql:status && npm audit --omit=dev",
+    "case3:stack:start": "powershell -ExecutionPolicy Bypass -File scripts/start-case3-stack.ps1",
+    "case3:stack:interactive": "powershell -ExecutionPolicy Bypass -File scripts/start-case3-interactive.ps1",
+    "case3:stack:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-case3-stack.ps1",
+    "verify:case3:browser-auth": "powershell -ExecutionPolicy Bypass -File scripts/verify-case3-browser-auth.ps1",
+    "verify:case3:mongo-recovery": "powershell -ExecutionPolicy Bypass -File scripts/verify-case3-mongo-recovery.ps1",
+    "verify:case4:operations-demo": "powershell -ExecutionPolicy Bypass -File scripts/verify-case4-operations-demo.ps1",
+    "verify:case3": "powershell -ExecutionPolicy Bypass -File scripts/verify-case3-stack.ps1",
+    "verify:backend": "powershell -ExecutionPolicy Bypass -File scripts/verify-backend-safe.ps1",
     "verify:frontend": "npm --prefix dashboard run verify:frontend",
-    "verify:all": "npm run verify:backend && npm run verify:frontend",
+    "verify:all": "npm run verify:backend && npm run verify:frontend && npm run verify:case3",
+    "homework:sso:package": "powershell -ExecutionPolicy Bypass -File scripts/build-homework-submission.ps1",
+    "homework:sso:capture": "powershell -ExecutionPolicy Bypass -File scripts/capture-homework-sso-screenshots.ps1",
+    "homework:sso:record": "powershell -ExecutionPolicy Bypass -File scripts/capture-homework-sso-demo-video.ps1",
     "db:migrate:mysql": "node scripts/migrate-mysql.js",
     "db:migrate:mysql:status": "node scripts/migrate-mysql.js --status",
+    "demo:dashboard:prepare": "node scripts/prepare-dashboard-demo.js",
+    "demo:evidence:build": "node scripts/build-demo-evidence-pack.mjs",
     "demo:queue:healthy": "node scripts/demo-integration-queue-scenario.js healthy",
     "demo:queue:warning": "node scripts/demo-integration-queue-scenario.js warning",
     "demo:queue:critical": "node scripts/demo-integration-queue-scenario.js critical",
     "demo:queue:cleanup": "node scripts/demo-integration-queue-scenario.js cleanup",
-    "demo:queue:flow": "node scripts/demo-integration-queue-flow.js"
+    "demo:queue:flow": "node scripts/demo-integration-queue-flow.js",
+    "case5:readiness:safe": "node scripts/case5-readiness-safe.js",
+    "postman:generate": "node scripts/generate-postman-assets.js",
+    "benchmark:export:csv": "node scripts/benchmark-export-csv.js"
   },
   "repository": {
     "type": "git",
@@ -50,7 +69,8 @@
   "license": "AB",
   "overrides": {
     "lodash": "4.18.1",
-    "path-to-regexp": "0.1.13"
+    "path-to-regexp": "0.1.13",
+    "uuid": "14.0.0"
   },
   "bugs": {
     "url": "https://github.com/"
@@ -60,7 +80,7 @@
     "eslint": "^10.1.0",
     "globals": "^17.4.0",
     "jest": "^28.1.3",
-    "nodemon": "^2.0.19",
+    "nodemon": "^3.1.14",
     "supertest": "^6.2.4"
   },
   "dependencies": {

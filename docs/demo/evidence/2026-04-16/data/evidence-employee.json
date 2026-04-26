@@ -1,0 +1,79 @@
+{
+  "capturedAt": "2026-04-16T06:18:31.907Z",
+  "employeeId": "EVID-1776320310671",
+  "created": {
+    "success": true,
+    "data": {
+      "_id": "69e07f3683b06821927a55d8",
+      "employeeId": "EVID-1776320310671",
+      "firstName": "Evidence",
+      "lastName": "Demo",
+      "employmentType": "Full-time",
+      "isShareholder": false
+    },
+    "sync": {
+      "status": "QUEUED",
+      "mode": "OUTBOX",
+      "consistency": "EVENTUAL",
+      "requiresAttention": false,
+      "message": "Source record saved; integration event queued for async sync",
+      "correlationId": "36351438-82de-44c1-a7b6-912325a1868f"
+    }
+  },
+  "payroll": {
+    "success": true,
+    "data": {
+      "employeeId": "EVID-1776320310671",
+      "current": {
+        "id": 500077,
+        "employeeId": "EVID-1776320310671",
+        "payRate": 72.25,
+        "payType": "HOURLY",
+        "effectiveDate": "2026-04-16",
+        "isActive": true,
+        "createdAt": "2026-04-16T06:18:31.000Z",
+        "updatedAt": "2026-04-16T06:18:31.000Z"
+      },
+      "history": [
+        {
+          "id": 500077,
+          "employeeId": "EVID-1776320310671",
+          "payRate": 72.25,
+          "payType": "HOURLY",
+          "effectiveDate": "2026-04-16",
+          "isActive": true,
+          "createdAt": "2026-04-16T06:18:31.000Z",
+          "updatedAt": "2026-04-16T06:18:31.000Z"
+        }
+      ],
+      "latestSync": {
+        "id": 192,
+        "entityType": "employee",
+        "entityId": "EVID-1776320310671",
+        "action": "CREATE",
+        "status": "SUCCESS",
+        "correlationId": "36351438-82de-44c1-a7b6-912325a1868f",
+        "retryCount": 0,
+        "errorMessage": null,
+        "completedAt": "2026-04-16T06:18:31.000Z",
+        "createdAt": "2026-04-16T06:18:31.000Z",
+        "updatedAt": "2026-04-16T06:18:31.000Z"
+      },
+      "syncLog": [
+        {
+          "id": 192,
+          "entityType": "employee",
+          "entityId": "EVID-1776320310671",
+          "action": "CREATE",
+          "status": "SUCCESS",
+          "correlationId": "36351438-82de-44c1-a7b6-912325a1868f",
+          "retryCount": 0,
+          "errorMessage": null,
+          "completedAt": "2026-04-16T06:18:31.000Z",
+          "createdAt": "2026-04-16T06:18:31.000Z",
+          "updatedAt": "2026-04-16T06:18:31.000Z"
+        }
+      ]
+    }
+  }
+}

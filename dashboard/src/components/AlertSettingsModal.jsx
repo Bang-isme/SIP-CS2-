@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FiAlertTriangle,
   FiBell,
@@ -11,6 +11,9 @@ import {
   FiX,
 } from 'react-icons/fi';
 import { createAlertConfig, getAlerts, updateAlertConfig } from '../services/api';
+import { getErrorMessage, formatTimestamp } from '../utils/formatters';
+import { useToast } from '../contexts/ToastContext';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import './AlertSettingsModal.css';
 
 const ALERT_TYPE_META = {
@@ -61,20 +64,17 @@ const ALERT_TYPE_META = {
 
 const ALERT_TYPES = Object.keys(ALERT_TYPE_META);
 
-const getErrorMessage = (error, fallback) => {
-  return error?.response?.data?.message || error?.message || fallback;
-};
+const normalizeDraftThreshold = (value, fallback) => {
+  if (value === '' || value === null || value === undefined) {
+    return fallback;
+  }
 
-const formatTimestamp = (value) => {
-  if (!value) return 'Never synced';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.max(0, parsed);
 };
 
 const formatCreatedBy = (createdBy) => {
@@ -121,6 +121,8 @@ const buildDrafts = (alerts = []) => {
 };
 
 function AlertSettingsModal({ onClose, onSaveSuccess }) {
+  const { notifyError, notifySuccess } = useToast();
+  useBodyScrollLock(true);
   const [drafts, setDrafts] = useState(() => buildDrafts());
   const [selectedType, setSelectedType] = useState('anniversary');
   const [loading, setLoading] = useState(true);
@@ -133,7 +135,7 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
   const closeButtonRef = useRef(null);
   const lastFocusedElementRef = useRef(null);
 
-  const loadAlerts = async ({ silent = false } = {}) => {
+  const loadAlerts = useCallback(async ({ silent = false } = {}) => {
     if (silent) {
       setRefreshing(true);
     } else {
@@ -147,7 +149,9 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
       setDrafts(nextDrafts);
       setSelectedType((prev) => (ALERT_TYPES.includes(prev) ? prev : ALERT_TYPES[0]));
     } catch (fetchError) {
-      setError(getErrorMessage(fetchError, 'Unable to load alert settings'));
+      const message = getErrorMessage(fetchError, 'Unable to load alert settings');
+      setError(message);
+      notifyError('Alert settings unavailable', message);
     } finally {
       if (silent) {
         setRefreshing(false);
@@ -155,11 +159,11 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
         setLoading(false);
       }
     }
-  };
+  }, [notifyError]);
 
   useEffect(() => {
     void loadAlerts();
-  }, []);
+  }, [loadAlerts]);
 
   useEffect(() => {
     lastFocusedElementRef.current = document.activeElement;
@@ -206,7 +210,7 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
       description: draft.description.trim() || meta.defaultDescription,
       isActive: Boolean(draft.isActive),
       threshold: meta.supportsThreshold
-        ? Math.max(0, Number(draft.threshold) || meta.defaultThreshold)
+        ? normalizeDraftThreshold(draft.threshold, meta.defaultThreshold)
         : meta.defaultThreshold,
     };
 
@@ -220,13 +224,17 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
       } else {
         await createAlertConfig(payload);
       }
-      setSuccessMessage(`${meta.label} saved. Dashboard alert summaries were refreshed.`);
+      const message = `${meta.label} saved. Dashboard alert summaries were refreshed.`;
+      setSuccessMessage(message);
+      notifySuccess('Alert settings saved', message);
       await loadAlerts({ silent: true });
       if (typeof onSaveSuccess === 'function') {
         await onSaveSuccess();
       }
     } catch (saveError) {
-      setError(getErrorMessage(saveError, 'Unable to save alert rule'));
+      const message = getErrorMessage(saveError, 'Unable to save alert rule');
+      setError(message);
+      notifyError('Alert settings update failed', message);
     } finally {
       setSavingType('');
     }
@@ -373,7 +381,7 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
                       {selectedDraft.isActive ? 'Active' : 'Inactive'}
                     </span>
                     <span className="alert-settings-status-note">
-                      Updated: {formatTimestamp(selectedDraft.updatedAt)}
+                      Updated: {formatTimestamp(selectedDraft.updatedAt, { fallback: 'Never synced' })}
                     </span>
                     <span className="alert-settings-status-note">
                       Owner: {selectedDraft.createdByLabel}
@@ -388,8 +396,10 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
 
                 <div className="alert-settings-form-grid">
                   <label className="alert-settings-field">
-                    <span className="alert-settings-field-label">Display Name</span>
+                    <span className="alert-settings-field-label" id={`alert-settings-name-label-${selectedType}`}>Display Name</span>
                     <input
+                      id={`alert-settings-name-${selectedType}`}
+                      aria-labelledby={`alert-settings-name-label-${selectedType}`}
                       type="text"
                       value={selectedDraft.name}
                       onChange={(event) => handleFieldChange(selectedType, 'name', event.target.value)}
@@ -399,8 +409,10 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
 
                   {selectedMeta.supportsThreshold ? (
                     <label className="alert-settings-field">
-                      <span className="alert-settings-field-label">{selectedMeta.thresholdLabel}</span>
+                      <span className="alert-settings-field-label" id={`alert-settings-threshold-label-${selectedType}`}>{selectedMeta.thresholdLabel}</span>
                       <input
+                        id={`alert-settings-threshold-${selectedType}`}
+                        aria-labelledby={`alert-settings-threshold-label-${selectedType}`}
                         type="number"
                         min="0"
                         value={selectedDraft.threshold}
@@ -415,8 +427,10 @@ function AlertSettingsModal({ onClose, onSaveSuccess }) {
                   )}
 
                   <label className="alert-settings-field alert-settings-field-wide">
-                    <span className="alert-settings-field-label">Manager Note</span>
+                    <span className="alert-settings-field-label" id={`alert-settings-description-label-${selectedType}`}>Manager Note</span>
                     <textarea
+                      id={`alert-settings-description-${selectedType}`}
+                      aria-labelledby={`alert-settings-description-label-${selectedType}`}
                       rows="4"
                       value={selectedDraft.description}
                       onChange={(event) => handleFieldChange(selectedType, 'description', event.target.value)}

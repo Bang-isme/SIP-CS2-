@@ -1,1038 +1,2408 @@
 {
-    "info": {
-        "_postman_id": "sip-cs-collection",
-        "name": "SIP-CS Project Implementation",
-        "description": "Comprehensive API collection for Case Study 2 & 3",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  "info": {
+    "_postman_id": "ed04dc6b-1ab6-4507-8a70-e2d9b5b338b5",
+    "name": "SIP_CS Backend Demo Collection",
+    "description": "Demo-ready Postman collection for the full SIP_CS backend. Includes a safe smoke-test flow plus grouped routes for Auth, Dashboard, Alerts, Integrations, Sync, and admin tooling.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4000/api"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Demo Safe Flow",
+      "description": "Tap request an toan cho demo nhanh. Bat dau bang signin de lay token, sau do di theo thu tu request ben duoi.",
+      "item": [
+        {
+          "name": "Sign in and capture token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Sign in and receive user profile + token\n\nAccepts `identifier`, `email`, or `username` plus password. Backend resolves email or username without changing the FE contract.\n\nDemo note: Request dau tien nen chay trong demo. Request nay se luu token vao environment de cac request co khoa ben duoi dung lai.",
+            "url": {
+              "raw": "{{baseUrl}}/auth/signin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signin"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.token) pm.environment.set('token', json.token);",
+                  "if (json?.data?._id) pm.environment.set('currentUserId', json.data._id);",
+                  "if (Array.isArray(json?.data?.roles) && json.data.roles.length > 0) pm.environment.set('currentUserRole', json.data.roles.join(','));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get current authenticated profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get current authenticated profile",
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Readiness probe",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "description": "Readiness probe",
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "List employees\n\nDemo note: Request nay rat hop ly de chung minh baseline 500k ban ghi va lay employeeLookup cho cac request sau.",
+            "url": {
+              "raw": "{{baseUrl}}/employee?page=1&limit=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = Array.isArray(json?.data) ? json.data[0] : null;",
+                  "if (first?.employeeId) {",
+                  "  pm.environment.set('employeeLookup', first.employeeId);",
+                  "  pm.environment.set('syncEntityId', first.employeeId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get backend-owned executive dashboard snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get backend-owned executive dashboard snapshot\n\nDemo note: Day la request dashboard quan trong nhat. FE dang dua man hinh chinh tu snapshot backend nay.",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/executive-brief?year=2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "executive-brief"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get drilldown rows",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get drilldown rows\n\nDemo note: Request nay phu hop de chung minh server-side filtering tren dataset lon.",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/drilldown?context=earnings&page=1&limit=5&minEarnings=100000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "drilldown"
+              ],
+              "query": [
+                {
+                  "key": "context",
+                  "value": "earnings"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                },
+                {
+                  "key": "minEarnings",
+                  "value": "100000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get triggered alert groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get triggered alert groups\n\nDemo note: Nen chay request nay truoc roi moi chay alert employees. No se luu alertId va alertType vao environment.",
+            "url": {
+              "raw": "{{baseUrl}}/alerts/triggered",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts",
+                "triggered"
+              ],
+              "query": []
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = Array.isArray(json?.data) ? json.data[0] : null;",
+                  "if (first?.alert?._id) pm.environment.set('alertId', first.alert._id);",
+                  "if (first?.alert?.type) pm.environment.set('alertType', first.alert.type);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get employees for one alert type",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get employees for one alert type",
+            "url": {
+              "raw": "{{baseUrl}}/alerts/{{alertType}}/employees?page=1&limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts",
+                "{{alertType}}",
+                "employees"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get integration queue metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get integration queue metrics",
+            "url": {
+              "raw": "{{baseUrl}}/integrations/events/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "events",
+                "metrics"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get sync overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get sync overview",
+            "url": {
+              "raw": "{{baseUrl}}/sync/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sync",
+                "status"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Fetch backend-owned OpenAPI contract",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "description": "Fetch backend-owned OpenAPI contract\n\nDemo note: Dung de doi chieu contract backend-owned. Swagger docs cung doc tu route nay.",
+            "url": {
+              "raw": "{{baseUrl}}/contracts/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "contracts",
+                "openapi.json"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        }
+      ]
     },
-    "item": [
+    {
+      "name": "1. Auth",
+      "item": [
         {
-            "name": "1. Auth",
-            "item": [
-                {
-                    "name": "Sign In (Get Token)",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "exec": [
-                                    "var jsonData = pm.response.json();",
-                                    "if (jsonData.token) {",
-                                    "    pm.environment.set(\"token\", jsonData.token);",
-                                    "    console.log(\"Token updated\");",
-                                    "}"
-                                ],
-                                "type": "text/javascript"
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"email\": \"admin@localhost\",\n    \"password\": \"admin\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/signin",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "signin"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Sign Up",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"username\": \"newuser\",\n    \"email\": \"newuser@example.com\",\n    \"password\": \"password123\",\n    \"roles\": [\"user\"]\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/signup",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "signup"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Logout",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/logout",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "logout"
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
+          "name": "Legacy logout alias",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Legacy logout alias\n\nDeprecated compatibility alias for older FE callers. Prefer POST `/auth/logout`.",
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ],
+              "query": []
+            }
+          },
+          "response": []
         },
         {
-            "name": "2. Dashboard (CS2)",
-            "item": [
-                {
-                    "name": "Get Earnings Summary",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/dashboard/earnings?year=2026",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "dashboard",
-                                "earnings"
-                            ],
-                            "query": [
-                                {
-                                    "key": "year",
-                                    "value": "2026"
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Vacation Summary",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/dashboard/vacation?year=2026",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "dashboard",
-                                "vacation"
-                            ],
-                            "query": [
-                                {
-                                    "key": "year",
-                                    "value": "2026"
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Benefits Summary",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/dashboard/benefits",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "dashboard",
-                                "benefits"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Drill-down (Filter)",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/dashboard/drilldown?page=1&limit=20&gender=Male",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "dashboard",
-                                "drilldown"
-                            ],
-                            "query": [
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "20"
-                                },
-                                {
-                                    "key": "gender",
-                                    "value": "Male"
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
+          "name": "Get current authenticated profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get current authenticated profile",
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ],
+              "query": []
+            }
+          },
+          "response": []
         },
         {
-            "name": "3. Alerts (CS2)",
-            "item": [
-                {
-                    "name": "Get Triggered Alerts",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/alerts/triggered",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "alerts",
-                                "triggered"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Alert Employees",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/alerts/birthday/employees?page=1",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "alerts",
-                                "birthday",
-                                "employees"
-                            ],
-                            "query": [
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Create Alert Config",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"name\": \"New Alert\",\n    \"type\": \"custom\",\n    \"threshold\": 10\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/alerts",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "alerts"
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
+          "name": "Sign out current session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Revoke the current auth session\n\nDemo note: Nen chay o cuoi demo neu muon dong session dung luong backend.",
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ],
+              "query": []
+            }
+          },
+          "response": []
         },
         {
-            "name": "4. Employee (CS3)",
-            "item": [
-                {
-                    "name": "Get All Employees",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/employee?page=1&limit=50",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "employee"
-                            ],
-                            "query": [
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "limit",
-                                    "value": "50"
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Create Employee (Syncs to MySQL)",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"Employee_No\": \"99999\",\n    \"First_Name\": \"Test\",\n    \"Last_Name\": \"Sync\",\n    \"Employment_Status\": \"Active\",\n    \"Department\": \"IT\",\n    \"Job_Title\": \"Developer\",\n    \"payRate\": 50\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/employee",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "employee"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Update Employee",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"payRate\": 60\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/employee/67919...",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "employee",
-                                "67919..."
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Delete Employee",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/employee/67919...",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "employee",
-                                "67919..."
-                            ]
-                        }
-                    },
-                    "response": []
+          "name": "Sign in and capture token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Sign in and receive user profile + token\n\nAccepts `identifier`, `email`, or `username` plus password. Backend resolves email or username without changing the FE contract.\n\nDemo note: Request dau tien nen chay trong demo. Request nay se luu token vao environment de cac request co khoa ben duoi dung lai.",
+            "url": {
+              "raw": "{{baseUrl}}/auth/signin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signin"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-            ]
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.token) pm.environment.set('token', json.token);",
+                  "if (json?.data?._id) pm.environment.set('currentUserId', json.data._id);",
+                  "if (Array.isArray(json?.data?.roles) && json.data.roles.length > 0) pm.environment.set('currentUserRole', json.data.roles.join(','));"
+                ]
+              }
+            }
+          ]
         },
         {
-            "name": "5. Sync (CS3)",
-            "item": [
-                {
-                    "name": "Get Sync Status",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/sync/status",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "sync",
-                                "status"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Sync Logs",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/sync/logs?limit=10",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "sync",
-                                "logs"
-                            ],
-                            "query": [
-                                {
-                                    "key": "limit",
-                                    "value": "10"
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Retry Failed Syncs",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/sync/retry",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "sync",
-                                "retry"
-                            ]
-                        }
-                    },
-                    "response": []
+          "name": "[Mutation] Register baseline user account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Register a baseline user account\n\nAlways assigns the baseline `user` role, even if roles are sent in the request payload.\n\nDemo note: Chi can test khi muon minh hoa luong dang ky. Se tao them user moi trong MongoDB.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"postman_user_{{$timestamp}}\",\n  \"email\": \"postman+{{$timestamp}}@example.com\",\n  \"password\": \"Password123!\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-            ]
-        },
-        {
-            "name": "6. Health (DevOps)",
-            "item": [
-                {
-                    "name": "Health Check",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/health",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "health"
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "7. User Role Promotion Demo (Security)",
-            "item": [
-                {
-                    "name": "1) Signup target user (roles admin is ignored)",
-                    "event": [
-                        {
-                            "listen": "prerequest",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "const runId = Date.now().toString();",
-                                    "pm.collectionVariables.set('runId', runId);",
-                                    "pm.collectionVariables.set('targetUsername', `target_user_${runId}`);",
-                                    "pm.collectionVariables.set('targetEmail', `target_${runId}@example.com`);",
-                                    "pm.collectionVariables.set('targetPassword', 'Passw0rd!123');"
-                                ]
-                            }
-                        },
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Status is 200', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "});",
-                                    "",
-                                    "const body = pm.response.json();",
-                                    "",
-                                    "pm.test('Signup success = true', function () {",
-                                    "  pm.expect(body.success).to.eql(true);",
-                                    "});",
-                                    "",
-                                    "pm.test('Server enforces user role only', function () {",
-                                    "  pm.expect(body.data.roles).to.include('user');",
-                                    "  pm.expect(body.data.roles).to.not.include('admin');",
-                                    "});",
-                                    "",
-                                    "pm.collectionVariables.set('targetUserId', body.data._id);",
-                                    "pm.collectionVariables.set('targetEmail', body.data.email);"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json",
-                                "type": "text"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"username\": \"{{targetUsername}}\",\n  \"email\": \"{{targetEmail}}\",\n  \"password\": \"{{targetPassword}}\",\n  \"roles\": [\"admin\"]\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/signup",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "signup"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "2) Signup non-admin user for negative test",
-                    "event": [
-                        {
-                            "listen": "prerequest",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "const runId = pm.collectionVariables.get('runId') || Date.now().toString();",
-                                    "pm.collectionVariables.set('nonAdminUsername', `plain_user_${runId}`);",
-                                    "pm.collectionVariables.set('nonAdminEmail', `plain_${runId}@example.com`);",
-                                    "pm.collectionVariables.set('nonAdminPassword', 'Passw0rd!123');"
-                                ]
-                            }
-                        },
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Status is 200', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "});",
-                                    "",
-                                    "const body = pm.response.json();",
-                                    "",
-                                    "pm.test('Signup remains user role', function () {",
-                                    "  pm.expect(body.data.roles).to.eql(['user']);",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json",
-                                "type": "text"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"username\": \"{{nonAdminUsername}}\",\n  \"email\": \"{{nonAdminEmail}}\",\n  \"password\": \"{{nonAdminPassword}}\",\n  \"roles\": [\"admin\"]\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/signup",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "signup"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "3) Sign in admin (save adminToken)",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Status is 200', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "});",
-                                    "",
-                                    "const body = pm.response.json();",
-                                    "",
-                                    "pm.test('Admin token exists', function () {",
-                                    "  pm.expect(body.token).to.be.a('string');",
-                                    "  pm.expect(body.token.length).to.be.greaterThan(20);",
-                                    "});",
-                                    "",
-                                    "pm.collectionVariables.set('adminToken', body.token);"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json",
-                                "type": "text"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/signin",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "signin"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "4) Sign in non-admin user (save nonAdminToken)",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Status is 200', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "});",
-                                    "",
-                                    "const body = pm.response.json();",
-                                    "",
-                                    "pm.collectionVariables.set('nonAdminToken', body.token);"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json",
-                                "type": "text"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"{{nonAdminEmail}}\",\n  \"password\": \"{{nonAdminPassword}}\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/auth/signin",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "auth",
-                                "signin"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "5) Negative: promote with NON-admin token -> 403",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Status is 403', function () {",
-                                    "  pm.response.to.have.status(403);",
-                                    "});",
-                                    "",
-                                    "const body = pm.response.json();",
-                                    "",
-                                    "pm.test('Message is Require Admin Role!', function () {",
-                                    "  pm.expect(body.message).to.eql('Require Admin Role!');",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{nonAdminToken}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/users/{{targetUserId}}/promote-admin",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "users",
-                                "{{targetUserId}}",
-                                "promote-admin"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "6) Promote target user with ADMIN token -> 200",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Status is 200', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "});",
-                                    "",
-                                    "const body = pm.response.json();",
-                                    "",
-                                    "pm.test('Promotion success', function () {",
-                                    "  pm.expect(body.success).to.eql(true);",
-                                    "});",
-                                    "",
-                                    "pm.test('Target user has admin role', function () {",
-                                    "  pm.expect(body.data.roles).to.include('admin');",
-                                    "  pm.expect(body.data.roles).to.include('user');",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{adminToken}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/users/{{targetUserId}}/promote-admin",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "users",
-                                "{{targetUserId}}",
-                                "promote-admin"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "7) Negative: promote with NO token -> 403",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Status is 403', function () {",
-                                    "  pm.response.to.have.status(403);",
-                                    "});",
-                                    "",
-                                    "const body = pm.response.json();",
-                                    "",
-                                    "pm.test('Message is No token provided', function () {",
-                                    "  pm.expect(body.message).to.eql('No token provided');",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "PUT",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/users/{{targetUserId}}/promote-admin",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "users",
-                                "{{targetUserId}}",
-                                "promote-admin"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "8) Verify promoted target can access admin endpoint",
-                    "event": [
-                        {
-                            "listen": "test",
-                            "script": {
-                                "type": "text/javascript",
-                                "exec": [
-                                    "pm.test('Status is 200', function () {",
-                                    "  pm.response.to.have.status(200);",
-                                    "});",
-                                    "",
-                                    "const body = pm.response.json();",
-                                    "",
-                                    "pm.test('Users payload exists', function () {",
-                                    "  pm.expect(body.success).to.eql(true);",
-                                    "  pm.expect(Array.isArray(body.data)).to.eql(true);",
-                                    "});"
-                                ]
-                            }
-                        }
-                    ],
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "x-access-token",
-                                "value": "{{adminToken}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/users",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "users"
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
+              }
+            }
+          },
+          "response": []
         }
-    ],
-    "variable": [
+      ]
+    },
+    {
+      "name": "2. Users",
+      "item": [
         {
-            "key": "baseUrl",
-            "value": "http://localhost:4000/api"
+          "name": "List admin-visible users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "List admin-visible users\n\nAdmin-only endpoint. Returns sanitized user summaries without password hashes or persisted tokens.\n\nDemo note: Dung de lay nhanh mot userId cho cac request chi tiet va promote/demote.",
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": []
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = Array.isArray(json?.data) ? json.data[0] : null;",
+                  "if (first?._id) pm.environment.set('userId', first._id);"
+                ]
+              }
+            }
+          ]
         },
         {
-            "key": "token",
-            "value": ""
+          "name": "Get one sanitized user profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get one sanitized user profile",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
         },
         {
-            "key": "adminEmail",
-            "value": "admin@localhost"
+          "name": "[Mutation] Create admin-console user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Create a user from the admin console\n\nAdmin-only endpoint. Validates requested roles against the platform allowlist.\n\nDemo note: Chi can test khi demo phan admin console. Request nay se tao user moi.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"console_user_{{$timestamp}}\",\n  \"email\": \"console+{{$timestamp}}@example.com\",\n  \"password\": \"Password123!\",\n  \"roles\": [\n    \"user\"\n  ]\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
         },
         {
-            "key": "adminPassword",
-            "value": "admin_dev"
+          "name": "Remove admin role from a user",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Remove admin role from a user\n\nSuper-admin-only role mutation with root-admin and self-demotion safeguards.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/demote-admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "demote-admin"
+              ],
+              "query": []
+            }
+          },
+          "response": []
         },
         {
-            "key": "runId",
-            "value": ""
-        },
-        {
-            "key": "targetUsername",
-            "value": ""
-        },
-        {
-            "key": "targetEmail",
-            "value": ""
-        },
-        {
-            "key": "targetPassword",
-            "value": ""
-        },
-        {
-            "key": "targetUserId",
-            "value": ""
-        },
-        {
-            "key": "nonAdminUsername",
-            "value": ""
-        },
-        {
-            "key": "nonAdminEmail",
-            "value": ""
-        },
-        {
-            "key": "nonAdminPassword",
-            "value": ""
-        },
-        {
-            "key": "adminToken",
-            "value": ""
-        },
-        {
-            "key": "nonAdminToken",
-            "value": ""
+          "name": "Grant admin role to a user",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Grant admin role to a user\n\nSuper-admin-only role mutation.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/promote-admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "promote-admin"
+              ],
+              "query": []
+            }
+          },
+          "response": []
         }
-    ]
+      ]
+    },
+    {
+      "name": "3. Health",
+      "item": [
+        {
+          "name": "Get overall backend health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get overall backend health",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get integration adapter health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get integration adapter health",
+            "url": {
+              "raw": "{{baseUrl}}/health/integrations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "integrations"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Liveness probe",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "description": "Liveness probe",
+            "url": {
+              "raw": "{{baseUrl}}/health/live",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "live"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Readiness probe",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "description": "Readiness probe",
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Products",
+      "item": [
+        {
+          "name": "List products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "List products\n\nAuthenticated compatibility module. Returns the current product catalog with canonical metadata.",
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": []
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = Array.isArray(json?.data) ? json.data[0] : null;",
+                  "if (first?._id) pm.environment.set('productId', first._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get product detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get product detail",
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search products by name",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Search products by name",
+            "url": {
+              "raw": "{{baseUrl}}/products/search/{{productName}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "search",
+                "{{productName}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Create product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Create a product\n\nModerator/admin/super_admin path for the legacy products module.\n\nDemo note: Module nay la legacy. Khong can test trong demo CEO Memo neu thầy khong hoi.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Demo Product {{$timestamp}}\",\n  \"category\": \"Demo\",\n  \"price\": 49.99,\n  \"imgURL\": \"https://example.com/demo-product.png\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Update product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Update a product\n\nModerator/admin/super_admin path for the legacy products module.\n\nDemo note: Can co productId. Nen bo qua trong demo chinh.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Demo Product\",\n  \"category\": \"Demo\",\n  \"price\": 59.99,\n  \"imgURL\": \"https://example.com/demo-product-updated.png\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Dangerous] Delete product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Delete a product\n\nAdmin-only destructive operation for the legacy products module.\n\nDemo note: Khong nen chay trong demo chinh vi request nay xoa du lieu.\n\nWarning: request nay xoa du lieu. Khong nen chay trong demo chinh.",
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products",
+                "{{productId}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Employee",
+      "item": [
+        {
+          "name": "List employees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "List employees\n\nDemo note: Request nay rat hop ly de chung minh baseline 500k ban ghi va lay employeeLookup cho cac request sau.",
+            "url": {
+              "raw": "{{baseUrl}}/employee?page=1&limit=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = Array.isArray(json?.data) ? json.data[0] : null;",
+                  "if (first?.employeeId) {",
+                  "  pm.environment.set('employeeLookup', first.employeeId);",
+                  "  pm.environment.set('syncEntityId', first.employeeId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get employee detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get employee detail\n\nResolves by business `employeeId` first. Falls back to Mongo `_id` only for legacy callers.",
+            "url": {
+              "raw": "{{baseUrl}}/employee/{{employeeLookup}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee",
+                "{{employeeLookup}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Create employee and dispatch sync",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Create employee and dispatch sync\n\nAdmin-only mutation. Response includes `sync.correlationId` for downstream tracing.\n\nDemo note: Dung khi can minh hoa luong ghi du lieu va dispatch sync. Se tao ban ghi moi o MongoDB va outbox.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/employee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"PM{{$timestamp}}\",\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Demo\",\n  \"gender\": \"Female\",\n  \"ethnicity\": \"Asian\",\n  \"employmentType\": \"Full-time\",\n  \"isShareholder\": false,\n  \"departmentId\": \"Engineering\",\n  \"hireDate\": \"2024-01-15T00:00:00.000Z\",\n  \"birthDate\": \"1998-06-10T00:00:00.000Z\",\n  \"vacationDays\": 12,\n  \"paidToDate\": 88000,\n  \"paidLastYear\": 82000,\n  \"payRate\": 42.5,\n  \"payRateId\": 4250\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Update employee and dispatch sync",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Update employee and dispatch sync\n\nAdmin-only mutation. Path value is the Mongo document id used by the existing route contract.\n\nDemo note: Can co employeeLookup. Nen dung tren record demo rieng, khong dung lung tung tren record thuc.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/employee/{{employeeLookup}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee",
+                "{{employeeLookup}}"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Employee\",\n  \"vacationDays\": 26,\n  \"paidToDate\": 96000,\n  \"payRate\": 47.5\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Dangerous] Delete employee and dispatch sync",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Delete employee and dispatch sync\n\nAdmin-only mutation. Path value is the Mongo document id used by the existing route contract.\n\nDemo note: Khong nen chay trong demo chinh vi request nay xoa du lieu nhan su.\n\nWarning: request nay xoa du lieu. Khong nen chay trong demo chinh.",
+            "url": {
+              "raw": "{{baseUrl}}/employee/{{employeeLookup}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "employee",
+                "{{employeeLookup}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Dashboard",
+      "item": [
+        {
+          "name": "Get benefits summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get benefits summary",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/benefits?year=2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "benefits"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get department filter options",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get department filter options",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/departments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "departments"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get drilldown rows",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get drilldown rows\n\nDemo note: Request nay phu hop de chung minh server-side filtering tren dataset lon.",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/drilldown?context=earnings&page=1&limit=5&minEarnings=100000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "drilldown"
+              ],
+              "query": [
+                {
+                  "key": "context",
+                  "value": "earnings"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                },
+                {
+                  "key": "minEarnings",
+                  "value": "100000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Optional] Export drilldown CSV",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Export drilldown CSV\n\nDownload a CSV for the current drilldown filter set.\n\nDemo note: Chi nen test neu muon minh hoa export. Route nay tra ve CSV, khong can cho demo ngắn.",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/drilldown/export?context=earnings&page=1&limit=1000&minEarnings=100000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "drilldown",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "context",
+                  "value": "earnings"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "1000"
+                },
+                {
+                  "key": "minEarnings",
+                  "value": "100000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get earnings summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get earnings summary",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/earnings?year=2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "earnings"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get backend-owned executive dashboard snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get backend-owned executive dashboard snapshot\n\nDemo note: Day la request dashboard quan trong nhat. FE dang dua man hinh chinh tu snapshot backend nay.",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/executive-brief?year=2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "executive-brief"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get vacation summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get vacation summary",
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/vacation?year=2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard",
+                "vacation"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Alerts",
+      "item": [
+        {
+          "name": "List alert configuration rules",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "List alert configuration rules\n\nModerator/admin/super_admin only.",
+            "url": {
+              "raw": "{{baseUrl}}/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts"
+              ],
+              "query": []
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = Array.isArray(json?.data) ? json.data[0] : null;",
+                  "if (first?._id) pm.environment.set('alertConfigId', first._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get employees for one alert type",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get employees for one alert type",
+            "url": {
+              "raw": "{{baseUrl}}/alerts/{{alertType}}/employees?page=1&limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts",
+                "{{alertType}}",
+                "employees"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get triggered alert groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get triggered alert groups\n\nDemo note: Nen chay request nay truoc roi moi chay alert employees. No se luu alertId va alertType vao environment.",
+            "url": {
+              "raw": "{{baseUrl}}/alerts/triggered",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts",
+                "triggered"
+              ],
+              "query": []
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = Array.isArray(json?.data) ? json.data[0] : null;",
+                  "if (first?.alert?._id) pm.environment.set('alertId', first.alert._id);",
+                  "if (first?.alert?.type) pm.environment.set('alertType', first.alert.type);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Mutation] Create alert configuration rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Create alert configuration rule\n\nModerator/admin/super_admin only.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vacation Watch {{$timestamp}}\",\n  \"type\": \"vacation\",\n  \"threshold\": 25,\n  \"description\": \"Created from Postman demo\",\n  \"isActive\": true\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Acknowledge alert with owner note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Acknowledge alert category with owner note\n\nModerator/admin/super_admin only.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/alerts/{{alertId}}/acknowledge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts",
+                "{{alertId}}",
+                "acknowledge"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Owner assigned from Postman demo. Follow-up captured.\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Update alert configuration rule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Update alert configuration rule\n\nModerator/admin/super_admin only.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/alerts/{{alertConfigId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts",
+                "{{alertConfigId}}"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vacation Watch Updated\",\n  \"type\": \"vacation\",\n  \"threshold\": 26,\n  \"description\": \"Adjusted from Postman demo\",\n  \"isActive\": true\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Dangerous] Delete alert configuration rule",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Delete alert configuration rule\n\nModerator/admin/super_admin only.\n\nDemo note: Khong nen chay trong demo chinh vi request nay xoa cau hinh alert.\n\nWarning: request nay xoa du lieu. Khong nen chay trong demo chinh.",
+            "url": {
+              "raw": "{{baseUrl}}/alerts/{{alertConfigId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alerts",
+                "{{alertConfigId}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Integrations",
+      "item": [
+        {
+          "name": "List integration events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "List integration events\n\nAdmin-only operator view.",
+            "url": {
+              "raw": "{{baseUrl}}/integrations/events?page=1&limit=5&status=ALL",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                },
+                {
+                  "key": "status",
+                  "value": "ALL"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const first = Array.isArray(json?.data) ? json.data[0] : null;",
+                  "if (first?.id) pm.environment.set('integrationEventId', first.id);",
+                  "if (first?.entityId) pm.environment.set('syncEntityId', first.entityId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get durable audit history for one integration event",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get durable audit history for one integration event",
+            "url": {
+              "raw": "{{baseUrl}}/integrations/events/{{integrationEventId}}/audit?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "events",
+                "{{integrationEventId}}",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get integration queue metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get integration queue metrics",
+            "url": {
+              "raw": "{{baseUrl}}/integrations/events/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "events",
+                "metrics"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Recover stale PROCESSING events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Recover stale PROCESSING events\n\nDemo note: Khong can trong demo co ban.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/integrations/events/recover-stuck",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "events",
+                "recover-stuck"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Replay integration events by filter",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "description": "Replay failed/dead integration events by filter\n\nDemo note: Chi nen test khi muon minh hoa recovery path. Request nay co tac dong van hanh.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/integrations/events/replay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "events",
+                "replay"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"FAILED\",\n  \"entityType\": \"employee\",\n  \"fromDays\": 30\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Re-queue dead integration events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Re-queue all dead integration events\n\nDemo note: Khong can trong demo co ban.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/integrations/events/retry-dead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "events",
+                "retry-dead"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Retry one integration event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Retry one integration event\n\nDemo note: Chi nen chay khi chu dong demo operator recovery.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/integrations/events/retry/{{integrationEventId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integrations",
+                "events",
+                "retry",
+                "{{integrationEventId}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. Sync",
+      "item": [
+        {
+          "name": "Get latest sync state for one entity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get latest sync state for one entity\n\nDemo note: Doi chieu trang thai eventual consistency cho mot entity cu the.",
+            "url": {
+              "raw": "{{baseUrl}}/sync/entity/{{syncEntityType}}/{{syncEntityId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sync",
+                "entity",
+                "{{syncEntityType}}",
+                "{{syncEntityId}}"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List sync logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "List sync logs",
+            "url": {
+              "raw": "{{baseUrl}}/sync/logs?page=1&limit=10&status=ALL",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sync",
+                "logs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "ALL"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get sync overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Get sync overview",
+            "url": {
+              "raw": "{{baseUrl}}/sync/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sync",
+                "status"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[Mutation] Retry failed sync logs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "description": "Retry failed sync logs\n\nAdmin-only operator endpoint. Uses request correlation as fallback when old failed logs lack correlation ids.\n\nDemo note: Khong can trong demo co ban. Request nay thu lai cac sync logs loi.\n\nWarning: request nay co tac dong thay doi du lieu hoac trang thai van hanh.",
+            "url": {
+              "raw": "{{baseUrl}}/sync/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sync",
+                "retry"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10. Contracts",
+      "item": [
+        {
+          "name": "Fetch backend-owned OpenAPI contract",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-request-id",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "description": "Fetch backend-owned OpenAPI contract\n\nDemo note: Dung de doi chieu contract backend-owned. Swagger docs cung doc tu route nay.",
+            "url": {
+              "raw": "{{baseUrl}}/contracts/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "contracts",
+                "openapi.json"
+              ],
+              "query": []
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
 }

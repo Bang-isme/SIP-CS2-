@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { memo, useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   FiAlertTriangle,
   FiBell,
@@ -18,48 +18,51 @@ import {
   formatBenefitsImpactChip,
   formatBenefitsImpactReason,
 } from '../utils/benefitsImpact';
+import { getInitials as _getInitials, formatTimestamp, getErrorMessage } from '../utils/formatters';
+import { useToast } from '../contexts/ToastContext';
+import useBodyScrollLock from '../hooks/useBodyScrollLock';
 import './AlertsPanel.css';
 
 const ALERT_CONFIG = {
   anniversary: {
     icon: FiCalendar,
-    color: '#f59e0b',
-    bg: '#fffbeb',
+    color: 'var(--accent-alerts)',
+    bg: 'var(--color-warning-bg)',
     label: 'Anniversaries',
     severity: 'Low',
     severityRank: 1,
     priorityIcon: FiBell,
-    priorityColor: '#64748b',
+    priorityColor: 'var(--color-text-secondary)',
   },
   vacation: {
     icon: FiAlertTriangle,
-    color: '#ef4444',
-    bg: '#fef2f2',
+    color: 'var(--color-danger)',
+    bg: 'var(--color-danger-bg)',
     label: 'High Vacation Balance',
     severity: 'High',
     severityRank: 3,
     priorityIcon: FiAlertTriangle,
-    priorityColor: '#ef4444',
+    priorityColor: 'var(--color-danger)',
   },
   benefits_change: {
     icon: FiClipboard,
-    color: '#10b981',
-    bg: '#ecfdf5',
+    color: 'var(--color-success)',
+    bg: 'var(--color-success-bg)',
     label: 'Benefits Payroll Impact',
     severity: 'Medium',
     severityRank: 2,
     priorityIcon: FiAlertTriangle,
-    priorityColor: '#f59e0b',
+    priorityColor: 'var(--accent-alerts)',
   },
   birthday: {
     icon: FiGift,
-    color: '#ec4899',
-    bg: '#fdf2f8',
+    color: 'var(--accent-birthday)',
+    bg: 'var(--accent-birthday-light)',
     label: 'Birthday Alert',
     severity: 'Low',
     severityRank: 1,
     priorityIcon: FiBell,
-    priorityColor: '#64748b',
+    priorityColor: 'var(--color-text-secondary)',
   },
 };
 
@@ -90,7 +93,8 @@ function AlertsPanel({
   requestedAlertOpen,
   onRequestedAlertHandled,
 }) {
-  const PREVIEW_LIMIT = 5;
+  const { notifyError, notifySuccess } = useToast();
+  const PREVIEW_LIMIT = 2;
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [pageSize, setPageSize] = useState(50); // Default to 50 for list view
@@ -114,6 +118,8 @@ function AlertsPanel({
   const modalTriggerRef = useRef(null);
   const selectedAlertRef = useRef(null);
 
+  useBodyScrollLock(Boolean(selectedAlert));
+
   const formatDayLabel = (daysUntil) => {
     const value = Number(daysUntil);
     if (!Number.isFinite(value)) return 'Upcoming';
@@ -136,23 +142,28 @@ function AlertsPanel({
     return `${value} day${value === 1 ? '' : 's'}`;
   };
 
-  const getInitials = (name = '') => {
-    const parts = String(name).trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return '--';
-    return parts.slice(0, 2).map((part) => part[0].toUpperCase()).join('');
+  const formatVacationThresholdMeta = (vacationDays, threshold) => {
+    const days = Number(vacationDays);
+    const thresholdValue = Number(threshold);
+
+    if (!Number.isFinite(days) || !Number.isFinite(thresholdValue)) return null;
+
+    const overBy = Math.max(0, Math.round(days - thresholdValue));
+    if (overBy === 0) {
+      return {
+        label: 'At threshold',
+        title: `${days} d tracked against ${thresholdValue} d threshold`,
+      };
+    }
+
+    return {
+      label: `+${overBy} d over threshold`,
+      title: `${overBy} d above ${thresholdValue} d threshold`,
+    };
   };
 
-  const formatAckTimestamp = (value) => {
-    if (!value) return 'Not acknowledged';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Not acknowledged';
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const getInitials = (name = '') => _getInitials(name) || '--';
+  const formatAckTimestamp = (value) => formatTimestamp(value, { fallback: 'Not acknowledged' });
 
   const getAcknowledgedByLabel = (acknowledgement) => {
     const username = acknowledgement?.acknowledgedBy?.username;
@@ -202,7 +213,7 @@ function AlertsPanel({
       }
     } catch (error) {
       // Fallback for types that might not have endpoints (safety net)
-      setApiError(error.response?.data?.message || "Could not retrieve full list from server.");
+        setApiError(getErrorMessage(error, 'Could not load the full employee list.'));
     } finally {
       setIsLoading(false);
     }
@@ -325,14 +336,24 @@ function AlertsPanel({
           acknowledgement,
         },
       }) : current);
-      setAckFeedback(acknowledgement.needsReview
-        ? 'Alert ownership saved, but the queue has changed and needs re-review.'
-        : 'Alert ownership saved.');
+      setAckFeedback(
+        acknowledgement.needsReview
+          ? 'Owner note saved. This category still needs re-review.'
+          : 'Owner note saved.',
+      );
+      notifySuccess(
+        'Alert note saved',
+        acknowledgement.needsReview
+          ? 'Owner note saved. This category still needs re-review.'
+          : 'Owner note saved.',
+      );
       if (typeof onAlertAcknowledged === 'function') {
         onAlertAcknowledged(selectedAlert.alert._id, acknowledgement);
       }
     } catch (error) {
-      setAckError(error?.response?.data?.message || error?.message || 'Unable to save acknowledgement.');
+      const message = getErrorMessage(error, 'Unable to save acknowledgement.');
+      setAckError(message);
+      notifyError('Alert note failed', message);
     } finally {
       setAckSubmitting(false);
     }
@@ -370,7 +391,7 @@ function AlertsPanel({
     const highestPriority = sortedAlerts[0] || null;
     const byCount = [...sortedAlerts]
       .sort((a, b) => (b.count || 0) - (a.count || 0))
-      .slice(0, 3)
+      .slice(0, 2)
       .map((item) => {
         const label = ALERT_CONFIG[item.alert.type]?.label || item.alert.name;
         const count = item.count || 0;
@@ -381,16 +402,6 @@ function AlertsPanel({
     return { totalAffected, largestQueue, highestPriority, byCount };
   }, [sortedAlerts]);
 
-  const alertDetailColumnCount = useMemo(() => {
-    if (!selectedAlert) return 3;
-    if (selectedAlert.alert.type === 'vacation') return 4;
-    if (selectedAlert.alert.type === 'anniversary') return 4;
-    if (selectedAlert.alert.type === 'birthday') return 4;
-    if (selectedAlert.alert.type === 'benefits_change') return 4;
-    return 3;
-  }, [selectedAlert]);
-
-  const hasOddCount = sortedAlerts.length % 2 === 1;
   const highestPriorityLabel = summary.highestPriority
     ? (ALERT_CONFIG[summary.highestPriority.alert.type]?.label || summary.highestPriority.alert.name)
     : 'N/A';
@@ -401,7 +412,45 @@ function AlertsPanel({
     ? (ALERT_CONFIG[summary.largestQueue.alert.type]?.label || summary.largestQueue.alert.name)
     : 'N/A';
   const largestQueueCount = summary.largestQueue?.count || 0;
+  const largestQueueMatchesPriority = Boolean(
+    summary.highestPriority?.alert?._id
+    && summary.largestQueue?.alert?._id
+    && summary.highestPriority.alert._id === summary.largestQueue.alert._id,
+  );
+  const activeCategoryCount = sortedAlerts.length;
   const currentAcknowledgement = selectedAlert?.alert?.acknowledgement || null;
+  const modalColumnCount = 3
+    + (selectedAlert?.alert?.type === 'vacation' ? 1 : 0)
+    + (selectedAlert?.alert?.type === 'anniversary' ? 1 : 0)
+    + (selectedAlert?.alert?.type === 'birthday' ? 1 : 0)
+    + (selectedAlert?.alert?.type === 'benefits_change' ? 1 : 0);
+  const alertColumns = useMemo(() => {
+    const columns = [
+      { items: [], weight: 0 },
+      { items: [], weight: 0 },
+    ];
+
+    const estimateAlertWeight = (alert) => {
+      const acknowledgementWeight = alert?.alert?.acknowledgement ? 1 : 0;
+      const previewWeight = Math.min(Array.isArray(alert?.matchingEmployees) ? alert.matchingEmployees.length : 0, PREVIEW_LIMIT) * 1.4;
+      const typeWeight = alert?.alert?.type === 'benefits_change'
+        ? 1.1
+        : alert?.alert?.type === 'vacation'
+          ? 0.9
+          : 0.55;
+      return 2.8 + acknowledgementWeight + previewWeight + typeWeight;
+    };
+
+    sortedAlerts.forEach((alert, index) => {
+      const targetColumn = columns[0].weight <= columns[1].weight ? columns[0] : columns[1];
+      targetColumn.items.push({ alert, index });
+      targetColumn.weight += estimateAlertWeight(alert);
+    });
+
+    return columns
+      .map((column) => column.items)
+      .filter((column) => column.length > 0);
+  }, [sortedAlerts]);
 
   if (sortedAlerts.length === 0) {
     return (
@@ -414,131 +463,32 @@ function AlertsPanel({
 
   return (
     <div className="alerts-container">
-      <div className="alerts-grid">
-        {sortedAlerts.map((alert, index) => {
-          const config = ALERT_CONFIG[alert.alert.type] || { icon: FiBell, color: '#64748b', bg: '#f8fafc', severity: 'Low', severityRank: 0, priorityIcon: FiBell, priorityColor: '#64748b' };
-          const Icon = config.icon || FiBell;
-          const PriorityIcon = config.priorityIcon || FiBell;
-          const spanFull = hasOddCount && index === sortedAlerts.length - 1;
-          const share = summary.totalAffected > 0 ? (alert.count / summary.totalAffected) * 100 : 0;
-          const acknowledgement = alert.alert.acknowledgement;
-
-          return (
-            <div
-              key={index}
-              className={`alert-card${spanFull ? ' span-full' : ''}`}
-              style={{ '--accent-color': config.color, '--alert-share': `${Math.max(7, share)}%` }}
-            >
-              <div className="alert-card-inner">
-                <div className="alert-header">
-                  <div className="alert-header-content">
-                    <div className="alert-header-main">
-                      <span className="alert-icon" style={{ color: config.color }} aria-hidden="true">
-                        <Icon size={16} />
-                      </span>
-                      <h3 className="alert-name">{config.label || alert.alert.name}</h3>
-                      <span className="priority-badge" title={`Severity: ${config.severity}`} style={{ color: config.priorityColor }}>
-                        <PriorityIcon size={12} />
-                        <span className="priority-text">{config.severity}</span>
-                      </span>
-                    </div>
-                    <div className="alert-header-meta">
-                      <span className="alert-meta-text">{share.toFixed(1)}% impact share</span>
-                      <span className="alert-impact-track" aria-hidden="true">
-                        <span className="alert-impact-fill"></span>
-                      </span>
-                    </div>
-                  </div>
-                  <span className="alert-badge">{alert.count}</span>
-                </div>
-
-                {acknowledgement && (
-                  <div className={`alert-acknowledgement alert-acknowledgement--${acknowledgement.needsReview ? 'stale' : 'current'}`}>
-                    <div className="alert-acknowledgement-header">
-                      <span className="alert-ack-status">
-                        {acknowledgement.needsReview ? 'Needs Re-review' : 'Owned'}
-                      </span>
-                      <span className="alert-ack-owner">{getAcknowledgedByLabel(acknowledgement)}</span>
-                      <span className="alert-ack-time">{formatAckTimestamp(acknowledgement.acknowledgedAt)}</span>
-                    </div>
-                    {acknowledgement.note && (
-                      <p className="alert-ack-note">{acknowledgement.note}</p>
-                    )}
-                  </div>
-                )}
-
-                <div className="alert-body">
-                  {/* Safe array access to prevent crash */}
-                  {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, PREVIEW_LIMIT).map((emp, i) => (
-                    <div key={i} className="employee-row">
-                      <div className="emp-identity">
-                        <span className="emp-avatar" aria-hidden="true">{getInitials(emp.name)}</span>
-                        <div className="emp-details">
-                          <span className="emp-name">{emp.name}</span>
-                          <span className="emp-id">{emp.employeeId}</span>
-                        </div>
-                      </div>
-                      {/* Tags logic */}
-                      {emp.vacationDays !== undefined && (
-                        <span className="emp-tag vacation">{emp.vacationDays} d</span>
-                      )}
-                      {/* Standard date countdown for Anniversary */}
-                      {emp.daysUntil !== undefined && alert.alert.type === 'anniversary' && (
-                        <span className="emp-tag date">{formatDayLabel(emp.daysUntil)}</span>
-                      )}
-                      {/* Birthday: Always show date, fallback to friendly label */}
-                      {alert.alert.type === 'birthday' && (
-                        <span className="emp-tag date">{formatBirthdayLabel(emp)}</span>
-                      )}
-                      {(alert.alert.type === 'anniversary') && emp.daysUntil === undefined && (
-                        <span className="emp-tag date">Soon</span>
-                      )}
-                      {/* Benefits change: show extra_data instead of days */}
-                      {alert.alert.type === 'benefits_change' && emp.extraData && (
-                        <span
-                          className="emp-tag benefits"
-                          title={formatBenefitsImpactReason(emp.extraData)}
-                        >
-                          {formatBenefitsImpactChip(emp.extraData)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {alert.count > PREVIEW_LIMIT && (
-                  <div className="alert-footer">
-                    <button
-                      type="button"
-                      className="view-more-btn"
-                      onClick={(event) => handleViewMore(alert, event.currentTarget)}
-                    >
-                      View Record ({alert.count})
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       <div className="alerts-summary-dock">
         <div className="summary-kpi summary-kpi-impact">
-          <span className="summary-label">Total Impacted</span>
+          <span className="summary-label">Total Affected</span>
           <span className="summary-value summary-value-number">{summary.totalAffected.toLocaleString()}</span>
+          <span className="summary-meta">Across {activeCategoryCount} categories</span>
         </div>
         <div className="summary-kpi summary-kpi-priority">
           <span className="summary-label">Highest Priority</span>
           <span className="summary-value summary-value-text" title={highestPriorityLabel}>{highestPriorityLabel}</span>
-          {highestPrioritySeverity && <span className="summary-meta">Severity: {highestPrioritySeverity}</span>}
+          {highestPrioritySeverity && <span className="summary-meta">{highestPrioritySeverity} severity</span>}
         </div>
         <div className="summary-kpi summary-kpi-queue">
           <span className="summary-label">Largest Queue</span>
-          <span className="summary-value summary-value-text" title={largestQueueLabel}>{largestQueueLabel}</span>
-          {summary.largestQueue && <span className="summary-meta">Records: {largestQueueCount.toLocaleString()}</span>}
+          {largestQueueMatchesPriority ? (
+            <>
+              <span className="summary-value summary-value-text">{largestQueueCount.toLocaleString()} records</span>
+              <span className="summary-meta" title={largestQueueLabel}>{largestQueueLabel} - highest priority</span>
+            </>
+          ) : (
+            <>
+              <span className="summary-value summary-value-text" title={largestQueueLabel}>{largestQueueLabel}</span>
+              {summary.largestQueue && <span className="summary-meta">{largestQueueCount.toLocaleString()} records</span>}
+            </>
+          )}
         </div>
-        <div className="summary-bars">
+        <div className="summary-bars" aria-label="Largest queues by affected employees">
           {summary.byCount.map((item) => (
             <div key={item.label} className="summary-bar-row">
               <span className="bar-label">{item.label}</span>
@@ -549,6 +499,121 @@ function AlertsPanel({
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="alerts-grid">
+        {alertColumns.map((column, columnIndex) => (
+          <div key={`alerts-column-${columnIndex}`} className="alerts-column">
+            {column.map(({ alert, index }) => {
+              const config = ALERT_CONFIG[alert.alert.type] || { icon: FiBell, color: 'var(--color-text-secondary)', bg: 'var(--color-bg-subtle)', severity: 'Low', severityRank: 0, priorityIcon: FiBell, priorityColor: 'var(--color-text-secondary)' };
+              const Icon = config.icon || FiBell;
+              const PriorityIcon = config.priorityIcon || FiBell;
+              const share = summary.totalAffected > 0 ? (alert.count / summary.totalAffected) * 100 : 0;
+              const acknowledgement = alert.alert.acknowledgement;
+
+              return (
+                <div
+                  key={alert.alert._id || `${alert.alert.type}-${index}`}
+                  className="alert-card"
+                  style={{ '--accent-color': config.color, '--alert-share': `${Math.max(7, share)}%` }}
+                >
+                  <div className="alert-card-inner">
+                    <div className="alert-header">
+                      <div className="alert-header-content">
+                        <div className="alert-header-main">
+                          <span className="alert-icon" style={{ color: config.color }} aria-hidden="true">
+                            <Icon size={16} />
+                          </span>
+                          <h3 className="alert-name">{config.label || alert.alert.name}</h3>
+                          <span className="priority-badge" title={`Severity: ${config.severity}`} style={{ color: config.priorityColor }}>
+                            <PriorityIcon size={12} />
+                            <span className="priority-text">{config.severity}</span>
+                          </span>
+                        </div>
+                        <div className="alert-header-meta">
+                          <span className="alert-meta-text">{share.toFixed(1)}% impact share</span>
+                          <span className="alert-impact-track" aria-hidden="true">
+                            <span className="alert-impact-fill"></span>
+                          </span>
+                        </div>
+                      </div>
+                      <span className="alert-badge">{alert.count}</span>
+                    </div>
+
+                    {acknowledgement && (
+                      <div className={`alert-acknowledgement alert-acknowledgement--${acknowledgement.needsReview ? 'stale' : 'current'}`}>
+                        <div className="alert-acknowledgement-header">
+                          <span className="alert-ack-status">
+                            {acknowledgement.needsReview ? 'Re-review' : 'Owned'}
+                          </span>
+                          <span className="alert-ack-owner">{getAcknowledgedByLabel(acknowledgement)}</span>
+                          <span className="alert-ack-time">{formatAckTimestamp(acknowledgement.acknowledgedAt)}</span>
+                        </div>
+                        {acknowledgement.note && (
+                        <p className="alert-ack-note">{acknowledgement.note}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="alert-body">
+                      {(Array.isArray(alert.matchingEmployees) ? alert.matchingEmployees : []).slice(0, PREVIEW_LIMIT).map((emp, i) => {
+                        const isBenefitsRow = alert.alert.type === 'benefits_change' && emp.extraData;
+                        const vacationMeta = alert.alert.type === 'vacation'
+                          ? formatVacationThresholdMeta(emp.vacationDays, alert.alert.threshold)
+                          : null;
+
+                        return (
+                          <div key={i} className={`employee-row${isBenefitsRow ? ' employee-row--compact' : ''}`}>
+                            <div className="emp-identity">
+                              <span className="emp-avatar" aria-hidden="true">{getInitials(emp.name)}</span>
+                              <div className="emp-details">
+                                <span className="emp-name">{emp.name}</span>
+                                <span className="emp-id">{emp.employeeId}</span>
+                                {vacationMeta && (
+                                  <span className="emp-submeta" title={vacationMeta.title}>{vacationMeta.label}</span>
+                                )}
+                                {isBenefitsRow && (
+                                  <span
+                                    className="emp-tag benefits emp-tag--inline"
+                                    title={formatBenefitsImpactReason(emp.extraData)}
+                                  >
+                                    {formatBenefitsImpactChip(emp.extraData)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {emp.vacationDays !== undefined && (
+                              <span className="emp-tag vacation">{emp.vacationDays} d</span>
+                            )}
+                            {emp.daysUntil !== undefined && alert.alert.type === 'anniversary' && (
+                              <span className="emp-tag date">{formatDayLabel(emp.daysUntil)}</span>
+                            )}
+                            {alert.alert.type === 'birthday' && (
+                              <span className="emp-tag date">{formatBirthdayLabel(emp)}</span>
+                            )}
+                            {alert.alert.type === 'anniversary' && emp.daysUntil === undefined && (
+                              <span className="emp-tag date">Soon</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="alert-footer">
+                      <button
+                        type="button"
+                        className="view-more-btn"
+                        onClick={(event) => handleViewMore(alert, event.currentTarget)}
+                      >
+                        {alert.count > PREVIEW_LIMIT ? `View Record (${alert.count})` : 'Open Detail'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       {/* Modal with Forced API Pagination */}
@@ -584,8 +649,8 @@ function AlertsPanel({
                   <span className={`acknowledgement-status acknowledgement-status--${currentAcknowledgement?.needsReview ? 'stale' : currentAcknowledgement ? 'current' : 'empty'}`}>
                     {currentAcknowledgement
                       ? currentAcknowledgement.needsReview
-                        ? 'Needs Re-review'
-                        : 'Acknowledged'
+                        ? 'Re-review'
+                        : 'Owned'
                       : 'Unassigned'}
                   </span>
                   {currentAcknowledgement && (
@@ -598,7 +663,7 @@ function AlertsPanel({
                 <p className="acknowledgement-caption">
                   {currentAcknowledgement?.note
                     ? currentAcknowledgement.note
-                    : 'No acknowledgement note has been recorded for this alert yet.'}
+                    : 'No owner note recorded yet.'}
                 </p>
               </div>
 
@@ -614,14 +679,14 @@ function AlertsPanel({
                     maxLength={280}
                   />
                   <div className="acknowledgement-actions">
-                    <span className="acknowledgement-hint">Capture owner and next step for demo evidence.</span>
+                    <span className="acknowledgement-hint">Capture owner and next step.</span>
                     <button
                       type="button"
                       className="acknowledgement-button"
                       onClick={() => { void handleAcknowledge(); }}
                       disabled={ackSubmitting}
                     >
-                      {ackSubmitting ? 'Saving...' : currentAcknowledgement ? 'Update Acknowledgement' : 'Acknowledge Alert'}
+                      {ackSubmitting ? 'Saving...' : currentAcknowledgement ? 'Update Note' : 'Save Note'}
                     </button>
                   </div>
                   {(ackError || ackFeedback) && (
@@ -692,30 +757,32 @@ function AlertsPanel({
                   </thead>
                   <tbody>
                     {apiEmployees.length === 0 ? (
-                      <tr>
-                        <td colSpan={alertDetailColumnCount} className="no-results">
-                          {searchTerm ? `No matches for "${searchTerm}"` : 'No records found.'}
+                      <tr className="no-results-row">
+                        <td colSpan={modalColumnCount} className="no-results">
+                          {searchTerm
+                            ? `No matches for "${searchTerm}". Try a shorter name or employee ID.`
+                            : 'No records found for this alert. Refresh the alert list and try again.'}
                         </td>
                       </tr>
                     ) : (
                       apiEmployees.map((emp, i) => (
                         <tr key={i}>
-                          <td>{(currentPage - 1) * pageSize + i + 1}</td>
-                          <td className="font-medium">{emp.name}</td>
-                          <td className="text-mono">{emp.employeeId}</td>
+                          <td data-label="Row">{(currentPage - 1) * pageSize + i + 1}</td>
+                          <td className="font-medium" data-label="Employee">{emp.name}</td>
+                          <td className="text-mono" data-label="Employee ID">{emp.employeeId}</td>
 
                           {selectedAlert.alert.type === 'vacation' && (
-                            <td><span className="emp-tag vacation">{emp.vacationDays} days</span></td>
+                            <td data-label="Balance"><span className="emp-tag vacation">{emp.vacationDays} days</span></td>
                           )}
 
                           {(selectedAlert.alert.type === 'anniversary') && (
-                            <td><span className="emp-tag date">{formatDayLabel(emp.daysUntil)}</span></td>
+                            <td data-label="Days Left"><span className="emp-tag date">{formatDayLabel(emp.daysUntil)}</span></td>
                           )}
                           {(selectedAlert.alert.type === 'birthday') && (
-                            <td><span className="emp-tag date">{formatBirthdayLabel(emp)}</span></td>
+                            <td data-label="Date"><span className="emp-tag date">{formatBirthdayLabel(emp)}</span></td>
                           )}
                           {(selectedAlert.alert.type === 'benefits_change') && (
-                            <td>
+                            <td data-label="Payroll Impact">
                               <div className="benefits-impact-cell">
                                 <span className="benefits-impact-main">{formatBenefitsImpactReason(emp.extraData)}</span>
                                 <span className="benefits-impact-meta">{formatBenefitsImpactChip(emp.extraData)}</span>
@@ -741,6 +808,7 @@ function AlertsPanel({
                   disabled={currentPage === 1 || isLoading}
                   onClick={() => setCurrentPage(1)}
                   className="page-btn"
+                  aria-label="First page"
                 >
                   <FiChevronsLeft />
                 </button>
@@ -749,6 +817,7 @@ function AlertsPanel({
                   disabled={currentPage === 1 || isLoading}
                   onClick={() => setCurrentPage(p => p - 1)}
                   className="page-btn"
+                  aria-label="Previous page"
                 >
                   <FiChevronLeft />
                 </button>
@@ -789,6 +858,7 @@ function AlertsPanel({
                   disabled={currentPage >= apiTotalPages || isLoading}
                   onClick={() => setCurrentPage(p => p + 1)}
                   className="page-btn"
+                  aria-label="Next page"
                 >
                   <FiChevronRight />
                 </button>
@@ -797,6 +867,7 @@ function AlertsPanel({
                   disabled={currentPage >= apiTotalPages || isLoading}
                   onClick={() => setCurrentPage(apiTotalPages)}
                   className="page-btn"
+                  aria-label="Last page"
                 >
                   <FiChevronsRight />
                 </button>
@@ -810,4 +881,4 @@ function AlertsPanel({
   );
 }
 
-export default AlertsPanel;
+export default memo(AlertsPanel);

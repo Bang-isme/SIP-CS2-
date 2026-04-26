@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Payroll Service Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell" id="shell" data-session="signed-out" data-evidence="empty">
+      <header class="hero fade-up">
+        <div class="hero__copy">
+          <p class="eyebrow">Payroll</p>
+          <h1>Payroll console</h1>
+          <p class="lede">MySQL payroll evidence with shared SA sign-in.</p>
+          <div class="hero__tags">
+            <span class="hero-tag">Own runtime</span>
+            <span class="hero-tag">Shared auth</span>
+            <span class="hero-tag">MySQL</span>
+          </div>
+        </div>
+        <aside class="hero__signal hover-lift">
+          <p class="eyebrow">Flow</p>
+          <h2>Payroll evidence</h2>
+          <ol class="signal-steps">
+            <li>Sign in.</li>
+            <li>Paste the SA <code>employeeId</code>.</li>
+            <li>Open the payroll snapshot.</li>
+          </ol>
+          <a class="signal-link pressable" href="#proof-panel">Open proof</a>
+        </aside>
+        <div class="hero__stats">
+          <article class="hero-stat hover-lift">
+            <span class="hero-stat__label">Runtime</span>
+            <strong class="hero-stat__value">Own port</strong>
+            <small>Separate read API</small>
+          </article>
+          <article class="hero-stat hover-lift">
+            <span class="hero-stat__label">Store</span>
+            <strong class="hero-stat__value">MySQL</strong>
+            <small><code>pay_rates</code> + <code>sync_log</code></small>
+          </article>
+          <article class="hero-stat hover-lift">
+            <span class="hero-stat__label">Mode</span>
+            <strong class="hero-stat__value">Read-only</strong>
+            <small>Snapshot + sync evidence</small>
+          </article>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="workspace__main">
+          <section class="card card--proof fade-up" id="proof-panel">
+            <div class="card__header">
+              <div>
+                <p class="eyebrow">Proof</p>
+                <h2>Latest pay-rate snapshot</h2>
+                <p class="section-copy">Search an SA employee ID. Results load from Payroll.</p>
+              </div>
+              <div class="header-actions">
+                <span class="status-pill" id="session-state">Signed out</span>
+                <button id="refresh-health" class="button button--ghost pressable" type="button">Health</button>
+              </div>
+            </div>
+
+            <div class="proof-toolbar">
+              <label class="proof-toolbar__field">
+                <span>Employee ID</span>
+                <input id="employee-id" type="text" placeholder="EMP1001" />
+              </label>
+              <button id="lookup-record" class="button button--primary button--wide pressable" type="button">
+                Open record
+              </button>
+            </div>
+
+            <div class="health" id="health-summary"></div>
+
+            <div class="readiness-strip" aria-label="Payroll trust checks">
+              <article class="readiness-card">
+                <span class="readiness-card__label">Session</span>
+                <strong class="readiness-card__value" id="readiness-session">Awaiting sign-in</strong>
+                <small id="readiness-session-detail">Sign in via SA.</small>
+              </article>
+              <article class="readiness-card">
+                <span class="readiness-card__label">Health</span>
+                <strong class="readiness-card__value" id="readiness-health">Unchecked</strong>
+                <small id="readiness-health-detail">Refresh before review.</small>
+              </article>
+              <article class="readiness-card">
+                <span class="readiness-card__label">Evidence</span>
+                <strong class="readiness-card__value" id="readiness-evidence">No record loaded</strong>
+                <small id="readiness-evidence-detail">Open one record.</small>
+              </article>
+            </div>
+
+            <div class="empty-state" id="record-state">Sign in and open one payroll record.</div>
+            <div class="record-layout hidden" id="record-layout">
+              <div class="record-main">
+                <div class="metric-grid">
+                  <article class="metric-card hover-lift">
+                    <span class="metric-card__label">Employee ID</span>
+                    <strong class="metric-card__value" id="metric-employee-id">--</strong>
+                  </article>
+                  <article class="metric-card hover-lift">
+                    <span class="metric-card__label">Active pay rate</span>
+                    <strong class="metric-card__value" id="metric-pay-rate">--</strong>
+                  </article>
+                  <article class="metric-card hover-lift">
+                    <span class="metric-card__label">Pay type</span>
+                    <strong class="metric-card__value" id="metric-pay-type">--</strong>
+                  </article>
+                  <article class="metric-card hover-lift">
+                    <span class="metric-card__label">Sync status</span>
+                    <strong class="metric-card__value" id="metric-sync-status">--</strong>
+                  </article>
+                </div>
+                <div class="timeline">
+                  <h3>Pay history</h3>
+                  <div id="payrate-history" class="timeline__rows"></div>
+                </div>
+              </div>
+              <aside class="record-side">
+                <div class="record-side__header">
+                  <h3>Sync evidence</h3>
+                  <span class="record-side__hint">Correlation IDs and write status.</span>
+                </div>
+                <div id="sync-log" class="sync-log"></div>
+              </aside>
+            </div>
+          </section>
+        </section>
+
+        <aside class="workspace__side fade-up">
+          <section class="card card--auth hover-lift">
+            <div class="card__header">
+              <div>
+                <p class="eyebrow">Session</p>
+                <h2>Shared sign-in</h2>
+                <p class="section-copy">SA refresh, Payroll access.</p>
+              </div>
+              <button id="clear-session" class="button button--ghost pressable" type="button">Clear</button>
+            </div>
+            <form id="login-form" class="auth-form">
+              <label>
+                <span>Email</span>
+                <input id="email" type="email" placeholder="admin@company.com" autocomplete="username" required />
+              </label>
+              <label>
+                <span>Password</span>
+                <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" required />
+              </label>
+              <button id="login-submit" type="submit" class="button button--primary pressable">Sign in</button>
+            </form>
+            <p class="hint" id="sa-base">Loading SA endpoint...</p>
+            <p class="notice" id="auth-notice"></p>
+          </section>
+
+          <section class="card hover-lift">
+            <p class="eyebrow">Scope</p>
+            <h2>Console scope</h2>
+            <ul class="facts">
+              <li>Own port and runtime.</li>
+              <li>Shared SA session.</li>
+              <li>MySQL proof only.</li>
+            </ul>
+          </section>
+
+          <section class="card hover-lift">
+            <p class="eyebrow">Links</p>
+            <h2>Quick links</h2>
+            <div class="link-list">
+              <a id="link-payroll-health" class="quick-link" href="/api/health" target="_blank" rel="noreferrer noopener">
+                <span>Payroll health API</span>
+                <strong>Inspect</strong>
+              </a>
+              <a id="link-sa-home" class="quick-link" href="http://127.0.0.1:4000" target="_blank" rel="noreferrer noopener">
+                <span>SA service home</span>
+                <strong>Open</strong>
+              </a>
+              <a id="link-sa-docs" class="quick-link" href="http://127.0.0.1:4000/api/contracts/docs/" target="_blank" rel="noreferrer noopener">
+                <span>SA API docs</span>
+                <strong>Open</strong>
+              </a>
+              <a id="link-dashboard" class="quick-link" href="http://127.0.0.1:4200/login" target="_blank" rel="noreferrer noopener">
+                <span>Dashboard login</span>
+                <strong>Open</strong>
+              </a>
+            </div>
+            <p class="hint hint--tight" id="service-links-caption">Open each runtime in its own tab.</p>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

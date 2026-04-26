@@ -34,6 +34,25 @@ const normalizeTrimmedString = (value) => {
   return String(value).trim();
 };
 
+const isValidEmailAddress = (value) => {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    return false;
+  }
+
+  const [, domain = ""] = value.split("@");
+  const labels = domain.split(".").filter(Boolean);
+  if (labels.length < 2) {
+    return false;
+  }
+
+  const hasValidLabels = labels.every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label));
+  if (!hasValidLabels) {
+    return false;
+  }
+
+  return labels[labels.length - 1].length >= 2;
+};
+
 const normalizeUsername = (value, errors, { field = "username", required = true } = {}) => {
   const normalized = normalizeTrimmedString(value);
   if (!normalized) {
@@ -65,7 +84,7 @@ const normalizeEmail = (value, errors, { field = "email", required = true } = {}
     return "";
   }
 
-  const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+  const looksLikeEmail = isValidEmailAddress(normalized);
   if (!looksLikeEmail) {
     addError(errors, field, `${field} must be a valid email address.`, value);
     return "";
@@ -148,7 +167,7 @@ export const normalizeSignupPayload = (body = {}) => {
   const errors = [];
   const username = normalizeUsername(body.username, errors);
   const email = normalizeEmail(body.email, errors);
-  const password = normalizePassword(body.password, errors, { minLength: 6 });
+  const password = normalizePassword(body.password, errors, { minLength: 8 });
   const roles = normalizeOptionalRoles(body.roles, errors);
 
   assertNoValidationErrors(errors);

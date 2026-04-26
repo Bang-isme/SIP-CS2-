@@ -6,19 +6,20 @@ const integrationCountMock = jest.fn();
 const integrationAuditCreateMock = jest.fn();
 const syncEmployeeToAllMock = jest.fn();
 
-jest.unstable_mockModule("../models/sql/index.js", () => ({
-  IntegrationEvent: {
+jest.unstable_mockModule("../repositories/integrationStore.js", () => ({
+  IntegrationEventStore: {
     findAll: integrationFindAllMock,
     update: integrationUpdateMock,
     count: integrationCountMock,
     create: jest.fn(),
   },
-  IntegrationEventAudit: {
+  IntegrationEventAuditStore: {
     create: integrationAuditCreateMock,
     bulkCreate: jest.fn(),
     count: jest.fn(),
     findAll: jest.fn(),
   },
+  groupIntegrationEventCountsByStatus: jest.fn(),
 }));
 
 jest.unstable_mockModule("../services/syncService.js", () => ({

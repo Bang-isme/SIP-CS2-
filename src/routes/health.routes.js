@@ -1,16 +1,18 @@
 import { Router } from "express";
-import {
-  getHealthSummary,
-  getIntegrationHealthSummary,
-  liveHandler,
-  readyHandler,
-} from "../controllers/health.controller.js";
+import { createHealthHandlers } from "../controllers/health.controller.js";
 
-const router = Router();
+export const createHealthRouter = (options = {}) => {
+  const router = Router();
+  const handlers = createHealthHandlers(options);
 
-router.get("/", getHealthSummary);
-router.get("/integrations", getIntegrationHealthSummary);
-router.get("/ready", readyHandler);
-router.get("/live", liveHandler);
+  router.get("/", handlers.getHealthSummary);
+  if (options.includeIntegrationHealth !== false) {
+    router.get("/integrations", handlers.getIntegrationHealthSummary);
+  }
+  router.get("/ready", handlers.readyHandler);
+  router.get("/live", handlers.liveHandler);
 
-export default router;
+  return router;
+};
+
+export default createHealthRouter();

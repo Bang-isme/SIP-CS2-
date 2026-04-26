@@ -1,95 +1,256 @@
-# Project DNA: SIP_CS
-Generated: 2026-02-24 23:22 | Files: 173 | Lines: ~36180
+# Project Genome: SIP_CS
+Generated: 2026-04-26 15:30
 
-## Snapshot
-This genome summarizes architecture-level context so AI agents can reason with less scanning and less guessing.
-The project has about 173 relevant files and 36180 lines in scannable source/docs.
+## 1. Architecture Overview
+- Entry points
+  - public/payroll-console/app.js
+  - src/app.js
+  - src/index.js
+  - src/middlewares/index.js
+  - src/models/sql/index.js
+- Module boundaries
+  - src (175 files): primary application source
+  - dashboard (116 files): application area
+  - docs (65 files): documentation and guides
+  - scripts (56 files): automation or maintenance scripts
+  - .agent (23 files): application area
+  - Memory (22 files): application area
+  - run (16 files): application area
+  - . (13 files): root-level config and entry files
+  - tests (5 files): tests and fixtures
+  - public (4 files): application area
+  - requests (1 files): application area
+- Key dependencies
+  - bcryptjs
+  - compression
+  - cors
+  - dotenv
+  - express
+  - helmet
+  - jsonwebtoken
+  - mongoose
+  - morgan
+  - mysql2
+  - sequelize
+  - swagger-ui-dist
+- Tech stack detected
+  - Node.js
+  - JavaScript
+  - React
+  - Express
+- Scan summary
+  - Max Depth: 3
+  - Total Files: 496
+  - Total Lines: 98066
 
-## Tech Stack
-- Language: JavaScript
-- Routing: express-router
-- Database: sequelize, mongoose, raw-queries
-- Auth: jwt
-- State: none (backend)
-- Module system: esmodules
-- Error handling style: try-catch
+## 2. API Surface
+- Routes/endpoints found
+  - GET /favicon.ico (src/apps/baseApp.js)
+  - GET / (src/apps/baseApp.js)
+  - GET * (src/apps/dashboardApp.js)
+  - GET / (src/routes/alerts.routes.js)
+  - POST / (src/routes/alerts.routes.js)
+  - PUT /:id (src/routes/alerts.routes.js)
+  - DELETE /:id (src/routes/alerts.routes.js)
+  - POST /:id/acknowledge (src/routes/alerts.routes.js)
+  - GET /triggered (src/routes/alerts.routes.js)
+  - GET /:type/employees (src/routes/alerts.routes.js)
+  - POST /signup (src/routes/auth.routes.js)
+  - POST /signin (src/routes/auth.routes.js)
+  - GET /session (src/routes/auth.routes.js)
+  - POST /refresh (src/routes/auth.routes.js)
+  - GET /logout (src/routes/auth.routes.js)
+  - POST /logout (src/routes/auth.routes.js)
+  - GET /me (src/routes/auth.routes.js)
+  - GET /openapi.json (src/routes/contracts.routes.js)
+  - GET /docs (src/routes/contracts.routes.js)
+  - GET /docs/swagger-initializer.js (src/routes/contracts.routes.js)
+  - GET /docs/ (src/routes/contracts.routes.js)
+  - GET /executive-brief (src/routes/dashboard.routes.js)
+  - GET /operational-readiness (src/routes/dashboard.routes.js)
+  - GET /earnings (src/routes/dashboard.routes.js)
+  - GET /vacation (src/routes/dashboard.routes.js)
+- Middleware chain (src/__tests__/alerts.routes.authz.test.js)
+  - express.json
+- Middleware chain (src/__tests__/dashboard.routes.authz.test.js)
+  - express.json
+- Middleware chain (src/__tests__/employee.routes.authz.test.js)
+  - express.json
+- Middleware chain (src/__tests__/integration.routes.authz.test.js)
+  - express.json
+- Middleware chain (src/__tests__/products.routes.authz.test.js)
+  - express.json
+- Middleware chain (src/__tests__/sync.routes.authz.test.js)
+  - express.json
+- Middleware chain (src/apps/baseApp.js)
+  - cors
+  - helmet
+  - compression
+  - request-context
+  - morgan
+  - express.json
+  - express.urlencoded
+  - error
+- Middleware chain (src/apps/dashboardApp.js)
+  - express.static
+- Middleware chain (src/apps/payrollApp.js)
+  - express.static
+- Auth patterns detected
+  - JWT (jsonwebtoken) - src/controllers/auth.controller.js
+  - JWT (jsonwebtoken) - src/middlewares/authJwt.js
+  - Password hashing (bcryptjs) - src/models/User.js
+  - Refresh token flow - src/routes/auth.routes.js (POST /refresh)
+  - Refresh token flow - src/routes/dashboard.routes.js (POST /refresh-summaries)
+  - JWT (jsonwebtoken) - src/utils/authSessionTokens.js
 
-## Directory Map
-- `src/` - 70 files
-- `dashboard/` - 45 files
-- `docs/` - 22 files
-- `scripts/` - 17 files
-- `Memory/` - 10 files
-- `./` - 5 files
-- `tests/` - 4 files
+## 3. Data Layer
+- Database type
+  - MongoDB/Mongoose
+  - Sequelize
+  - MySQL
+- Models/schemas found
+  - src/__tests__/user.model.contract.test.js
+  - src/models/Alert.js
+  - src/models/Counter.js
+  - src/models/Department.js
+  - src/models/Employee.js
+  - src/models/IntegrationEvent.js
+  - src/models/IntegrationEventAudit.js
+  - src/models/Payrate.js
+  - src/models/Product.js
+  - src/models/Role.js
+  - src/models/User.js
+  - src/models/sql/AlertEmployee.js
+  - src/models/sql/AlertsSummary.js
+  - src/models/sql/BenefitPlan.js
+  - src/models/sql/BenefitsSummary.js
+  - src/models/sql/Earning.js
+  - src/models/sql/EarningsEmployeeYear.js
+  - src/models/sql/EarningsSummary.js
+  - src/models/sql/EmployeeBenefit.js
+  - src/models/sql/PayRate.js
+- Migration status
+  - Not detected
+- Config sources
+  - package.json
 
-## Entry Point
-- `src/index.js`
+## 4. Security Posture
+- .env handling
+  - Env files found: .env, .env.atlas.backup, .env.example, dashboard/.env.example; protected by .gitignore
+- Secrets exposure risk
+  - dashboard/src/pages/Login.test.jsx
+  - dashboard/src/services/api.test.js
+  - public/payroll-console/app.js
+  - scripts/generate-postman-assets.js
+- Auth middleware present
+  - dashboard/package-lock.json
+  - dashboard/src/pages/Login.test.jsx
+  - scripts/prepare-dashboard-demo.js
+  - scripts/verify-case3-stack.js
+  - src/apps/saApp.js
+  - src/contracts/openapi.contract.js
+  - src/controllers/auth.controller.js
+  - src/middlewares/authJwt.js
+  - src/middlewares/index.js
+  - src/routes/alerts.routes.js
+  - src/routes/auth.routes.js
+  - src/routes/dashboard.routes.js
+  - src/routes/employee.routes.js
+  - src/routes/integration.routes.js
+  - src/routes/payroll.routes.js
+  - src/routes/products.routes.js
+  - src/routes/sync.routes.js
+  - src/routes/user.routes.js
+  - src/utils/authSessionTokens.js
+- CORS configured
+  - src/apps/baseApp.js
+- Rate limiting
+  - src/middlewares/rateLimit.js
+  - src/routes/alerts.routes.js
+  - src/routes/auth.routes.js
+  - src/routes/dashboard.routes.js
+  - src/routes/employee.routes.js
+  - src/routes/integration.routes.js
+  - src/routes/payroll.routes.js
+  - src/routes/sync.routes.js
+  - src/routes/user.routes.js
+- HTTPS enforcement
+  - Not detected
 
-## Coding Conventions
-- File naming: mixed
-- Function naming: camelCase
-- Test pattern: *.test.js
-- Quotes: double
-- Semicolons: True
-- Indent: 4 spaces
+## 5. Test Coverage Map
+- Test directories found
+  - dashboard/src/test
+  - src/__tests__
+  - tests
+  - tests/advanced
+  - tests/integration
+  - tests/support
+- Test frameworks detected
+  - Jest
+  - Supertest
+  - Vitest
+- Files without corresponding test files
+  - eslint.config.js
+  - dashboard/eslint.config.js
+  - dashboard/vite.config.js
+  - dashboard/vitest.config.js
+  - dashboard/src/App.jsx
+  - dashboard/src/main.jsx
+  - dashboard/src/components/AnalyticsFilterBar.jsx
+  - dashboard/src/components/ErrorBoundary.jsx
+  - dashboard/src/components/ExecutiveBrief.jsx
+  - dashboard/src/components/KPIGrid.jsx
+- CI pipeline detected
+  - Not detected
 
-## Key Data Models (20)
-- **Alert** (mongoose): createdBy, description, isActive, lastTriggered, name, threshold
-- **AlertEmployee** (sequelize): aggregated_at, alert_type, days_until, employee_id, extra_data, id, ... (+1)
-- **AlertsSummary** (sequelize): alert_type, computed_at, employee_count, id, matching_employees, threshold
-- **BenefitPlan** (sequelize): description, id, is_active, monthly_cost, name
-- **BenefitsSummary** (sequelize): average_paid, computed_at, enrollment_count, id, plan_name, shareholder_type, ... (+1)
-- **Department** (mongoose): code, description, isActive, managerId, name
-- **Earning** (sequelize): amount, description, employee_id, id, month, year
-- **EarningsEmployeeYear** (sequelize): employee_id, id, total, year
-- **EarningsSummary** (sequelize): computed_at, current_total, employee_count, group_type, group_value, id, ... (+2)
-- **Employee** (mongoose): annualEarnings, annualEarningsYear, birthDate, departmentId, employeeId, employmentType, ... (+11)
-- **EmployeeBenefit** (sequelize): amount_paid, effective_date, employee_id, id, is_active, key, ... (+3)
-- **IntegrationEvent** (sequelize): action, attempts, entity_id, entity_type, id, last_error, ... (+4)
-- **Payrate** (mongoose): amount, name, taxPercentage, value
-- **PayRate** (sequelize): effective_date, employee_id, id, is_active, pay_rate, pay_type
-- **Product** (mongoose): category, imgURL, name, price, userId
-- **Role** (mongoose): name
-- **SyncLog** (sequelize): action, completed_at, entity_id, entity_type, error_message, id, ... (+2)
-- **User** (mongoose): email, password, roles, tokens, username
-- **VacationRecord** (sequelize): days_taken, employee_id, end_date, id, reason, start_date, ... (+1)
-- **VacationSummary** (sequelize): computed_at, current_total, employee_count, group_type, group_value, id, ... (+2)
-
-## API Surface
-- **alerts.routes** (6 routes): GET /api/alerts, POST /api/alerts, PUT /api/alerts/:id, DELETE /api/alerts/:id, GET /api/alerts/triggered
-  ... +1 more
-- **auth.routes** (4 routes): POST /api/auth/signup, POST /api/auth/signin, GET /api/auth/logout, GET /api/auth/me
-- **dashboard.routes** (6 routes): GET /api/dashboard/earnings, GET /api/dashboard/vacation, GET /api/dashboard/benefits, GET /api/dashboard/drilldown, GET /api/dashboard/drilldown/export
-  ... +1 more
-- **employee.routes** (5 routes): GET /api/employee, GET /api/employee/:employeeId, POST /api/employee, PUT /api/employee/:id, DELETE /api/employee/:id
-- **health.routes** (4 routes): GET /api/health, GET /api/health/integrations, GET /api/health/ready, GET /api/health/live
-- **index.routes** (1 routes): GET /api
-- **integration.routes** (5 routes): GET /api/integrations/events, GET /api/integrations/events/metrics, POST /api/integrations/events/retry/:id, POST /api/integrations/events/retry-dead, POST /api/integrations/events/replay
-- **products.routes** (8 routes): GET /api/products, GET /api/products/:productId, POST /api/products, POST /api/products, PUT /api/products/:productId
-  ... +3 more
-- **sync.routes** (4 routes): GET /api/sync/status, GET /api/sync/logs, POST /api/sync/retry, GET /api/sync/entity/:type/:id
-- **user.routes** (5 routes): POST /api/users, GET /api/users, GET /api/users/:userId, PUT /api/users/:id/promote-admin, PUT /api/users/:id/demote-admin
-
-## Module Dependencies
-- `adapters`: imports 1 modules, imported by 0 modules
-- `components`: imports 1 modules, imported by 2 modules
-- `config`: imports 0 modules, imported by 1 modules
-- `controllers`: imports 4 modules, imported by 1 modules
-- `dashboard`: imports 3 modules, imported by 0 modules
-- `libs`: imports 2 modules, imported by 1 modules
-- `middlewares`: imports 2 modules, imported by 1 modules
-- `models`: imports 1 modules, imported by 7 modules
-- `pages`: imports 2 modules, imported by 1 modules
-- `permissions`: imports 0 modules, imported by 0 modules
-- `registry`: imports 1 modules, imported by 1 modules
-- `root`: imports 4 modules, imported by 7 modules
-- `routes`: imports 5 modules, imported by 1 modules
-- `scripts`: imports 2 modules, imported by 0 modules
-- `services`: imports 3 modules, imported by 7 modules
-- `tests`: imports 0 modules, imported by 0 modules
-- `utils`: imports 0 modules, imported by 2 modules
-- `workers`: imports 2 modules, imported by 1 modules
-
-## Circular Dependencies
-- Indirect chain (8 modules): controllers -> libs -> middlewares -> models ... (run build_knowledge_graph.py for details)
+## 6. File Map
+- Directory tree (depth 2)
+  - - .agent/
+  -   - .agent/agents/
+  -   - .agent/project/
+  -   - .agent/services/
+  -   - .agent/workflows/
+  - - dashboard/
+  -   - dashboard/public/
+  -   - dashboard/src/
+  - - docs/
+  -   - docs/demo/
+  -   - docs/homework-sso-assets/
+  -   - docs/superpowers/
+  -   - docs/templates/
+  - - Memory/
+  -   - Memory/CaseProgress/
+  -   - Memory/Context/
+  -   - Memory/DailyLogs/
+  -   - Memory/Decisions/
+  -   - Memory/DR/
+  -   - Memory/UIUX/
+  - - public/
+  -   - public/payroll-console/
+  - - requests/
+  - - run/
+  -   - run/browser-audit/
+  - - scripts/
+  - - src/
+  -   - src/adapters/
+  -   - src/apps/
+  -   - src/config/
+- Total files by language
+  - JavaScript: 228
+  - Markdown: 92
+  - React JSX: 65
+  - CSS: 24
+  - JSON: 21
+  - HTML: 2
+  - YAML: 2
+- Largest files
+  - docs/homework-sso-assets/video/homework-sso-demo.webm (1155.5 KB)
+  - package-lock.json (415.3 KB)
+  - docs/homework-sso-assets/screenshots/02-payroll-restored-record.png (359.3 KB)
+  - docs/homework-sso-assets/screenshots/03-payroll-after-logout.png (298.8 KB)
+  - dashboard/package-lock.json (171.1 KB)
+  - sip_cs_postman_collection.json (71.5 KB)
+  - dashboard/src/components/AdminEmployeesModal.jsx (59.4 KB)
+  - src/controllers/dashboard.controller.js (53.9 KB)
+  - docs/homework-sso-assets/screenshots/01-hr-dashboard-signed-in.png (52.6 KB)
+  - Memory/CaseProgress/case_study_progress.md (47.5 KB)

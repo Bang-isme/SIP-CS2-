@@ -1,0 +1,19 @@
+{
+  "milestones": [
+    {
+      "id": "MS-001",
+      "name": "UI/UX readiness checkpoint",
+      "date": "2026-05-03",
+      "description": "Dashboard surfaces should be stable enough for repeated data inspection and demonstration.",
+      "status": "upcoming",
+      "days_remaining": 7,
+      "dependencies": [
+        "UIUX-004",
+        "UIUX-005",
+        "UIUX-006"
+      ],
+      "readiness": "on_track",
+      "readiness_reason": "Core overflow issues and artifact cleanup policy are in place; mobile analytics scanning remains the main UI/UX follow-up."
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { IntegrationEventAudit } from "../models/sql/index.js";
+import { IntegrationEventAuditStore } from "../repositories/integrationStore.js";
 
 const normalizeAuditDetails = (details = null) => {
   if (!details || typeof details !== "object" || Array.isArray(details)) {
@@ -29,7 +29,7 @@ const buildAuditRecord = ({
 });
 
 export const recordIntegrationEventAudit = async (payload) => {
-  return IntegrationEventAudit.create(buildAuditRecord(payload));
+  return IntegrationEventAuditStore.create(buildAuditRecord(payload));
 };
 
 export const recordIntegrationEventAudits = async (entries = []) => {
@@ -37,7 +37,7 @@ export const recordIntegrationEventAudits = async (entries = []) => {
     return [];
   }
 
-  return IntegrationEventAudit.bulkCreate(entries.map(buildAuditRecord));
+  return IntegrationEventAuditStore.bulkCreate(entries.map(buildAuditRecord));
 };
 
 export const listIntegrationEventAudits = async ({
@@ -47,8 +47,8 @@ export const listIntegrationEventAudits = async ({
 }) => {
   const where = { integration_event_id: integrationEventId };
   const [total, rows] = await Promise.all([
-    IntegrationEventAudit.count({ where }),
-    IntegrationEventAudit.findAll({
+    IntegrationEventAuditStore.count({ where }),
+    IntegrationEventAuditStore.findAll({
       where,
       order: [["createdAt", "DESC"], ["id", "DESC"]],
       limit,

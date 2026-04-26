@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import sequelize from "../../mysqlDatabase.js";
+import sequelize, { DASHBOARD_COMPANY_SCOPE_VALUE } from "../../mysqlDatabase.js";
 
 /**
  * EarningsSummary - Pre-aggregated earnings data for dashboard
@@ -18,6 +18,16 @@ const EarningsSummary = sequelize.define(
         year: {
             type: DataTypes.INTEGER,
             allowNull: false,
+        },
+        scope_type: {
+            type: DataTypes.STRING(20),
+            allowNull: false,
+            defaultValue: "company",
+        },
+        scope_value: {
+            type: DataTypes.STRING(100),
+            allowNull: false,
+            defaultValue: DASHBOARD_COMPANY_SCOPE_VALUE,
         },
         // Grouping: 'department', 'gender', 'ethnicity', 'employmentType', 'shareholder', 'total'
         group_type: {
@@ -51,7 +61,11 @@ const EarningsSummary = sequelize.define(
         tableName: "earnings_summary",
         timestamps: false,
         indexes: [
-            { unique: true, fields: ["year", "group_type", "group_value"] },
+            {
+                name: "ux_earnings_summary_scope_group",
+                unique: true,
+                fields: ["year", "scope_type", "scope_value", "group_type", "group_value"],
+            },
         ],
     }
 );

@@ -6,20 +6,21 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { connectMySQL, syncDatabase } from "../src/mysqlDatabase.js";
-import { IntegrationEvent } from "../src/models/sql/index.js";
+import mongoose from "mongoose";
+import connectMongo from "../src/database.js";
+import IntegrationEvent from "../src/models/IntegrationEvent.js";
+import { IntegrationEventStore } from "../src/repositories/integrationStore.js";
 
 const main = async () => {
     try {
-        await connectMySQL();
-        await syncDatabase();
+        await connectMongo();
 
         const now = new Date();
         const holdUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // keep FAILED visible for demo
 
         // Clean up prior demo rows to avoid duplicates
-        await IntegrationEvent.destroy({
-            where: { entity_id: ["EMP_DEMO_FAILED", "EMP_DEMO_DEAD"] },
+        await IntegrationEvent.deleteMany({
+            entity_id: { $in: ["EMP_DEMO_FAILED", "EMP_DEMO_DEAD"] },
         });
 
         const events = [
@@ -46,12 +47,13 @@ const main = async () => {
             },
         ];
 
-        await IntegrationEvent.bulkCreate(events);
+        await IntegrationEventStore.bulkCreate(events);
         console.log("[Demo] Inserted demo IntegrationEvent records.");
-        process.exit(0);
     } catch (error) {
         console.error("[Demo] Failed:", error.message);
         process.exit(1);
+    } finally {
+        await mongoose.disconnect().catch(() => {});
     }
 };
 

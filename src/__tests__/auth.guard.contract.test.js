@@ -25,6 +25,7 @@ const { verifyToken, isAdmin } = await import("../middlewares/authJwt.js");
 describe("auth guard contract", () => {
   let app;
   const originalAllowStatelessFallback = process.env.ALLOW_STATELESS_JWT_FALLBACK;
+  const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     mockUserFindById.mockReset();
@@ -37,6 +38,9 @@ describe("auth guard contract", () => {
     app.get("/protected", verifyToken, (_req, res) => {
       res.json({ success: true });
     });
+    app.post("/mutating", verifyToken, (_req, res) => {
+      res.json({ success: true });
+    });
     app.get("/admin-only", verifyToken, isAdmin, (_req, res) => {
       res.json({ success: true });
     });
@@ -47,6 +51,11 @@ describe("auth guard contract", () => {
       delete process.env.ALLOW_STATELESS_JWT_FALLBACK;
     } else {
       process.env.ALLOW_STATELESS_JWT_FALLBACK = originalAllowStatelessFallback;
+    }
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
     }
   });
 
@@ -103,6 +112,7 @@ describe("auth guard contract", () => {
       message: "Require Admin Role!",
       code: "AUTH_FORBIDDEN",
     }));
+    expect(mockUserFindById).toHaveBeenCalledTimes(1);
   });
 
   it("allows verified JWT without persisted token when stateless fallback is explicitly enabled", async () => {
@@ -120,5 +130,76 @@ describe("auth guard contract", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ success: true });
+  });
+
+  it("does not allow stateless fallback on non-read requests", async () => {
+    process.env.ALLOW_STATELESS_JWT_FALLBACK = "1";
+    const token = jwt.sign({ id: "507f1f77bcf86cd799439199" }, SECRET, { expiresIn: 86400 });
+    mockUserFindById.mockResolvedValue({
+      _id: "507f1f77bcf86cd799439199",
+      tokens: [],
+      roles: ["role-user-id"],
+    });
+
+    const res = await request(app)
+      .post("/mutating")
+      .set("x-access-token", token);
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe("AUTH_TOKEN_REVOKED");
+  });
+
+  it("does not allow stateless fallback in production even for read requests", async () => {
+    process.env.ALLOW_STATELESS_JWT_FALLBACK = "1";
+    process.env.NODE_ENV = "production";
+    const token = jwt.sign({ id: "507f1f77bcf86cd799439299" }, SECRET, { expiresIn: 86400 });
+    mockUserFindById.mockResolvedValue({
+      _id: "507f1f77bcf86cd799439299",
+      tokens: [],
+      roles: ["role-user-id"],
+    });
+
+    const res = await request(app)
+      .get("/protected")
+      .set("x-access-token", token);
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe("AUTH_TOKEN_REVOKED");
+  });
+
+  it("uses stateless service auth when the app declares authMode=stateless", async () => {
+    app.locals.authMode = "stateless";
+    const token = jwt.sign({
+      id: "507f1f77bcf86cd799439399",
+      roles: ["admin"],
+      username: "payroll-admin",
+      email: "payroll-admin@localhost",
+    }, SECRET, { expiresIn: 86400 });
+
+    const res = await request(app)
+      .get("/admin-only")
+      .set("x-access-token", token);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true });
+    expect(mockUserFindById).not.toHaveBeenCalled();
+    expect(mockRoleFind).not.toHaveBeenCalled();
+  });
+
+  it("keeps stateless role checks claim-driven without querying Mongo", async () => {
+    app.locals.authMode = "stateless";
+    const token = jwt.sign({
+      id: "507f1f77bcf86cd799439499",
+      roles: ["user"],
+    }, SECRET, { expiresIn: 86400 });
+
+    const res = await request(app)
+      .get("/admin-only")
+      .set("x-access-token", token);
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("AUTH_FORBIDDEN");
+    expect(mockUserFindById).not.toHaveBeenCalled();
+    expect(mockRoleFind).not.toHaveBeenCalled();
   });
 });

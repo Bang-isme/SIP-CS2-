@@ -13,10 +13,10 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
     userId: {
-			type: mongoose.Schema.ObjectId,
-			ref: 'User',
-			required: false
-		},
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+    },
     imgURL: String,
   },
   {

@@ -1,13 +1,13 @@
-﻿# Viva Talking Points + Q&A
+# Viva Talking Points + Q&A
 
-> Cập nhật: 2026-03-19  
+> Cập nhật: 2026-04-15
 > Mục tiêu: nói ngắn, đúng bản chất, không overclaim
 
 ## 1. Mở bài 1 phút
 
 "Đề tài nhóm em không chỉ là làm một dashboard đẹp. Mục tiêu của nhóm em là giải một bài toán System Integration theo CEO Memo: tổng hợp dữ liệu HR và Payroll, tạo executive dashboard cho management, hỗ trợ drilldown để ra quyết định, và có cơ chế manage-by-exception bằng alerts và integration monitoring.
 
-Nếu nhìn theo Scrum, increment hiện tại của nhóm em mạnh nhất ở Case Study 2. Ngoài ra nhóm em đã mở rộng sang Case 3 và Case 4 bằng hướng eventual consistency, hàng đợi tích hợp kiểu outbox-style, retry/replay, và monitoring. Nhưng nhóm em không overclaim: hiện tại đây chưa phải ACID xuyên hệ thống, chưa phải transactional outbox chuẩn, chưa phải enterprise middleware stack, và Case 5 vẫn ở mức design và rehearsal-safe." 
+Nếu nhìn theo Scrum, increment hiện tại của nhóm em mạnh nhất ở Case Study 2. Ngoài ra nhóm em đã mở rộng sang Case 3 và Case 4 bằng hướng eventual consistency, hàng đợi tích hợp kiểu outbox-style, retry/replay, và monitoring. Runtime hiện tại cũng đã tách rõ thành SA, Payroll, và Dashboard thay vì chỉ một app nói chuyện với hai database. Nhưng nhóm em không overclaim: hiện tại đây chưa phải ACID xuyên hệ thống, chưa phải transactional outbox chuẩn, chưa phải enterprise middleware stack, và Case 5 vẫn ở mức design và rehearsal-safe."
 
 ## 2. Khung nói 2 phút
 
@@ -27,6 +27,7 @@ Increment thứ hai là decision support:
 Increment thứ ba là integration operations:
 - DB-backed integration queue theo kiểu outbox-style
 - worker xử lý bất đồng bộ
+- payroll internal API để giữ write path thuộc về Payroll
 - retry và replay
 - queue monitor
 - stale-processing recovery
@@ -37,7 +38,7 @@ Increment thứ tư là hardening:
 - audit production dependencies
 - đồng bộ test và docs
 
-Điểm nhóm em muốn bảo vệ là: biết chọn scope, biết trade-off, và biết giao increment có thể chạy, có thể demo, có thể giải thích, thay vì cố claim một hệ thống enterprise hoàn chỉnh." 
+Điểm nhóm em muốn bảo vệ là: biết chọn scope, biết trade-off, và biết giao increment có thể chạy, có thể demo, có thể giải thích, thay vì cố claim một hệ thống enterprise hoàn chỉnh."
 
 ## 3. Các nguyên lý cốt lõi phải hiểu
 
@@ -49,30 +50,39 @@ Increment thứ tư là hardening:
 
 ### 3.2 Eventual consistency trong hệ thống này là gì?
 
-- Source record ở HR được ghi trước.
-- Sau đó hệ thống mới dispatch tích hợp sang phía Payroll hoặc hàng đợi tích hợp.
+- Source record ở SA được ghi trước.
+- Sau đó hệ thống mới dispatch tích hợp sang Mongo outbox rồi đi tiếp sang Payroll.
 - Vì hai bước này không nằm trong cùng một transaction ACID xuyên MongoDB và MySQL, nên có thể có khoảng thời gian dữ liệu chưa đồng bộ hoàn toàn.
 - Đó là lý do nhóm em dùng từ `eventual consistency`, không dùng từ `strict consistency`.
 
 ### 3.3 “Outbox” trong repo này nên hiểu thế nào cho đúng?
 
-- Về thực hành demo, repo đang dùng một hàng đợi tích hợp lưu trong DB và worker polling để xử lý.
+- Về thực hành demo, repo đang dùng một hàng đợi tích hợp lưu trong MongoDB của SA và worker polling để xử lý.
 - Về nguyên lý chặt chẽ, đây là `outbox-style queue`, chưa phải `transactional outbox` chuẩn, vì source write và queue write không cùng một transaction boundary.
 - Vì vậy nhóm em nên nói: "Hệ thống áp dụng pattern bất đồng bộ kiểu outbox-style để giảm coupling và hỗ trợ retry/replay", thay vì nói quá mạnh là "đã có transactional outbox hoàn chỉnh".
 
-### 3.4 Retry/replay khác nhau thế nào?
+### 3.4 Runtime split hiện tại nên nói thế nào cho đúng?
+
+- Repo vẫn là same repo.
+- Nhưng runtime đã tách thành 3 service nhìn thấy được:
+  - `SA / HR Service`
+  - `Payroll Service`
+  - `Dashboard Service`
+- Vì vậy khi bảo vệ, nhóm em nên nói đây là `same-repo multi-service runtime`, không nên tự gọi là microservices production-grade.
+
+### 3.5 Retry/replay khác nhau thế nào?
 
 - `Retry`: thử xử lý lại một event đã fail hoặc dead.
 - `Replay`: phát lại một nhóm event theo filter sau khi đã kiểm tra phạm vi ảnh hưởng.
 - Ý nghĩa vận hành là giúp phục hồi tích hợp mà không phải sửa tay từng bản ghi.
 
-### 3.5 Manage-by-exception là gì?
+### 3.6 Manage-by-exception là gì?
 
 - Management không đọc toàn bộ dữ liệu thô.
 - Hệ thống ưu tiên hiển thị các trường hợp bất thường hoặc cần hành động trước.
 - Trong repo này, lớp business exception là `Alerts`, còn lớp technical exception là `Integration Exceptions`.
 
-### 3.6 Benefits-change alert hiện hiểu đúng bản chất ra sao?
+### 3.7 Benefits-change alert hiện hiểu đúng bản chất ra sao?
 
 - Ban đầu nó chỉ gần nghĩa "có thay đổi benefits gần đây".
 - Hiện tại nhóm em đã nâng cấp để alert mang `payroll-impact cues`: plan nào liên quan, annual paid amount, effective date, last change date, và lý do impact.
@@ -121,6 +131,8 @@ Nói:
 
 Nói:
 - đây là operations layer, khác với business alert layer
+- queue hiện nằm ở MongoDB của SA
+- Payroll service mới là nơi ghi `pay_rates` và `sync_log`
 - có retry, replay, monitor
 - có stale-processing recovery khi worker bị kẹt giữa chừng
 
@@ -169,7 +181,7 @@ Trả lời:
 
 Trả lời:
 
-"Vì dữ liệu không dừng ở một CRUD app đơn lẻ nữa. Nó đã có source system, downstream sync, trạng thái đồng bộ, failure handling, và operational controls. Tức là integrated theo nghĩa workflow và dữ liệu đã đi qua nhiều hệ thống, nhưng chưa integrated tới mức strong consistency enterprise."
+"Vì dữ liệu không dừng ở một CRUD app đơn lẻ nữa. Nó đã có source system, downstream sync, trạng thái đồng bộ, failure handling, và operational controls. Quan trọng hơn, runtime hiện tại còn tách rõ SA, Payroll, và Dashboard thành các hệ chạy riêng. Tức là integrated theo nghĩa workflow và dữ liệu đã đi qua nhiều hệ thống, nhưng chưa integrated tới mức strong consistency enterprise."
 
 ### Q5. "Nếu worker chết giữa chừng thì sao?"
 
